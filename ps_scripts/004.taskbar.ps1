@@ -43,7 +43,24 @@ Write-Host "[3/5] 위젯 버튼 숨기기..." -ForegroundColor Yellow
 
 # TaskbarDa = 0 (위젯 숨김)
 Set-ItemProperty -Path $advancedPath -Name "TaskbarDa" -Value 0 -Type DWord
-Write-Host "  - 위젯 버튼 숨김 완료" -ForegroundColor Green
+Write-Host "  - 위젯 버튼 숨김 (사용자 설정)" -ForegroundColor Green
+
+# 위젯 정책 비활성화 (Dsh = Dashboard)
+$dshPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Dsh"
+if (!(Test-Path $dshPolicyPath)) {
+    New-Item -Path $dshPolicyPath -Force | Out-Null
+}
+Set-ItemProperty -Path $dshPolicyPath -Name "AllowNewsAndInterests" -Value 0 -Type DWord
+Write-Host "  - 위젯 정책 비활성화" -ForegroundColor Green
+
+# Windows Web Experience Pack 제거 (위젯 완전 제거)
+$webExperience = Get-AppxPackage -Name "MicrosoftWindows.Client.WebExperience" -ErrorAction SilentlyContinue
+if ($webExperience) {
+    Remove-AppxPackage -Package $webExperience.PackageFullName -ErrorAction SilentlyContinue
+    Write-Host "  - Windows Web Experience Pack 제거 완료" -ForegroundColor Green
+} else {
+    Write-Host "  - Windows Web Experience Pack 이미 제거됨" -ForegroundColor Yellow
+}
 
 
 # 4. 채팅(Teams) 버튼 숨기기
