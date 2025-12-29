@@ -1,4 +1,4 @@
-# Windows 11 전원 관리 및 네트워크 최적화 스크립트
+# Windows 11 전원 관리, 네트워크 최적화 및 텔레메트리 비활성화 스크립트
 # 관리자 권한으로 실행 필요
 
 #Requires -RunAsAdministrator
@@ -8,11 +8,11 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
-Write-Host "=== 전원 관리 및 네트워크 최적화 스크립트 ===" -ForegroundColor Cyan
+Write-Host "=== 전원 관리, 네트워크 최적화 및 텔레메트리 비활성화 스크립트 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # 1. 전원 옵션을 최고 성능으로 설정
-Write-Host "[1/6] 전원 옵션 설정 중..." -ForegroundColor Yellow
+Write-Host "[1/7] 전원 옵션 설정 중..." -ForegroundColor Yellow
 
 # 최고 성능 전원 관리 옵션 활성화 (숨겨진 옵션)
 powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 2>$null
@@ -37,7 +37,7 @@ if ($highPerf) {
 
 # 2. 절전 모드, 모니터 끄기, 하드 디스크 끄기 비활성화
 Write-Host ""
-Write-Host "[2/6] 절전 설정 비활성화 중..." -ForegroundColor Yellow
+Write-Host "[2/7] 절전 설정 비활성화 중..." -ForegroundColor Yellow
 
 # 절전 모드 사용 안 함 (AC/DC 둘 다)
 powercfg -change -standby-timeout-ac 0
@@ -61,7 +61,7 @@ Write-Host "  - 최대 절전 모드 비활성화" -ForegroundColor Green
 
 # 3. USB 선택적 절전 모드 비활성화
 Write-Host ""
-Write-Host "[3/6] USB 선택적 절전 모드 비활성화 중..." -ForegroundColor Yellow
+Write-Host "[3/7] USB 선택적 절전 모드 비활성화 중..." -ForegroundColor Yellow
 
 # 현재 전원 관리 옵션의 GUID 가져오기
 $activeScheme = (powercfg -getactivescheme) -replace '.*:\s*(.{36}).*', '$1'
@@ -77,7 +77,7 @@ Write-Host "  - USB 선택적 절전 모드 비활성화 완료" -ForegroundColo
 
 # 4. PCI Express 링크 상태 전원 관리 끄기
 Write-Host ""
-Write-Host "[4/6] PCI Express 전원 관리 비활성화 중..." -ForegroundColor Yellow
+Write-Host "[4/7] PCI Express 전원 관리 비활성화 중..." -ForegroundColor Yellow
 
 # PCI Express 설정 GUID: 501a4d13-42af-4429-9fd1-a8218c268e20
 # 링크 상태 전원 관리 GUID: ee12f906-d277-404b-b6da-e5fa1a576df5
@@ -90,7 +90,7 @@ Write-Host "  - PCI Express 링크 상태 전원 관리 끄기 완료" -Foregrou
 
 # 5. 네트워크 어댑터 절전 모드 비활성화
 Write-Host ""
-Write-Host "[5/6] 네트워크 어댑터 절전 모드 비활성화 중..." -ForegroundColor Yellow
+Write-Host "[5/7] 네트워크 어댑터 절전 모드 비활성화 중..." -ForegroundColor Yellow
 
 $adapters = Get-NetAdapter -Physical | Where-Object { $_.Status -eq "Up" }
 foreach ($adapter in $adapters) {
@@ -117,7 +117,7 @@ foreach ($adapter in $adapters) {
 
 # 6. Nagle 알고리즘 비활성화
 Write-Host ""
-Write-Host "[6/6] Nagle 알고리즘 비활성화 중..." -ForegroundColor Yellow
+Write-Host "[6/7] Nagle 알고리즘 비활성화 중..." -ForegroundColor Yellow
 
 $tcpipPath = "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces"
 $interfaces = Get-ChildItem $tcpipPath
@@ -134,6 +134,79 @@ foreach ($interface in $interfaces) {
 
 Write-Host "  - Nagle 알고리즘 비활성화 완료" -ForegroundColor Green
 Write-Host "  - TCP ACK 지연 비활성화 완료" -ForegroundColor Green
+
+
+# 7. 텔레메트리 비활성화
+Write-Host ""
+Write-Host "[7/7] 텔레메트리 비활성화 중..." -ForegroundColor Yellow
+
+# DiagTrack 서비스 (Connected User Experiences and Telemetry) 비활성화
+Stop-Service -Name "DiagTrack" -Force -ErrorAction SilentlyContinue
+Set-Service -Name "DiagTrack" -StartupType Disabled -ErrorAction SilentlyContinue
+Write-Host "  - DiagTrack 서비스 비활성화" -ForegroundColor Green
+
+# dmwappushservice (WAP Push Message Routing Service) 비활성화
+Stop-Service -Name "dmwappushservice" -Force -ErrorAction SilentlyContinue
+Set-Service -Name "dmwappushservice" -StartupType Disabled -ErrorAction SilentlyContinue
+Write-Host "  - dmwappushservice 비활성화" -ForegroundColor Green
+
+# 진단 데이터 수준을 최소로 설정 (0 = Security/Off, 1 = Basic)
+$dataCollectionPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection"
+if (!(Test-Path $dataCollectionPath)) {
+    New-Item -Path $dataCollectionPath -Force | Out-Null
+}
+Set-ItemProperty -Path $dataCollectionPath -Name "AllowTelemetry" -Value 0 -Type DWord
+Set-ItemProperty -Path $dataCollectionPath -Name "MaxTelemetryAllowed" -Value 0 -Type DWord
+Write-Host "  - 진단 데이터 수집 비활성화" -ForegroundColor Green
+
+# 피드백 빈도 비활성화
+$siufPath = "HKCU:\SOFTWARE\Microsoft\Siuf\Rules"
+if (!(Test-Path $siufPath)) {
+    New-Item -Path $siufPath -Force | Out-Null
+}
+Set-ItemProperty -Path $siufPath -Name "NumberOfSIUFInPeriod" -Value 0 -Type DWord
+Write-Host "  - 피드백 요청 비활성화" -ForegroundColor Green
+
+# 광고 ID 비활성화
+$advertisingPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\AdvertisingInfo"
+if (!(Test-Path $advertisingPath)) {
+    New-Item -Path $advertisingPath -Force | Out-Null
+}
+Set-ItemProperty -Path $advertisingPath -Name "Enabled" -Value 0 -Type DWord
+Write-Host "  - 광고 ID 비활성화" -ForegroundColor Green
+
+# 활동 기록 비활성화
+$activityPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"
+if (!(Test-Path $activityPath)) {
+    New-Item -Path $activityPath -Force | Out-Null
+}
+Set-ItemProperty -Path $activityPath -Name "EnableActivityFeed" -Value 0 -Type DWord
+Set-ItemProperty -Path $activityPath -Name "PublishUserActivities" -Value 0 -Type DWord
+Set-ItemProperty -Path $activityPath -Name "UploadUserActivities" -Value 0 -Type DWord
+Write-Host "  - 활동 기록 비활성화" -ForegroundColor Green
+
+# 앱 진단 비활성화
+$appDiagPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Privacy"
+if (!(Test-Path $appDiagPath)) {
+    New-Item -Path $appDiagPath -Force | Out-Null
+}
+Set-ItemProperty -Path $appDiagPath -Name "TailoredExperiencesWithDiagnosticDataEnabled" -Value 0 -Type DWord
+Write-Host "  - 맞춤형 환경 비활성화" -ForegroundColor Green
+
+# 텔레메트리 예약 작업 비활성화
+$telemetryTasks = @(
+    "\Microsoft\Windows\Application Experience\Microsoft Compatibility Appraiser"
+    "\Microsoft\Windows\Application Experience\ProgramDataUpdater"
+    "\Microsoft\Windows\Autochk\Proxy"
+    "\Microsoft\Windows\Customer Experience Improvement Program\Consolidator"
+    "\Microsoft\Windows\Customer Experience Improvement Program\UsbCeip"
+    "\Microsoft\Windows\DiskDiagnostic\Microsoft-Windows-DiskDiagnosticDataCollector"
+)
+
+foreach ($task in $telemetryTasks) {
+    Disable-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue | Out-Null
+}
+Write-Host "  - 텔레메트리 예약 작업 비활성화" -ForegroundColor Green
 
 
 # 완료 메시지

@@ -24,7 +24,7 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/001.disable_update.ps1)
 
-## 전원 관리 및 네트워크 최적화 스크립트
+## 전원 관리, 네트워크 최적화 및 텔레메트리 비활성화 스크립트
 
 관리자 권한 PowerShell에서 실행:
 
@@ -42,5 +42,12 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 - 네트워크 어댑터 절전 모드 비활성화
 - Nagle 알고리즘 비활성화
 - TCP ACK 지연 비활성화
+
+**텔레메트리 비활성화:**
+- DiagTrack, dmwappushservice 서비스 비활성화
+- 진단 데이터 수집 비활성화
+- 피드백 요청, 광고 ID 비활성화
+- 활동 기록, 맞춤형 환경 비활성화
+- 텔레메트리 예약 작업 비활성화
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/002.power_network.ps1)
