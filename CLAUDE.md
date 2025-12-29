@@ -93,3 +93,4 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 | 002 | power_network.ps1 | 전원 관리, 네트워크 최적화, 텔레메트리 비활성화 |
 | 003 | defender_onedrive_firewall.ps1 | Defender, OneDrive, 방화벽 해제 |
 | 004 | taskbar.ps1 | 작업 표시줄 정리, 컨텍스트 메뉴 복원 |
+| 005 | bloatware.ps1 | 블로트웨어 앱 및 기능 제거 |

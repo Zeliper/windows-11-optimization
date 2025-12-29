@@ -104,3 +104,21 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 > 스크립트 실행 후 Explorer가 자동으로 재시작됩니다.
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/004.taskbar.ps1)
+
+## 블로트웨어 제거 스크립트
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/005.bloatware.ps1 | iex
+```
+
+**제거 대상:**
+- Microsoft 기본 앱 (Cortana, Xbox, People, Mail, Calendar 등)
+- 사전 설치된 제3자 앱 (게임, SNS, 스트리밍 앱 등)
+- 프로비저닝된 패키지 (새 사용자 계정 설치 방지)
+- 불필요한 Windows 기능 (워드패드, 수학 인식기 등)
+
+> 참고: 일부 시스템 보호 앱은 제거되지 않습니다.
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/005.bloatware.ps1)
