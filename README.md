@@ -83,7 +83,7 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/003.defender_onedrive_firewall.ps1)
 
-## 작업 표시줄 정리 스크립트
+## 작업 표시줄 및 컨텍스트 메뉴 정리 스크립트
 
 관리자 권한 PowerShell에서 실행:
 
@@ -94,10 +94,12 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 **작업 표시줄 정리:**
 - 검색 상자 숨김
 - 작업 보기 버튼 숨김
-- 위젯 버튼 숨김
+- 위젯 버튼 숨김 (Web Experience Pack 제거)
 - 채팅(Teams) 버튼 숨김
 - 고정된 앱 모두 제거
-- 작업 표시줄 캐시 초기화
+
+**컨텍스트 메뉴:**
+- Windows 10 스타일 컨텍스트 메뉴 복원
 
 > 스크립트 실행 후 Explorer가 자동으로 재시작됩니다.
 

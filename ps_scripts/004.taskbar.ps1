@@ -1,5 +1,5 @@
-# Windows 11 작업 표시줄 정리 스크립트
-# 검색 상자, 작업 보기, 위젯 숨기기 및 고정된 앱 제거
+# Windows 11 작업 표시줄 및 컨텍스트 메뉴 정리 스크립트
+# 검색 상자, 작업 보기, 위젯 숨기기, 고정된 앱 제거, Windows 10 컨텍스트 메뉴 복원
 # 관리자 권한으로 실행 필요
 
 #Requires -RunAsAdministrator
@@ -9,12 +9,12 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
-Write-Host "=== Windows 11 작업 표시줄 정리 스크립트 ===" -ForegroundColor Cyan
+Write-Host "=== Windows 11 작업 표시줄 및 컨텍스트 메뉴 정리 스크립트 ===" -ForegroundColor Cyan
 Write-Host ""
 
 
 # 1. 검색 상자 숨기기
-Write-Host "[1/5] 검색 상자 숨기기..." -ForegroundColor Yellow
+Write-Host "[1/6] 검색 상자 숨기기..." -ForegroundColor Yellow
 
 $searchPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search"
 if (!(Test-Path $searchPath)) {
@@ -27,7 +27,7 @@ Write-Host "  - 검색 상자 숨김 완료" -ForegroundColor Green
 
 # 2. 작업 보기 버튼 숨기기
 Write-Host ""
-Write-Host "[2/5] 작업 보기 버튼 숨기기..." -ForegroundColor Yellow
+Write-Host "[2/6] 작업 보기 버튼 숨기기..." -ForegroundColor Yellow
 
 $advancedPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
 if (!(Test-Path $advancedPath)) {
@@ -39,7 +39,7 @@ Write-Host "  - 작업 보기 버튼 숨김 완료" -ForegroundColor Green
 
 # 3. 위젯 버튼 숨기기
 Write-Host ""
-Write-Host "[3/5] 위젯 버튼 숨기기..." -ForegroundColor Yellow
+Write-Host "[3/6] 위젯 버튼 숨기기..." -ForegroundColor Yellow
 
 # TaskbarDa = 0 (위젯 숨김)
 Set-ItemProperty -Path $advancedPath -Name "TaskbarDa" -Value 0 -Type DWord
@@ -75,7 +75,7 @@ Write-Host "  - 위젯 프로세스 종료" -ForegroundColor Green
 
 # 4. 채팅(Teams) 버튼 숨기기
 Write-Host ""
-Write-Host "[4/5] 채팅(Teams) 버튼 숨기기..." -ForegroundColor Yellow
+Write-Host "[4/6] 채팅(Teams) 버튼 숨기기..." -ForegroundColor Yellow
 
 # TaskbarMn = 0 (채팅 숨김)
 Set-ItemProperty -Path $advancedPath -Name "TaskbarMn" -Value 0 -Type DWord
@@ -84,7 +84,7 @@ Write-Host "  - 채팅 버튼 숨김 완료" -ForegroundColor Green
 
 # 5. 작업 표시줄 고정된 앱 모두 제거
 Write-Host ""
-Write-Host "[5/5] 작업 표시줄 고정된 앱 제거 중..." -ForegroundColor Yellow
+Write-Host "[5/6] 작업 표시줄 고정된 앱 제거 중..." -ForegroundColor Yellow
 
 # 고정된 앱 바로가기 폴더
 $pinnedPath = "$env:APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
@@ -115,6 +115,19 @@ if (Test-Path $taskbandPath) {
 }
 
 
+# 6. Windows 10 스타일 컨텍스트 메뉴 복원
+Write-Host ""
+Write-Host "[6/6] Windows 10 스타일 컨텍스트 메뉴 복원 중..." -ForegroundColor Yellow
+
+$contextMenuPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
+if (!(Test-Path $contextMenuPath)) {
+    New-Item -Path $contextMenuPath -Force | Out-Null
+}
+# 기본값을 빈 문자열로 설정하면 Windows 10 스타일 컨텍스트 메뉴 활성화
+Set-ItemProperty -Path $contextMenuPath -Name "(Default)" -Value "" -Type String
+Write-Host "  - Windows 10 스타일 컨텍스트 메뉴 복원 완료" -ForegroundColor Green
+
+
 # Explorer 재시작하여 변경사항 적용
 Write-Host ""
 Write-Host "변경사항을 적용하기 위해 Explorer를 재시작합니다..." -ForegroundColor Yellow
@@ -134,4 +147,5 @@ Write-Host "  - 작업 보기 버튼 숨김" -ForegroundColor White
 Write-Host "  - 위젯 버튼 숨김" -ForegroundColor White
 Write-Host "  - 채팅(Teams) 버튼 숨김" -ForegroundColor White
 Write-Host "  - 고정된 앱 모두 제거" -ForegroundColor White
+Write-Host "  - Windows 10 스타일 컨텍스트 메뉴 복원" -ForegroundColor White
 Write-Host "========================================" -ForegroundColor Cyan
