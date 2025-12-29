@@ -4,6 +4,11 @@
 
 #Requires -RunAsAdministrator
 
+# UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+chcp 65001 | Out-Null
+
 Write-Host "=== Windows 11 Pro 설정 스크립트 ===" -ForegroundColor Cyan
 Write-Host ""
 

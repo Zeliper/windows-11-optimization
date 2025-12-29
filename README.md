@@ -16,4 +16,10 @@ Set-ExecutionPolicy RemoteSigned -Force
 
 ## 윈도우즈 업데이트 중지 및 사용자 계정 컨트롤 해제 스크립트
 
-[@ps_scripts/001.disable_update.ps1](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/001.disable_update.ps1)
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/001.disable_update.ps1 | iex
+```
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/001.disable_update.ps1)
