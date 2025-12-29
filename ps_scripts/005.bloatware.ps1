@@ -105,7 +105,7 @@ $bloatwareApps = @(
 
 
 # 1. UWP 앱 제거 (현재 사용자)
-Write-Host "[1/4] 현재 사용자 블로트웨어 앱 제거 중..." -ForegroundColor Yellow
+Write-Host "[1/5] 현재 사용자 블로트웨어 앱 제거 중..." -ForegroundColor Yellow
 
 $removedCount = 0
 $skippedCount = 0
@@ -133,7 +133,7 @@ if ($removedCount -eq 0) {
 
 # 2. 모든 사용자에서 앱 제거
 Write-Host ""
-Write-Host "[2/4] 모든 사용자 블로트웨어 앱 제거 중..." -ForegroundColor Yellow
+Write-Host "[2/5] 모든 사용자 블로트웨어 앱 제거 중..." -ForegroundColor Yellow
 
 $allUsersRemoved = 0
 foreach ($app in $bloatwareApps) {
@@ -158,7 +158,7 @@ if ($allUsersRemoved -gt 0) {
 
 # 3. 프로비저닝된 앱 제거 (새 사용자 계정에 설치 방지)
 Write-Host ""
-Write-Host "[3/4] 프로비저닝된 패키지 제거 중 (새 사용자 설치 방지)..." -ForegroundColor Yellow
+Write-Host "[3/5] 프로비저닝된 패키지 제거 중 (새 사용자 설치 방지)..." -ForegroundColor Yellow
 
 $provisionedRemoved = 0
 $provisionedPackages = Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
@@ -186,7 +186,7 @@ if ($provisionedRemoved -eq 0) {
 
 # 4. Windows 선택적 기능 제거
 Write-Host ""
-Write-Host "[4/4] 불필요한 Windows 기능 제거 중..." -ForegroundColor Yellow
+Write-Host "[4/5] 불필요한 Windows 기능 제거 중..." -ForegroundColor Yellow
 
 $features = @(
     "MathRecognizer"           # 수학 인식기
@@ -230,15 +230,48 @@ foreach ($feature in $optionalFeatures) {
 Write-Host "  - Windows 기능 정리 완료" -ForegroundColor Green
 
 
+# 5. 바탕화면 검은색으로 설정
+Write-Host ""
+Write-Host "[5/5] 바탕화면을 검은색으로 설정 중..." -ForegroundColor Yellow
+
+# 바탕화면 배경 레지스트리 경로
+$desktopPath = "HKCU:\Control Panel\Desktop"
+$colorsPath = "HKCU:\Control Panel\Colors"
+
+# 배경색을 단색으로 설정 (WallpaperStyle: 0 = 단색)
+Set-ItemProperty -Path $desktopPath -Name "WallPaper" -Value "" -Type String
+Set-ItemProperty -Path $desktopPath -Name "WallpaperStyle" -Value "0" -Type String
+Write-Host "  - 바탕화면 배경 이미지 제거됨" -ForegroundColor Green
+
+# 배경색을 검은색으로 설정 (RGB: 0 0 0)
+Set-ItemProperty -Path $colorsPath -Name "Background" -Value "0 0 0" -Type String
+Write-Host "  - 배경색 검은색으로 설정됨" -ForegroundColor Green
+
+# 바탕화면 새로고침 (SystemParametersInfo 호출)
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class Wallpaper {
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+}
+"@
+
+# SPI_SETDESKWALLPAPER = 0x0014, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE = 0x03
+[Wallpaper]::SystemParametersInfo(0x0014, 0, "", 0x03) | Out-Null
+Write-Host "  - 바탕화면 설정 적용됨" -ForegroundColor Green
+
+
 # 완료 메시지
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "모든 블로트웨어 제거가 완료되었습니다!" -ForegroundColor Green
 Write-Host ""
-Write-Host "제거된 항목:" -ForegroundColor Yellow
-Write-Host "  - Microsoft 기본 앱 (Cortana, Xbox, People 등)" -ForegroundColor White
-Write-Host "  - 사전 설치된 제3자 앱 (게임, SNS 등)" -ForegroundColor White
-Write-Host "  - 불필요한 Windows 기능" -ForegroundColor White
+Write-Host "적용된 항목:" -ForegroundColor Yellow
+Write-Host "  - Microsoft 기본 앱 제거 (Cortana, Xbox, People 등)" -ForegroundColor White
+Write-Host "  - 사전 설치된 제3자 앱 제거 (게임, SNS 등)" -ForegroundColor White
+Write-Host "  - 불필요한 Windows 기능 제거" -ForegroundColor White
+Write-Host "  - 바탕화면 검은색으로 설정" -ForegroundColor White
 Write-Host ""
 Write-Host "참고: 일부 시스템 앱은 보호되어 제거되지 않습니다." -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Cyan

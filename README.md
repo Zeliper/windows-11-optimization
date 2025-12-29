@@ -119,6 +119,9 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 - 프로비저닝된 패키지 (새 사용자 계정 설치 방지)
 - 불필요한 Windows 기능 (워드패드, 수학 인식기 등)
 
+**바탕화면 설정:**
+- 바탕화면 배경을 검은색 단색으로 설정
+
 > 참고: 일부 시스템 보호 앱은 제거되지 않습니다.
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/005.bloatware.ps1)
