@@ -54,13 +54,23 @@ Set-ItemProperty -Path $dshPolicyPath -Name "AllowNewsAndInterests" -Value 0 -Ty
 Write-Host "  - 위젯 정책 비활성화" -ForegroundColor Green
 
 # Windows Web Experience Pack 제거 (위젯 완전 제거)
-$webExperience = Get-AppxPackage -Name "MicrosoftWindows.Client.WebExperience" -ErrorAction SilentlyContinue
+$webExperience = Get-AppxPackage -AllUsers -Name "MicrosoftWindows.Client.WebExperience" -ErrorAction SilentlyContinue
 if ($webExperience) {
-    Remove-AppxPackage -Package $webExperience.PackageFullName -ErrorAction SilentlyContinue
+    # 현재 사용자에서 제거
+    Get-AppxPackage -Name "MicrosoftWindows.Client.WebExperience" | Remove-AppxPackage -ErrorAction SilentlyContinue
+    # 모든 사용자에서 제거
+    Get-AppxPackage -AllUsers -Name "MicrosoftWindows.Client.WebExperience" | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+    # 프로비저닝된 패키지 제거 (새 사용자에게 설치 방지)
+    Get-AppxProvisionedPackage -Online | Where-Object { $_.PackageName -like "*WebExperience*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
     Write-Host "  - Windows Web Experience Pack 제거 완료" -ForegroundColor Green
 } else {
     Write-Host "  - Windows Web Experience Pack 이미 제거됨" -ForegroundColor Yellow
 }
+
+# 위젯 프로세스 종료
+Stop-Process -Name "Widgets" -Force -ErrorAction SilentlyContinue
+Stop-Process -Name "WidgetService" -Force -ErrorAction SilentlyContinue
+Write-Host "  - 위젯 프로세스 종료" -ForegroundColor Green
 
 
 # 4. 채팅(Teams) 버튼 숨기기
