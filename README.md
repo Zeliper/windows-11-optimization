@@ -101,6 +101,13 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 **컨텍스트 메뉴:**
 - Windows 10 스타일 컨텍스트 메뉴 복원
 
+**파일 탐색기 설정:**
+- 파일 탐색기 시작 위치를 "내 PC"로 변경
+- 개인정보 보호 설정 해제 (최근 파일, 자주 사용 폴더 표시 안 함)
+- 파일 탐색기 기록 지우기 (최근 문서, 점프 목록 등)
+- 파일 확장자명 표시
+- 숨김 파일 표시
+
 > 스크립트 실행 후 Explorer가 자동으로 재시작됩니다.
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/004.taskbar.ps1)
@@ -126,3 +133,25 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 > 참고: 일부 시스템 보호 앱은 제거되지 않습니다.
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/005.bloatware.ps1)
+
+## 필수 소프트웨어 자동 설치 스크립트
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/006.software_install.ps1 | iex
+```
+
+**설치 대상:**
+- Notepad++ (최신 버전 자동 감지)
+- Google Chrome (Enterprise 64비트)
+- 7-Zip (64비트)
+- ShareX (최신 버전, 업로드 기능 비활성화)
+
+**특징:**
+- GitHub API를 통한 최신 버전 자동 감지 (Notepad++, ShareX)
+- 완전 자동(headless) 설치
+- ShareX 업로드 기능 레지스트리로 비활성화
+- 개별 설치 실패 시 다음 프로그램으로 계속 진행
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/006.software_install.ps1)

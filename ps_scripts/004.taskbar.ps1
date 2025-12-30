@@ -1,5 +1,6 @@
-# Windows 11 작업 표시줄 및 컨텍스트 메뉴 정리 스크립트
+# Windows 11 작업 표시줄, 컨텍스트 메뉴 및 파일 탐색기 정리 스크립트
 # 검색 상자, 작업 보기, 위젯 숨기기, 고정된 앱 제거, Windows 10 컨텍스트 메뉴 복원
+# 파일 탐색기 설정 최적화
 # 관리자 권한으로 실행 필요
 
 #Requires -RunAsAdministrator
@@ -9,12 +10,12 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
-Write-Host "=== Windows 11 작업 표시줄 및 컨텍스트 메뉴 정리 스크립트 ===" -ForegroundColor Cyan
+Write-Host "=== Windows 11 작업 표시줄, 컨텍스트 메뉴 및 파일 탐색기 정리 스크립트 ===" -ForegroundColor Cyan
 Write-Host ""
 
 
 # 1. 검색 상자 숨기기
-Write-Host "[1/6] 검색 상자 숨기기..." -ForegroundColor Yellow
+Write-Host "[1/9] 검색 상자 숨기기..." -ForegroundColor Yellow
 
 $searchPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search"
 if (!(Test-Path $searchPath)) {
@@ -27,7 +28,7 @@ Write-Host "  - 검색 상자 숨김 완료" -ForegroundColor Green
 
 # 2. 작업 보기 버튼 숨기기
 Write-Host ""
-Write-Host "[2/6] 작업 보기 버튼 숨기기..." -ForegroundColor Yellow
+Write-Host "[2/9] 작업 보기 버튼 숨기기..." -ForegroundColor Yellow
 
 $advancedPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
 if (!(Test-Path $advancedPath)) {
@@ -39,7 +40,7 @@ Write-Host "  - 작업 보기 버튼 숨김 완료" -ForegroundColor Green
 
 # 3. 위젯 버튼 숨기기
 Write-Host ""
-Write-Host "[3/6] 위젯 버튼 숨기기..." -ForegroundColor Yellow
+Write-Host "[3/9] 위젯 버튼 숨기기..." -ForegroundColor Yellow
 
 # TaskbarDa = 0 (위젯 숨김)
 Set-ItemProperty -Path $advancedPath -Name "TaskbarDa" -Value 0 -Type DWord
@@ -75,7 +76,7 @@ Write-Host "  - 위젯 프로세스 종료" -ForegroundColor Green
 
 # 4. 채팅(Teams) 버튼 숨기기
 Write-Host ""
-Write-Host "[4/6] 채팅(Teams) 버튼 숨기기..." -ForegroundColor Yellow
+Write-Host "[4/9] 채팅(Teams) 버튼 숨기기..." -ForegroundColor Yellow
 
 # TaskbarMn = 0 (채팅 숨김)
 Set-ItemProperty -Path $advancedPath -Name "TaskbarMn" -Value 0 -Type DWord
@@ -84,7 +85,7 @@ Write-Host "  - 채팅 버튼 숨김 완료" -ForegroundColor Green
 
 # 5. 작업 표시줄 고정된 앱 모두 제거
 Write-Host ""
-Write-Host "[5/6] 작업 표시줄 고정된 앱 제거 중..." -ForegroundColor Yellow
+Write-Host "[5/9] 작업 표시줄 고정된 앱 제거 중..." -ForegroundColor Yellow
 
 # 고정된 앱 바로가기 폴더
 $pinnedPath = "$env:APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
@@ -117,7 +118,7 @@ if (Test-Path $taskbandPath) {
 
 # 6. Windows 10 스타일 컨텍스트 메뉴 복원
 Write-Host ""
-Write-Host "[6/6] Windows 10 스타일 컨텍스트 메뉴 복원 중..." -ForegroundColor Yellow
+Write-Host "[6/9] Windows 10 스타일 컨텍스트 메뉴 복원 중..." -ForegroundColor Yellow
 
 $contextMenuPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
 if (!(Test-Path $contextMenuPath)) {
@@ -126,6 +127,77 @@ if (!(Test-Path $contextMenuPath)) {
 # 기본값을 빈 문자열로 설정하면 Windows 10 스타일 컨텍스트 메뉴 활성화
 Set-ItemProperty -Path $contextMenuPath -Name "(Default)" -Value "" -Type String
 Write-Host "  - Windows 10 스타일 컨텍스트 메뉴 복원 완료" -ForegroundColor Green
+
+
+# 7. 파일 탐색기 시작 위치를 "내 PC"로 변경
+Write-Host ""
+Write-Host "[7/9] 파일 탐색기 시작 위치를 '내 PC'로 변경..." -ForegroundColor Yellow
+
+# LaunchTo: 1 = 내 PC, 2 = 빠른 액세스, 3 = 다운로드
+Set-ItemProperty -Path $advancedPath -Name "LaunchTo" -Value 1 -Type DWord
+Write-Host "  - 파일 탐색기 시작 위치 '내 PC' 설정 완료" -ForegroundColor Green
+
+
+# 8. 파일 탐색기 개인정보 보호 설정 해제 및 기록 지우기
+Write-Host ""
+Write-Host "[8/9] 파일 탐색기 개인정보 보호 설정 해제..." -ForegroundColor Yellow
+
+# 최근에 사용한 파일을 빠른 액세스에 표시 안 함
+Set-ItemProperty -Path $advancedPath -Name "ShowRecent" -Value 0 -Type DWord
+Write-Host "  - 최근 사용한 파일 표시 해제" -ForegroundColor Green
+
+# 자주 사용하는 폴더를 빠른 액세스에 표시 안 함
+Set-ItemProperty -Path $advancedPath -Name "ShowFrequent" -Value 0 -Type DWord
+Write-Host "  - 자주 사용하는 폴더 표시 해제" -ForegroundColor Green
+
+# Office.com의 파일 표시 안 함 (Windows 11)
+Set-ItemProperty -Path $advancedPath -Name "ShowCloudFilesInQuickAccess" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+Write-Host "  - Office.com 파일 표시 해제" -ForegroundColor Green
+
+# 파일 탐색기 기록 지우기
+$explorerBagMRU = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\OpenSavePidlMRU"
+if (Test-Path $explorerBagMRU) {
+    Remove-Item -Path $explorerBagMRU -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Host "  - 파일 열기/저장 기록 삭제" -ForegroundColor Green
+}
+
+$recentDocs = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs"
+if (Test-Path $recentDocs) {
+    Remove-Item -Path $recentDocs -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -Path $recentDocs -Force | Out-Null
+    Write-Host "  - 최근 문서 기록 삭제" -ForegroundColor Green
+}
+
+# 최근 항목 폴더 비우기
+$recentFolder = "$env:APPDATA\Microsoft\Windows\Recent"
+if (Test-Path $recentFolder) {
+    Remove-Item -Path "$recentFolder\*" -Force -Recurse -ErrorAction SilentlyContinue
+    Write-Host "  - 최근 항목 폴더 비우기 완료" -ForegroundColor Green
+}
+
+# 자동 재생 폴더 비우기
+$automaticDestinations = "$env:APPDATA\Microsoft\Windows\Recent\AutomaticDestinations"
+$customDestinations = "$env:APPDATA\Microsoft\Windows\Recent\CustomDestinations"
+if (Test-Path $automaticDestinations) {
+    Remove-Item -Path "$automaticDestinations\*" -Force -ErrorAction SilentlyContinue
+}
+if (Test-Path $customDestinations) {
+    Remove-Item -Path "$customDestinations\*" -Force -ErrorAction SilentlyContinue
+}
+Write-Host "  - 점프 목록 기록 삭제 완료" -ForegroundColor Green
+
+
+# 9. 파일 확장자명 표시
+Write-Host ""
+Write-Host "[9/9] 파일 확장자명 표시 설정..." -ForegroundColor Yellow
+
+# HideFileExt: 0 = 확장자 표시, 1 = 확장자 숨김
+Set-ItemProperty -Path $advancedPath -Name "HideFileExt" -Value 0 -Type DWord
+Write-Host "  - 파일 확장자명 표시 설정 완료" -ForegroundColor Green
+
+# 숨김 파일 표시 (보너스)
+Set-ItemProperty -Path $advancedPath -Name "Hidden" -Value 1 -Type DWord
+Write-Host "  - 숨김 파일 표시 설정 완료" -ForegroundColor Green
 
 
 # Explorer 재시작하여 변경사항 적용
@@ -148,4 +220,7 @@ Write-Host "  - 위젯 버튼 숨김" -ForegroundColor White
 Write-Host "  - 채팅(Teams) 버튼 숨김" -ForegroundColor White
 Write-Host "  - 고정된 앱 모두 제거" -ForegroundColor White
 Write-Host "  - Windows 10 스타일 컨텍스트 메뉴 복원" -ForegroundColor White
+Write-Host "  - 파일 탐색기 시작 위치 '내 PC' 설정" -ForegroundColor White
+Write-Host "  - 파일 탐색기 개인정보 보호 설정 해제 및 기록 삭제" -ForegroundColor White
+Write-Host "  - 파일 확장자명 및 숨김 파일 표시" -ForegroundColor White
 Write-Host "========================================" -ForegroundColor Cyan
