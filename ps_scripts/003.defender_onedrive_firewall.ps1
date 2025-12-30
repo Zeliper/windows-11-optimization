@@ -120,13 +120,13 @@ Write-Host "[4/7] Windows 방화벽 해제 중..." -ForegroundColor Yellow
 Write-Host "  [4-1] mpsdrv (방화벽 드라이버) 확인 중..." -ForegroundColor Cyan
 $mpsdrvRegPath = "HKLM:\SYSTEM\CurrentControlSet\Services\mpsdrv"
 $mpsdrvStart = (Get-ItemProperty -Path $mpsdrvRegPath -Name "Start" -ErrorAction SilentlyContinue).Start
-Write-Host "    - 현재 mpsdrv Start 값: $mpsdrvStart (3=수동, 4=비활성화)" -ForegroundColor White
-if ($mpsdrvStart -ne 3) {
-    Set-ItemProperty -Path $mpsdrvRegPath -Name "Start" -Value 3 -Type DWord -ErrorAction SilentlyContinue
-    Write-Host "    - mpsdrv Start 값을 3 (수동)으로 변경" -ForegroundColor Green
+Write-Host "    - 현재 mpsdrv Start 값: $mpsdrvStart (0=Boot, 1=System, 2=Auto, 3=수동, 4=비활성화)" -ForegroundColor White
+if ($mpsdrvStart -ne 0) {
+    Set-ItemProperty -Path $mpsdrvRegPath -Name "Start" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+    Write-Host "    - mpsdrv Start 값을 0 (Boot)으로 변경" -ForegroundColor Green
 }
 # sc config로도 설정 (더 확실함)
-$scResult = sc.exe config mpsdrv start= demand 2>&1
+$scResult = sc.exe config mpsdrv start= boot 2>&1
 Write-Host "    - sc config mpsdrv: $scResult" -ForegroundColor White
 # 드라이버 시작 시도
 $scStartResult = sc.exe start mpsdrv 2>&1
