@@ -116,6 +116,16 @@ Write-Host "  - Security Center 알림 및 트레이 아이콘 비활성화" -Fo
 Write-Host ""
 Write-Host "[4/7] Windows 방화벽 해제 중..." -ForegroundColor Yellow
 
+# BFE (Base Filtering Engine) 서비스 확인 및 시작 - 방화벽의 필수 의존성
+$bfeService = Get-Service -Name "BFE" -ErrorAction SilentlyContinue
+if ($bfeService.Status -ne "Running") {
+    $bfeRegPath = "HKLM:\SYSTEM\CurrentControlSet\Services\BFE"
+    Set-ItemProperty -Path $bfeRegPath -Name "Start" -Value 2 -Type DWord -ErrorAction SilentlyContinue
+    Start-Service -Name "BFE" -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    Write-Host "  - BFE (Base Filtering Engine) 서비스 복구" -ForegroundColor Yellow
+}
+
 # 방화벽 서비스가 실행 중인지 확인하고 시작
 $firewallService = Get-Service -Name "mpssvc" -ErrorAction SilentlyContinue
 if ($firewallService.Status -ne "Running") {
