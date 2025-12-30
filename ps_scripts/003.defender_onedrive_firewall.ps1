@@ -116,51 +116,95 @@ Write-Host "  - Security Center 알림 및 트레이 아이콘 비활성화" -Fo
 Write-Host ""
 Write-Host "[4/7] Windows 방화벽 해제 중..." -ForegroundColor Yellow
 
-# BFE (Base Filtering Engine) 서비스 확인 및 시작 - 방화벽의 필수 의존성
+# 4-1. mpsdrv (방화벽 드라이버) 활성화 - mpssvc의 필수 의존성
+Write-Host "  [4-1] mpsdrv (방화벽 드라이버) 확인 중..." -ForegroundColor Cyan
+$mpsdrvRegPath = "HKLM:\SYSTEM\CurrentControlSet\Services\mpsdrv"
+$mpsdrvStart = (Get-ItemProperty -Path $mpsdrvRegPath -Name "Start" -ErrorAction SilentlyContinue).Start
+Write-Host "    - 현재 mpsdrv Start 값: $mpsdrvStart (3=수동, 4=비활성화)" -ForegroundColor White
+if ($mpsdrvStart -ne 3) {
+    Set-ItemProperty -Path $mpsdrvRegPath -Name "Start" -Value 3 -Type DWord -ErrorAction SilentlyContinue
+    Write-Host "    - mpsdrv Start 값을 3 (수동)으로 변경" -ForegroundColor Green
+}
+# sc config로도 설정 (더 확실함)
+$scResult = sc.exe config mpsdrv start= demand 2>&1
+Write-Host "    - sc config mpsdrv: $scResult" -ForegroundColor White
+# 드라이버 시작 시도
+$scStartResult = sc.exe start mpsdrv 2>&1
+Write-Host "    - sc start mpsdrv: $scStartResult" -ForegroundColor White
+
+# 4-2. BFE (Base Filtering Engine) 서비스 확인 및 시작
+Write-Host "  [4-2] BFE (Base Filtering Engine) 서비스 확인 중..." -ForegroundColor Cyan
 $bfeService = Get-Service -Name "BFE" -ErrorAction SilentlyContinue
+Write-Host "    - 현재 BFE 상태: $($bfeService.Status)" -ForegroundColor White
 if ($bfeService.Status -ne "Running") {
     $bfeRegPath = "HKLM:\SYSTEM\CurrentControlSet\Services\BFE"
     Set-ItemProperty -Path $bfeRegPath -Name "Start" -Value 2 -Type DWord -ErrorAction SilentlyContinue
-    Start-Service -Name "BFE" -ErrorAction SilentlyContinue
+    sc.exe config BFE start= auto | Out-Null
+    Write-Host "    - BFE 시작 유형을 자동으로 설정" -ForegroundColor Green
+    $scStartBfe = sc.exe start BFE 2>&1
+    Write-Host "    - sc start BFE: $scStartBfe" -ForegroundColor White
     Start-Sleep -Seconds 2
-    Write-Host "  - BFE (Base Filtering Engine) 서비스 복구" -ForegroundColor Yellow
+    $bfeService = Get-Service -Name "BFE" -ErrorAction SilentlyContinue
+    Write-Host "    - BFE 상태 (재확인): $($bfeService.Status)" -ForegroundColor White
+} else {
+    Write-Host "    - BFE 이미 실행 중" -ForegroundColor Green
 }
 
-# 방화벽 서비스가 실행 중인지 확인하고 시작
+# 4-3. mpssvc (Windows Defender Firewall) 서비스 확인 및 시작
+Write-Host "  [4-3] mpssvc (방화벽 서비스) 확인 중..." -ForegroundColor Cyan
 $firewallService = Get-Service -Name "mpssvc" -ErrorAction SilentlyContinue
+Write-Host "    - 현재 mpssvc 상태: $($firewallService.Status)" -ForegroundColor White
 if ($firewallService.Status -ne "Running") {
-    # 서비스가 비활성화되어 있으면 다시 활성화
     $firewallRegPath = "HKLM:\SYSTEM\CurrentControlSet\Services\mpssvc"
     Set-ItemProperty -Path $firewallRegPath -Name "Start" -Value 2 -Type DWord -ErrorAction SilentlyContinue
-    Start-Service -Name "mpssvc" -ErrorAction SilentlyContinue
+    sc.exe config mpssvc start= auto | Out-Null
+    Write-Host "    - mpssvc 시작 유형을 자동으로 설정" -ForegroundColor Green
+    $scStartMpssvc = sc.exe start mpssvc 2>&1
+    Write-Host "    - sc start mpssvc: $scStartMpssvc" -ForegroundColor White
     Start-Sleep -Seconds 2
-    Write-Host "  - 방화벽 서비스 복구 (설정 적용을 위해 필요)" -ForegroundColor Yellow
-}
+    $firewallService = Get-Service -Name "mpssvc" -ErrorAction SilentlyContinue
+    Write-Host "    - mpssvc 상태 (재확인): $($firewallService.Status)" -ForegroundColor White
 
-# 모든 프로필 방화벽 해제
-Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
-Write-Host "  - 도메인, 공용, 개인 프로필 방화벽 해제" -ForegroundColor Green
-
-# 방화벽 기본 동작을 Allow로 설정 (추가 보호)
-Set-NetFirewallProfile -Profile Domain,Public,Private -DefaultInboundAction Allow -DefaultOutboundAction Allow
-Write-Host "  - 기본 인바운드/아웃바운드 정책을 Allow로 설정" -ForegroundColor Green
-
-# RDP 포트 명시적 허용 (방화벽이 켜져있어도 작동하도록)
-$rdpRuleName = "Remote Desktop - User Mode (TCP-In) - Custom"
-$existingRule = Get-NetFirewallRule -DisplayName $rdpRuleName -ErrorAction SilentlyContinue
-if (!$existingRule) {
-    New-NetFirewallRule -DisplayName $rdpRuleName -Direction Inbound -Protocol TCP -LocalPort 3389 -Action Allow -Profile Any -Enabled True | Out-Null
-    Write-Host "  - RDP 포트 (3389) 방화벽 규칙 추가" -ForegroundColor Green
+    if ($firewallService.Status -ne "Running") {
+        Write-Host "    - 경고: mpssvc 시작 실패. 재부팅 후 다시 시도 필요" -ForegroundColor Red
+    }
 } else {
-    Set-NetFirewallRule -DisplayName $rdpRuleName -Enabled True
-    Write-Host "  - RDP 포트 (3389) 방화벽 규칙 활성화" -ForegroundColor Green
+    Write-Host "    - mpssvc 이미 실행 중" -ForegroundColor Green
 }
 
-# 기존 RDP 규칙도 활성화
-Get-NetFirewallRule -DisplayGroup "Remote Desktop" -ErrorAction SilentlyContinue | Set-NetFirewallRule -Enabled True -ErrorAction SilentlyContinue
-Write-Host "  - 기존 원격 데스크톱 규칙 활성화" -ForegroundColor Green
+# 4-4. 방화벽 설정 적용
+Write-Host "  [4-4] 방화벽 설정 적용 중..." -ForegroundColor Cyan
+$firewallService = Get-Service -Name "mpssvc" -ErrorAction SilentlyContinue
+if ($firewallService.Status -eq "Running") {
+    # 모든 프로필 방화벽 해제
+    Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
+    Write-Host "    - 도메인, 공용, 개인 프로필 방화벽 해제" -ForegroundColor Green
 
-# 방화벽 정책 비활성화
+    # 방화벽 기본 동작을 Allow로 설정 (추가 보호)
+    Set-NetFirewallProfile -Profile Domain,Public,Private -DefaultInboundAction Allow -DefaultOutboundAction Allow
+    Write-Host "    - 기본 인바운드/아웃바운드 정책을 Allow로 설정" -ForegroundColor Green
+
+    # RDP 포트 명시적 허용 (방화벽이 켜져있어도 작동하도록)
+    $rdpRuleName = "Remote Desktop - User Mode (TCP-In) - Custom"
+    $existingRule = Get-NetFirewallRule -DisplayName $rdpRuleName -ErrorAction SilentlyContinue
+    if (!$existingRule) {
+        New-NetFirewallRule -DisplayName $rdpRuleName -Direction Inbound -Protocol TCP -LocalPort 3389 -Action Allow -Profile Any -Enabled True | Out-Null
+        Write-Host "    - RDP 포트 (3389) 방화벽 규칙 추가" -ForegroundColor Green
+    } else {
+        Set-NetFirewallRule -DisplayName $rdpRuleName -Enabled True
+        Write-Host "    - RDP 포트 (3389) 방화벽 규칙 활성화" -ForegroundColor Green
+    }
+
+    # 기존 RDP 규칙도 활성화
+    Get-NetFirewallRule -DisplayGroup "Remote Desktop" -ErrorAction SilentlyContinue | Set-NetFirewallRule -Enabled True -ErrorAction SilentlyContinue
+    Write-Host "    - 기존 원격 데스크톱 규칙 활성화" -ForegroundColor Green
+} else {
+    Write-Host "    - 경고: mpssvc가 실행되지 않아 방화벽 설정을 건너뜀" -ForegroundColor Red
+    Write-Host "    - 재부팅 후 스크립트를 다시 실행하세요" -ForegroundColor Red
+}
+
+# 방화벽 정책 비활성화 (레지스트리 - 서비스 상태와 무관)
+Write-Host "  [4-5] 방화벽 정책 레지스트리 설정 중..." -ForegroundColor Cyan
 $firewallPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\WindowsFirewall"
 if (!(Test-Path "$firewallPolicyPath\DomainProfile")) {
     New-Item -Path "$firewallPolicyPath\DomainProfile" -Force | Out-Null
@@ -174,10 +218,17 @@ if (!(Test-Path "$firewallPolicyPath\PublicProfile")) {
 Set-ItemProperty -Path "$firewallPolicyPath\DomainProfile" -Name "EnableFirewall" -Value 0 -Type DWord
 Set-ItemProperty -Path "$firewallPolicyPath\StandardProfile" -Name "EnableFirewall" -Value 0 -Type DWord
 Set-ItemProperty -Path "$firewallPolicyPath\PublicProfile" -Name "EnableFirewall" -Value 0 -Type DWord
-Write-Host "  - 방화벽 정책 비활성화" -ForegroundColor Green
+Write-Host "    - 방화벽 정책 레지스트리 비활성화" -ForegroundColor Green
 
-# 참고: 방화벽 서비스(mpssvc)는 비활성화하지 않음 (비활성화 시 설정 GUI 오류 발생)
-Write-Host "  - 방화벽 서비스는 유지 (GUI 호환성)" -ForegroundColor Yellow
+# 서비스 최종 상태 요약
+Write-Host ""
+Write-Host "  === 방화벽 서비스 최종 상태 ===" -ForegroundColor Cyan
+$finalMpsdrv = sc.exe query mpsdrv 2>&1 | Select-String "STATE"
+$finalBfe = (Get-Service -Name "BFE" -ErrorAction SilentlyContinue).Status
+$finalMpssvc = (Get-Service -Name "mpssvc" -ErrorAction SilentlyContinue).Status
+Write-Host "    - mpsdrv: $finalMpsdrv" -ForegroundColor White
+Write-Host "    - BFE: $finalBfe" -ForegroundColor White
+Write-Host "    - mpssvc: $finalMpssvc" -ForegroundColor White
 
 
 # 5. OneDrive 프로세스 종료
