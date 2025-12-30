@@ -146,12 +146,15 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 - Notepad++ (최신 버전 자동 감지)
 - Google Chrome (Enterprise 64비트)
 - 7-Zip (64비트)
-- ShareX (최신 버전, 업로드 기능 비활성화)
+- ShareX (최신 버전, 업로드 기능 및 컨텍스트 메뉴 비활성화)
 
 **특징:**
 - GitHub API를 통한 최신 버전 자동 감지 (Notepad++, ShareX)
 - 완전 자동(headless) 설치
+- Notepad++ 파일 연결 자동 설정 (txt, ini, cfg, conf, config, properties, json, xml, yaml 등)
+- Chrome 기본 브라우저 설정
 - ShareX 업로드 기능 레지스트리로 비활성화
+- ShareX 우클릭 컨텍스트 메뉴 제거
 - 개별 설치 실패 시 다음 프로그램으로 계속 진행
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/006.software_install.ps1)
