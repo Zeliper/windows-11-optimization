@@ -220,15 +220,47 @@ Set-ItemProperty -Path "$firewallPolicyPath\StandardProfile" -Name "EnableFirewa
 Set-ItemProperty -Path "$firewallPolicyPath\PublicProfile" -Name "EnableFirewall" -Value 0 -Type DWord
 Write-Host "    - 방화벽 정책 레지스트리 비활성화" -ForegroundColor Green
 
+# 4-6. RDP (원격 데스크톱) 서비스 활성화
+Write-Host "  [4-6] RDP (원격 데스크톱) 서비스 활성화 중..." -ForegroundColor Cyan
+
+# RDP 활성화 (레지스트리)
+$rdpRegPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server"
+$currentRdpValue = (Get-ItemProperty -Path $rdpRegPath -Name "fDenyTSConnections" -ErrorAction SilentlyContinue).fDenyTSConnections
+Write-Host "    - 현재 fDenyTSConnections 값: $currentRdpValue (0=활성화, 1=비활성화)" -ForegroundColor White
+Set-ItemProperty -Path $rdpRegPath -Name "fDenyTSConnections" -Value 0 -Type DWord
+Write-Host "    - RDP 연결 허용 설정 완료" -ForegroundColor Green
+
+# 네트워크 레벨 인증(NLA) 비활성화 (연결 호환성 향상)
+$rdpTcpPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp"
+Set-ItemProperty -Path $rdpTcpPath -Name "UserAuthentication" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+Write-Host "    - 네트워크 레벨 인증(NLA) 비활성화" -ForegroundColor Green
+
+# TermService (원격 데스크톱 서비스) 활성화 및 시작
+Write-Host "    - TermService (원격 데스크톱 서비스) 확인 중..." -ForegroundColor White
+$termService = Get-Service -Name "TermService" -ErrorAction SilentlyContinue
+Write-Host "    - 현재 TermService 상태: $($termService.Status)" -ForegroundColor White
+if ($termService.Status -ne "Running") {
+    sc.exe config TermService start= auto | Out-Null
+    $scStartTerm = sc.exe start TermService 2>&1
+    Write-Host "    - sc start TermService: $scStartTerm" -ForegroundColor White
+    Start-Sleep -Seconds 2
+    $termService = Get-Service -Name "TermService" -ErrorAction SilentlyContinue
+    Write-Host "    - TermService 상태 (재확인): $($termService.Status)" -ForegroundColor White
+} else {
+    Write-Host "    - TermService 이미 실행 중" -ForegroundColor Green
+}
+
 # 서비스 최종 상태 요약
 Write-Host ""
-Write-Host "  === 방화벽 서비스 최종 상태 ===" -ForegroundColor Cyan
+Write-Host "  === 방화벽/RDP 서비스 최종 상태 ===" -ForegroundColor Cyan
 $finalMpsdrv = sc.exe query mpsdrv 2>&1 | Select-String "STATE"
 $finalBfe = (Get-Service -Name "BFE" -ErrorAction SilentlyContinue).Status
 $finalMpssvc = (Get-Service -Name "mpssvc" -ErrorAction SilentlyContinue).Status
+$finalTermService = (Get-Service -Name "TermService" -ErrorAction SilentlyContinue).Status
 Write-Host "    - mpsdrv: $finalMpsdrv" -ForegroundColor White
 Write-Host "    - BFE: $finalBfe" -ForegroundColor White
 Write-Host "    - mpssvc: $finalMpssvc" -ForegroundColor White
+Write-Host "    - TermService (RDP): $finalTermService" -ForegroundColor White
 
 
 # 5. OneDrive 프로세스 종료

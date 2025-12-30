@@ -72,16 +72,27 @@ try {
 Write-Host ""
 Write-Host "[3/$totalSteps] 방화벽 규칙 설정 중..." -ForegroundColor Yellow
 
-$firewallRule = Get-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -ErrorAction SilentlyContinue
-if ($firewallRule) {
-    Write-Host "  - OpenSSH 방화벽 규칙이 이미 존재합니다" -ForegroundColor Green
+# 방화벽 서비스 상태 확인
+$mpssvc = Get-Service -Name "mpssvc" -ErrorAction SilentlyContinue
+Write-Host "  - 방화벽 서비스(mpssvc) 상태: $($mpssvc.Status)" -ForegroundColor White
+
+if ($mpssvc.Status -ne "Running") {
+    Write-Host "  - 경고: 방화벽 서비스가 실행되지 않음" -ForegroundColor Red
+    Write-Host "  - 방화벽 규칙 설정을 건너뜁니다 (SSH 서비스는 계속 설치됨)" -ForegroundColor Yellow
+    Write-Host "  - 003 스크립트 실행 후 재부팅하면 방화벽이 정상화됩니다" -ForegroundColor Yellow
 } else {
-    try {
-        New-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -DisplayName "OpenSSH Server (sshd)" `
-            -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 -ErrorAction Stop
-        Write-Host "  - OpenSSH 방화벽 규칙 생성 완료 (포트 22)" -ForegroundColor Green
-    } catch {
-        Write-Host "  - 방화벽 규칙 생성 실패: $_" -ForegroundColor Red
+    $firewallRule = Get-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -ErrorAction SilentlyContinue
+    if ($firewallRule) {
+        Write-Host "  - OpenSSH 방화벽 규칙이 이미 존재합니다" -ForegroundColor Green
+    } else {
+        try {
+            New-NetFirewallRule -Name "OpenSSH-Server-In-TCP" -DisplayName "OpenSSH Server (sshd)" `
+                -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 -ErrorAction Stop
+            Write-Host "  - OpenSSH 방화벽 규칙 생성 완료 (포트 22)" -ForegroundColor Green
+        } catch {
+            Write-Host "  - 방화벽 규칙 생성 실패: $_" -ForegroundColor Red
+            Write-Host "  - SSH 서비스는 계속 설치됩니다" -ForegroundColor Yellow
+        }
     }
 }
 
