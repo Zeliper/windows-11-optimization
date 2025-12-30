@@ -176,13 +176,12 @@ Write-Host "[10/11] Notepad++ 파일 연결 설정 중..." -ForegroundColor Yell
 try {
     $nppPath = "${env:ProgramFiles}\Notepad++\notepad++.exe"
     if (Test-Path $nppPath) {
-        # 연결할 확장자 목록
+        # 연결할 확장자 목록 (실행 스크립트 제외: .bat, .cmd, .ps1, .vbs 등)
         $extensions = @(
             ".txt", ".ini", ".cfg", ".conf", ".config",
             ".properties", ".property", ".log", ".md",
             ".json", ".xml", ".yaml", ".yml",
-            ".bat", ".cmd", ".ps1", ".sh",
-            ".sql", ".csv", ".tsv"
+            ".sql", ".csv", ".tsv", ".sh"
         )
 
         foreach ($ext in $extensions) {
