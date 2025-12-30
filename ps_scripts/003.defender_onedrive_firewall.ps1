@@ -67,14 +67,17 @@ Set-ItemProperty -Path $spynetPath -Name "SubmitSamplesConsent" -Value 2 -Type D
 Write-Host "  - 클라우드 보호 비활성화" -ForegroundColor Green
 
 # Windows Defender 서비스 비활성화 시도
-$defenderServices = @("WinDefend", "WdNisSvc", "WdNisDrv", "WdFilter", "WdBoot")
+# 주의: WdFilter, WdNisDrv, WdBoot은 네트워크 스택에 필요하므로 비활성화하지 않음
+# 이들을 비활성화하면 방화벽(mpssvc), RDP, SSH 등이 작동하지 않음
+$defenderServices = @("WinDefend", "WdNisSvc")  # WdNisDrv, WdFilter, WdBoot 제외
 foreach ($service in $defenderServices) {
     $regPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$service"
     if (Test-Path $regPath) {
         Set-ItemProperty -Path $regPath -Name "Start" -Value 4 -Type DWord -ErrorAction SilentlyContinue
     }
 }
-Write-Host "  - Defender 서비스 비활성화 (재부팅 후 적용)" -ForegroundColor Green
+Write-Host "  - Defender 서비스 비활성화 (WinDefend, WdNisSvc)" -ForegroundColor Green
+Write-Host "  - WdFilter, WdNisDrv, WdBoot은 네트워크 스택에 필요하여 유지" -ForegroundColor Yellow
 
 
 # 3. Windows Security Center 알림 비활성화
