@@ -158,3 +158,29 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 - 개별 설치 실패 시 다음 프로그램으로 계속 진행
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/006.software_install.ps1)
+
+## OpenSSH 서버 및 rsync 설치 스크립트
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/007.openssh_rsync.ps1 | iex
+```
+
+**OpenSSH 서버:**
+- OpenSSH 서버/클라이언트 기능 설치
+- sshd 서비스 자동 시작 설정
+- 방화벽 규칙 자동 생성 (포트 22)
+- 기본 셸을 PowerShell로 설정
+- 비밀번호/공개키 인증 활성화
+
+**rsync 설치:**
+- cwRsync (무료 버전) 자동 다운로드 및 설치
+- 시스템 PATH 환경 변수 자동 등록
+- Windows에서 rsync 명령어 사용 가능
+
+**사용 예시:**
+- SSH 접속: `ssh 사용자명@컴퓨터명`
+- rsync 동기화: `rsync -avz /source/ user@host:/destination/`
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/007.openssh_rsync.ps1)

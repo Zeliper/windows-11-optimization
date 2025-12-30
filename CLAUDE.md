@@ -95,3 +95,4 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 | 004 | taskbar.ps1 | 작업 표시줄 정리, 컨텍스트 메뉴 복원 |
 | 005 | bloatware.ps1 | 블로트웨어 앱 및 기능 제거 |
 | 006 | software_install.ps1 | 필수 소프트웨어 자동 설치 (Notepad++, Chrome, 7-Zip, ShareX) |
+| 007 | openssh_rsync.ps1 | OpenSSH 서버 설정, rsync 설치 |
