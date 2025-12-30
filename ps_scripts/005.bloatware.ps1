@@ -61,6 +61,9 @@ $bloatwareApps = @(
     "Microsoft.OutlookForWindows"       # New Outlook
     "Microsoft.Copilot"                 # Windows Copilot
     "Microsoft.Windows.DevHome"
+    "MicrosoftTeams"                    # Microsoft Teams (classic)
+    "MSTeams"                           # Microsoft Teams (new)
+    "MicrosoftCorporationII.MicrosoftTeams" # Microsoft Teams
 
     # 제3자 앱 (프리설치)
     "Disney.37853FC22B2CE"              # Disney+
@@ -91,6 +94,8 @@ $bloatwareApps = @(
     "Flipboard.Flipboard"
     "ShazamEntertainmentLtd.Shazam"
     "LinkedInforWindows"
+    "LinkedIn"                          # LinkedIn (다른 패키지명)
+    "7EE7776C.LinkedInforWindows"       # LinkedIn (전체 패키지명)
     "GAMELOFTSA"
     "A278AB0D.MarchofEmpires"
     "A278AB0D.DragonManiaLegends"
@@ -105,7 +110,7 @@ $bloatwareApps = @(
 
 
 # 1. UWP 앱 제거 (현재 사용자)
-Write-Host "[1/5] 현재 사용자 블로트웨어 앱 제거 중..." -ForegroundColor Yellow
+Write-Host "[1/6] 현재 사용자 블로트웨어 앱 제거 중..." -ForegroundColor Yellow
 
 $removedCount = 0
 $skippedCount = 0
@@ -133,7 +138,7 @@ if ($removedCount -eq 0) {
 
 # 2. 모든 사용자에서 앱 제거
 Write-Host ""
-Write-Host "[2/5] 모든 사용자 블로트웨어 앱 제거 중..." -ForegroundColor Yellow
+Write-Host "[2/6] 모든 사용자 블로트웨어 앱 제거 중..." -ForegroundColor Yellow
 
 $allUsersRemoved = 0
 foreach ($app in $bloatwareApps) {
@@ -158,7 +163,7 @@ if ($allUsersRemoved -gt 0) {
 
 # 3. 프로비저닝된 앱 제거 (새 사용자 계정에 설치 방지)
 Write-Host ""
-Write-Host "[3/5] 프로비저닝된 패키지 제거 중 (새 사용자 설치 방지)..." -ForegroundColor Yellow
+Write-Host "[3/6] 프로비저닝된 패키지 제거 중 (새 사용자 설치 방지)..." -ForegroundColor Yellow
 
 $provisionedRemoved = 0
 $provisionedPackages = Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
@@ -186,7 +191,7 @@ if ($provisionedRemoved -eq 0) {
 
 # 4. Windows 선택적 기능 제거
 Write-Host ""
-Write-Host "[4/5] 불필요한 Windows 기능 제거 중..." -ForegroundColor Yellow
+Write-Host "[4/6] 불필요한 Windows 기능 제거 중..." -ForegroundColor Yellow
 
 $features = @(
     "MathRecognizer"           # 수학 인식기
@@ -232,7 +237,53 @@ Write-Host "  - Windows 기능 정리 완료" -ForegroundColor Green
 
 # 5. 바탕화면 검은색으로 설정
 Write-Host ""
-Write-Host "[5/5] 바탕화면을 검은색으로 설정 중..." -ForegroundColor Yellow
+Write-Host "[5/6] 시작 메뉴 고정 앱 제거 중..." -ForegroundColor Yellow
+
+# Windows 11 시작 메뉴 레이아웃 초기화 (고정 앱 제거)
+$startMenuPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\CloudStore\Store\Cache\DefaultAccount"
+
+# 시작 메뉴 캐시 제거
+$startCachePaths = @(
+    "$startMenuPath\*$*windows.data.unifiedtile.startglobalproperties$*",
+    "$startMenuPath\*$*windows.data.unifiedtile.pinnedtileiddata$*"
+)
+
+foreach ($cachePath in $startCachePaths) {
+    Get-ChildItem -Path $cachePath -ErrorAction SilentlyContinue | ForEach-Object {
+        Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+Write-Host "  - 시작 메뉴 고정 앱 캐시 제거됨" -ForegroundColor Green
+
+# start2.bin 파일 삭제 (시작 메뉴 레이아웃 초기화)
+$start2BinPath = "$env:LOCALAPPDATA\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\LocalState\start2.bin"
+if (Test-Path $start2BinPath) {
+    Remove-Item -Path $start2BinPath -Force -ErrorAction SilentlyContinue
+    Write-Host "  - 시작 메뉴 레이아웃 초기화됨" -ForegroundColor Green
+}
+
+# Microsoft Teams 관련 추가 정리
+$teamsPath = "$env:LOCALAPPDATA\Microsoft\Teams"
+$teamsProgramData = "$env:ProgramData\Microsoft\Teams"
+if (Test-Path $teamsPath) {
+    Remove-Item -Path $teamsPath -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Host "  - Teams 로컬 데이터 제거됨" -ForegroundColor Green
+}
+if (Test-Path $teamsProgramData) {
+    Remove-Item -Path $teamsProgramData -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Host "  - Teams ProgramData 제거됨" -ForegroundColor Green
+}
+
+# Teams 자동 시작 레지스트리 제거
+$teamsAutoStart = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+Remove-ItemProperty -Path $teamsAutoStart -Name "com.squirrel.Teams.Teams" -ErrorAction SilentlyContinue
+Remove-ItemProperty -Path $teamsAutoStart -Name "Teams" -ErrorAction SilentlyContinue
+Write-Host "  - Teams 자동 시작 제거됨" -ForegroundColor Green
+
+
+# 6. 바탕화면 검은색으로 설정
+Write-Host ""
+Write-Host "[6/6] 바탕화면을 검은색으로 설정 중..." -ForegroundColor Yellow
 
 # 바탕화면 배경 레지스트리 경로
 $desktopPath = "HKCU:\Control Panel\Desktop"
@@ -268,9 +319,10 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "모든 블로트웨어 제거가 완료되었습니다!" -ForegroundColor Green
 Write-Host ""
 Write-Host "적용된 항목:" -ForegroundColor Yellow
-Write-Host "  - Microsoft 기본 앱 제거 (Cortana, Xbox, People 등)" -ForegroundColor White
-Write-Host "  - 사전 설치된 제3자 앱 제거 (게임, SNS 등)" -ForegroundColor White
+Write-Host "  - Microsoft 기본 앱 제거 (Cortana, Xbox, Teams, People 등)" -ForegroundColor White
+Write-Host "  - 사전 설치된 제3자 앱 제거 (게임, SNS, LinkedIn 등)" -ForegroundColor White
 Write-Host "  - 불필요한 Windows 기능 제거" -ForegroundColor White
+Write-Host "  - 시작 메뉴 고정 앱 제거" -ForegroundColor White
 Write-Host "  - 바탕화면 검은색으로 설정" -ForegroundColor White
 Write-Host ""
 Write-Host "참고: 일부 시스템 앱은 보호되어 제거되지 않습니다." -ForegroundColor Yellow
