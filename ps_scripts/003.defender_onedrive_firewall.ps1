@@ -116,14 +116,39 @@ Write-Host "  - Security Center 알림 및 트레이 아이콘 비활성화" -Fo
 Write-Host ""
 Write-Host "[4/7] Windows 방화벽 해제 중..." -ForegroundColor Yellow
 
+# 방화벽 서비스가 실행 중인지 확인하고 시작
+$firewallService = Get-Service -Name "mpssvc" -ErrorAction SilentlyContinue
+if ($firewallService.Status -ne "Running") {
+    # 서비스가 비활성화되어 있으면 다시 활성화
+    $firewallRegPath = "HKLM:\SYSTEM\CurrentControlSet\Services\mpssvc"
+    Set-ItemProperty -Path $firewallRegPath -Name "Start" -Value 2 -Type DWord -ErrorAction SilentlyContinue
+    Start-Service -Name "mpssvc" -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    Write-Host "  - 방화벽 서비스 복구 (설정 적용을 위해 필요)" -ForegroundColor Yellow
+}
+
 # 모든 프로필 방화벽 해제
 Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
 Write-Host "  - 도메인, 공용, 개인 프로필 방화벽 해제" -ForegroundColor Green
 
-# 방화벽 서비스 비활성화 (선택적)
-$firewallRegPath = "HKLM:\SYSTEM\CurrentControlSet\Services\mpssvc"
-Set-ItemProperty -Path $firewallRegPath -Name "Start" -Value 4 -Type DWord -ErrorAction SilentlyContinue
-Write-Host "  - 방화벽 서비스 비활성화 (재부팅 후 적용)" -ForegroundColor Green
+# 방화벽 기본 동작을 Allow로 설정 (추가 보호)
+Set-NetFirewallProfile -Profile Domain,Public,Private -DefaultInboundAction Allow -DefaultOutboundAction Allow
+Write-Host "  - 기본 인바운드/아웃바운드 정책을 Allow로 설정" -ForegroundColor Green
+
+# RDP 포트 명시적 허용 (방화벽이 켜져있어도 작동하도록)
+$rdpRuleName = "Remote Desktop - User Mode (TCP-In) - Custom"
+$existingRule = Get-NetFirewallRule -DisplayName $rdpRuleName -ErrorAction SilentlyContinue
+if (!$existingRule) {
+    New-NetFirewallRule -DisplayName $rdpRuleName -Direction Inbound -Protocol TCP -LocalPort 3389 -Action Allow -Profile Any -Enabled True | Out-Null
+    Write-Host "  - RDP 포트 (3389) 방화벽 규칙 추가" -ForegroundColor Green
+} else {
+    Set-NetFirewallRule -DisplayName $rdpRuleName -Enabled True
+    Write-Host "  - RDP 포트 (3389) 방화벽 규칙 활성화" -ForegroundColor Green
+}
+
+# 기존 RDP 규칙도 활성화
+Get-NetFirewallRule -DisplayGroup "Remote Desktop" -ErrorAction SilentlyContinue | Set-NetFirewallRule -Enabled True -ErrorAction SilentlyContinue
+Write-Host "  - 기존 원격 데스크톱 규칙 활성화" -ForegroundColor Green
 
 # 방화벽 정책 비활성화
 $firewallPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\WindowsFirewall"
@@ -140,6 +165,9 @@ Set-ItemProperty -Path "$firewallPolicyPath\DomainProfile" -Name "EnableFirewall
 Set-ItemProperty -Path "$firewallPolicyPath\StandardProfile" -Name "EnableFirewall" -Value 0 -Type DWord
 Set-ItemProperty -Path "$firewallPolicyPath\PublicProfile" -Name "EnableFirewall" -Value 0 -Type DWord
 Write-Host "  - 방화벽 정책 비활성화" -ForegroundColor Green
+
+# 참고: 방화벽 서비스(mpssvc)는 비활성화하지 않음 (비활성화 시 설정 GUI 오류 발생)
+Write-Host "  - 방화벽 서비스는 유지 (GUI 호환성)" -ForegroundColor Yellow
 
 
 # 5. OneDrive 프로세스 종료
