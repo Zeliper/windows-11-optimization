@@ -181,3 +181,132 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 - rsync 동기화: `rsync -avz /source/ user@host:/destination/`
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/007.openssh_rsync.ps1)
+
+## 공통 최적화 스크립트 (Windows 11 25H2)
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/008.common_optimization.ps1 | iex
+```
+
+**디스크 정리:**
+- Windows 임시 파일 삭제 (%TEMP%, C:\Windows\Temp)
+- Windows Update 캐시 정리
+- 썸네일 캐시, 메모리 덤프, 휴지통 비우기
+
+**DNS 설정:**
+- Primary: Cloudflare 1.1.1.1
+- Secondary: Google 8.8.8.8
+- IPv6: Cloudflare, Google
+
+**서비스 최적화:**
+- SysMain (SuperFetch) 비활성화 - SSD 환경
+- Connected Devices Platform, Maps, Fax, Error Reporting 비활성화
+- AppX Deployment Service 수동 시작 (25H2)
+
+**부팅 최적화:**
+- 빠른 시작 활성화
+- 부팅 메뉴 대기 시간: 3초
+
+**추가 설정:**
+- P2P 업데이트 비활성화
+- 자동 앱 설치 비활성화
+- 대규모 시스템 캐시 활성화 (RAM 16GB 이상)
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/008.common_optimization.ps1)
+
+## 게임용 PC 최적화 스크립트 (Windows 11 25H2)
+
+⚠️ **경고: 일부 보안 기능을 비활성화합니다. 게임 전용 PC에서만 권장됩니다.**
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/009.gaming_optimization.ps1 | iex
+```
+
+**보안 관련 설정 (성능 향상):**
+- VBS (Virtualization-Based Security) 비활성화 (~5% 성능 향상)
+- Memory Integrity (HVCI) 비활성화
+
+**게임 최적화:**
+- Hardware-accelerated GPU Scheduling 활성화
+- Game Mode 최적화 및 Game DVR 비활성화
+- 전체 화면 최적화 비활성화
+- Xbox Game Bar 완전 비활성화
+
+**시스템 최적화:**
+- 시각 효과 비활성화 (애니메이션, 투명 효과)
+- GPU 우선순위 설정 (SystemResponsiveness: 0)
+- 네트워크 스로틀링 비활성화
+- AppX/Delivery Optimization 서비스 수동 시작
+
+> 재부팅 후 모든 설정이 적용됩니다.
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/009.gaming_optimization.ps1)
+
+## 게임 서버 최적화 스크립트 (Windows 11 25H2)
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/010.game_server.ps1 | iex
+```
+
+**TCP/IP 최적화:**
+- TCP Auto-Tuning, ECN, Timestamps 활성화
+- Congestion Control 알고리즘 선택 (DCTCP/CUBIC/CTCP)
+- TCP Window 크기 증가 (4MB/16MB)
+- MaxUserPort: 65534, TcpTimedWaitDelay: 30초
+- 동적 포트 범위: 1025-65535
+
+**네트워크 어댑터 최적화:**
+- Interrupt Moderation 비활성화 (낮은 레이턴시)
+- RSS (Receive Side Scaling) 활성화
+- 네트워크 버퍼 크기 최적화
+
+**QoS 정책:**
+- UDP: DSCP 46 (Expedited Forwarding)
+- TCP: DSCP 34 (AF41)
+- 대역폭 제한 제거
+
+**실험적 기능:**
+- Native NVMe 지원 (최대 80% IOPS 향상, 선택적)
+
+> 재부팅 후 모든 설정이 적용됩니다.
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/010.game_server.ps1)
+
+## IIS 웹 서버 최적화 스크립트 (Windows 11)
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/011.web_server.ps1 | iex
+```
+
+**IIS 설치 및 기본 설정:**
+- IIS 웹 서버 기능 활성화
+- .NET Framework 4.x 구성
+- 기존 IIS 설정 자동 백업
+
+**성능 최적화:**
+- HTTP 압축 (정적/동적) 활성화
+- 커널 모드 캐싱 활성화 (최대 512MB)
+- HTTP/2 활성화
+- Application Pool 최적화 (64비트, AlwaysRunning, Queue 5000)
+
+**보안 강화:**
+- TLS 1.2/1.3 활성화
+- 약한 프로토콜 비활성화 (SSL 2.0/3.0, TLS 1.0/1.1)
+- 약한 암호 비활성화 (DES, RC2, RC4, NULL)
+
+**다음 단계:**
+1. HTTPS 인증서 설치 (Let's Encrypt 또는 상용 인증서)
+2. 웹 사이트 바인딩 설정
+3. 방화벽 포트 개방 (80, 443)
+
+> IIS 관리자 실행: `inetmgr`
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/011.web_server.ps1)
