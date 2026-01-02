@@ -39,6 +39,13 @@ $global:Presets = @{
     "웹서버" = @(1, 2, 3, 8, 11)                # 웹 서버용
 }
 
+# 동시 실행 불가능한 스크립트 쌍 정의 (리소스 충돌)
+$global:ConflictGroups = @(
+    @(4, 5),    # taskbar ↔ bloatware (explorer/AppX 충돌)
+    @(8, 12),   # common ↔ ai_features (ContentDeliveryManager 충돌)
+    @(9, 10)    # gaming ↔ game_server (NetworkThrottlingIndex 충돌)
+)
+
 
 # ===== 상태 관리 함수 =====
 
@@ -212,6 +219,51 @@ function Get-UserSelection {
 }
 
 
+# ===== 배치 생성 함수 =====
+
+function Get-ExecutionBatches {
+    param([array]$ScriptIds)
+
+    $batches = @()
+    $remaining = [System.Collections.ArrayList]@($ScriptIds)
+
+    while ($remaining.Count -gt 0) {
+        $batch = @()
+        $toRemove = @()
+
+        foreach ($id in $remaining) {
+            $canAdd = $true
+
+            # 현재 배치의 다른 스크립트와 충돌 체크
+            foreach ($batchId in $batch) {
+                foreach ($group in $global:ConflictGroups) {
+                    if (($group -contains $id) -and ($group -contains $batchId)) {
+                        $canAdd = $false
+                        break
+                    }
+                }
+                if (-not $canAdd) { break }
+            }
+
+            if ($canAdd) {
+                $batch += $id
+                $toRemove += $id
+            }
+        }
+
+        foreach ($id in $toRemove) {
+            $remaining.Remove($id) | Out-Null
+        }
+
+        if ($batch.Count -gt 0) {
+            $batches += ,@($batch)
+        }
+    }
+
+    return $batches
+}
+
+
 # ===== 스크립트 실행 함수 =====
 
 function Invoke-OptimizationScript {
@@ -237,11 +289,85 @@ function Invoke-OptimizationScript {
     }
 }
 
+function Invoke-ParallelScripts {
+    param([array]$ScriptIds)
+
+    if ($ScriptIds.Count -eq 0) { return @() }
+
+    # 단일 스크립트는 직접 실행
+    if ($ScriptIds.Count -eq 1) {
+        $success = Invoke-OptimizationScript -ScriptId $ScriptIds[0]
+        return @(@{ Id = $ScriptIds[0]; Success = $success })
+    }
+
+    # 병렬 실행 시작 알림
+    $scriptNames = $ScriptIds | ForEach-Object {
+        $item = $global:ScriptItems | Where-Object { $_.Id -eq $_ }
+        $item.Name
+    }
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "병렬 실행 시작: $($scriptNames -join ', ')" -ForegroundColor Yellow
+    Write-Host "========================================" -ForegroundColor Cyan
+
+    # Start-Job으로 각 스크립트 백그라운드 실행
+    $jobs = @()
+    foreach ($id in $ScriptIds) {
+        $item = $global:ScriptItems | Where-Object { $_.Id -eq $id }
+        $scriptUrl = "$global:ScriptBaseUrl/$($item.File)"
+
+        $job = Start-Job -ScriptBlock {
+            param($url)
+            # UTF-8 인코딩 설정
+            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+            $OutputEncoding = [System.Text.Encoding]::UTF8
+
+            # OrchestrateMode 설정
+            $global:OrchestrateMode = $true
+
+            try {
+                $content = Invoke-RestMethod $url
+                Invoke-Expression $content
+                return @{ Success = $true; Error = $null }
+            } catch {
+                return @{ Success = $false; Error = $_.Exception.Message }
+            }
+        } -ArgumentList $scriptUrl
+
+        $jobs += @{ Job = $job; Id = $id }
+    }
+
+    # 모든 Job 완료 대기 및 결과 수집
+    $results = @()
+    foreach ($jobInfo in $jobs) {
+        $job = $jobInfo.Job
+        $id = $jobInfo.Id
+        $item = $global:ScriptItems | Where-Object { $_.Id -eq $id }
+
+        Wait-Job -Job $job | Out-Null
+        $output = Receive-Job -Job $job
+        Remove-Job -Job $job
+
+        # 결과 출력
+        Write-Host ""
+        if ($output.Success) {
+            Write-Host "[$id] $($item.Name) 완료" -ForegroundColor Green
+        } else {
+            Write-Host "[$id] $($item.Name) 실패: $($output.Error)" -ForegroundColor Red
+        }
+
+        $results += @{ Id = $id; Success = $output.Success }
+    }
+
+    return $results
+}
+
 function Start-OptimizationProcess {
     param([hashtable]$State)
 
     $pendingItems = [array]$State.PendingItems
     $completedItems = [System.Collections.ArrayList]@()
+    $failedItems = [System.Collections.ArrayList]@()
     if ($State.CompletedItems) {
         $completedItems.AddRange($State.CompletedItems)
     }
@@ -261,30 +387,42 @@ function Start-OptimizationProcess {
         }
     }
 
-    # 재부팅 불필요 항목 먼저 실행
+    # 재부팅 불필요 항목 먼저 실행 (배치 병렬)
     if ($noRebootItems.Count -gt 0) {
         Write-Host ""
         Write-Host "========================================" -ForegroundColor Cyan
         Write-Host "Phase 1: 재부팅 불필요 항목 실행" -ForegroundColor Cyan
         Write-Host "========================================" -ForegroundColor Cyan
 
-        foreach ($id in $noRebootItems) {
-            if (Invoke-OptimizationScript -ScriptId $id) {
-                $completedItems.Add($id) | Out-Null
+        $batches = Get-ExecutionBatches -ScriptIds $noRebootItems
+        foreach ($batch in $batches) {
+            $results = Invoke-ParallelScripts -ScriptIds $batch
+            foreach ($r in $results) {
+                if ($r.Success) {
+                    $completedItems.Add($r.Id) | Out-Null
+                } else {
+                    $failedItems.Add($r.Id) | Out-Null
+                }
             }
         }
     }
 
-    # 재부팅 필요 항목 실행
+    # 재부팅 필요 항목 실행 (배치 병렬)
     if ($rebootItems.Count -gt 0) {
         Write-Host ""
         Write-Host "========================================" -ForegroundColor Yellow
         Write-Host "Phase 2: 재부팅 필요 항목 실행" -ForegroundColor Yellow
         Write-Host "========================================" -ForegroundColor Yellow
 
-        foreach ($id in $rebootItems) {
-            if (Invoke-OptimizationScript -ScriptId $id) {
-                $completedItems.Add($id) | Out-Null
+        $batches = Get-ExecutionBatches -ScriptIds $rebootItems
+        foreach ($batch in $batches) {
+            $results = Invoke-ParallelScripts -ScriptIds $batch
+            foreach ($r in $results) {
+                if ($r.Success) {
+                    $completedItems.Add($r.Id) | Out-Null
+                } else {
+                    $failedItems.Add($r.Id) | Out-Null
+                }
             }
         }
     }
@@ -298,7 +436,17 @@ function Start-OptimizationProcess {
     Write-Host "완료된 항목:" -ForegroundColor Yellow
     foreach ($id in $completedItems) {
         $item = $global:ScriptItems | Where-Object { $_.Id -eq $id }
-        Write-Host "  - $($item.Name)" -ForegroundColor White
+        Write-Host "  - $($item.Name)" -ForegroundColor Green
+    }
+
+    # 실패한 항목 표시
+    if ($failedItems.Count -gt 0) {
+        Write-Host ""
+        Write-Host "실패한 항목:" -ForegroundColor Red
+        foreach ($id in $failedItems) {
+            $item = $global:ScriptItems | Where-Object { $_.Id -eq $id }
+            Write-Host "  - $($item.Name)" -ForegroundColor Red
+        }
     }
 
     # 재부팅 필요 여부 확인
