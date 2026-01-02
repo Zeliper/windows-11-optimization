@@ -14,7 +14,7 @@ start ms-cxh:localonly
 Set-ExecutionPolicy RemoteSigned -Force
 ```
 
-## 윈도우즈 업데이트 중지 및 사용자 계정 컨트롤 해제 스크립트
+## 윈도우즈 업데이트 수동 설정 및 UAC 프롬프트 비활성화 스크립트
 
 관리자 권한 PowerShell에서 실행:
 
@@ -52,7 +52,7 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/002.power_network.ps1)
 
-## Windows Defender, OneDrive, 방화벽 해제 스크립트
+## OneDrive 삭제, 방화벽 해제 스크립트
 
 ⚠️ **주의: 서버/로컬 네트워크 환경용 스크립트입니다.**
 
@@ -62,15 +62,14 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/003.defender_onedrive_firewall.ps1 | iex
 ```
 
-**Windows Defender 해제:**
-- 실시간 보호 비활성화
-- Defender 서비스 비활성화
-- 클라우드 보호 비활성화
-- Security Center 알림 및 트레이 아이콘 숨김
+**Windows Defender 안내:**
+- Defender를 직접 비활성화하면 시스템 문제가 발생할 수 있음
+- 권장: 서드파티 백신 설치 시 Defender가 자동으로 비활성화됨
+- 추천 백신: Avast, AVG, Bitdefender Free, Kaspersky Free
 
 **Windows 방화벽 해제:**
 - 도메인, 공용, 개인 프로필 방화벽 해제
-- 방화벽 서비스 비활성화
+- RDP(원격 데스크톱) 서비스 활성화
 
 **OneDrive 완전 삭제:**
 - OneDrive 제거
@@ -78,8 +77,6 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 - 동기화 비활성화 정책 적용
 - 탐색기에서 OneDrive 숨김
 - 관련 폴더 및 예약 작업 삭제
-
-> 💡 **Tamper Protection**: Defender가 완전히 비활성화되지 않으면 Windows 보안 > 바이러스 및 위협 방지 > 설정 관리에서 "변조 방지"를 먼저 끄세요.
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/003.defender_onedrive_firewall.ps1)
 

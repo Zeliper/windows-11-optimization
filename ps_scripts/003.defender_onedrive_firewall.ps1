@@ -1,4 +1,4 @@
-# Windows Defender 해제, OneDrive 삭제, 방화벽 해제 스크립트
+# OneDrive 삭제, 방화벽 해제 스크립트
 # 서버/로컬 네트워크 환경용 리소스 최적화
 # 관리자 권한으로 실행 필요
 
@@ -9,118 +9,46 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
-Write-Host "=== Windows Defender, OneDrive, 방화벽 해제 스크립트 ===" -ForegroundColor Cyan
+Write-Host "=== OneDrive 삭제, 방화벽 해제 스크립트 ===" -ForegroundColor Cyan
 Write-Host "주의: 이 스크립트는 서버/로컬 네트워크 환경용입니다." -ForegroundColor Red
 Write-Host ""
 
 
-# 1. Windows Defender 실시간 보호 비활성화
-Write-Host "[1/7] Windows Defender 실시간 보호 비활성화 중..." -ForegroundColor Yellow
-
-try {
-    Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
-    Set-MpPreference -DisableBehaviorMonitoring $true -ErrorAction SilentlyContinue
-    Set-MpPreference -DisableBlockAtFirstSeen $true -ErrorAction SilentlyContinue
-    Set-MpPreference -DisableIOAVProtection $true -ErrorAction SilentlyContinue
-    Set-MpPreference -DisablePrivacyMode $true -ErrorAction SilentlyContinue
-    Set-MpPreference -DisableScriptScanning $true -ErrorAction SilentlyContinue
-    Set-MpPreference -MAPSReporting Disabled -ErrorAction SilentlyContinue
-    Set-MpPreference -SubmitSamplesConsent NeverSend -ErrorAction SilentlyContinue
-    Write-Host "  - 실시간 보호 비활성화 완료" -ForegroundColor Green
-} catch {
-    Write-Host "  - 실시간 보호 비활성화 실패 (Tamper Protection 확인 필요)" -ForegroundColor Red
-}
-
-
-# 2. Windows Defender 서비스 비활성화 (레지스트리)
+# 1. Windows Defender 관련 안내
+Write-Host "[1/5] Windows Defender 안내" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "[2/7] Windows Defender 서비스 비활성화 중..." -ForegroundColor Yellow
-
-# Windows Defender 정책 레지스트리
-$defenderPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender"
-if (!(Test-Path $defenderPolicyPath)) {
-    New-Item -Path $defenderPolicyPath -Force | Out-Null
-}
-Set-ItemProperty -Path $defenderPolicyPath -Name "DisableAntiSpyware" -Value 1 -Type DWord
-Set-ItemProperty -Path $defenderPolicyPath -Name "DisableAntiVirus" -Value 1 -Type DWord
-Write-Host "  - Defender 정책 비활성화" -ForegroundColor Green
-
-# 실시간 보호 정책
-$realtimePath = "$defenderPolicyPath\Real-Time Protection"
-if (!(Test-Path $realtimePath)) {
-    New-Item -Path $realtimePath -Force | Out-Null
-}
-Set-ItemProperty -Path $realtimePath -Name "DisableRealtimeMonitoring" -Value 1 -Type DWord
-Set-ItemProperty -Path $realtimePath -Name "DisableBehaviorMonitoring" -Value 1 -Type DWord
-Set-ItemProperty -Path $realtimePath -Name "DisableOnAccessProtection" -Value 1 -Type DWord
-Set-ItemProperty -Path $realtimePath -Name "DisableScanOnRealtimeEnable" -Value 1 -Type DWord
-Set-ItemProperty -Path $realtimePath -Name "DisableIOAVProtection" -Value 1 -Type DWord
-Write-Host "  - 실시간 보호 정책 비활성화" -ForegroundColor Green
-
-# SpyNet (클라우드 보호) 비활성화
-$spynetPath = "$defenderPolicyPath\Spynet"
-if (!(Test-Path $spynetPath)) {
-    New-Item -Path $spynetPath -Force | Out-Null
-}
-Set-ItemProperty -Path $spynetPath -Name "SpynetReporting" -Value 0 -Type DWord
-Set-ItemProperty -Path $spynetPath -Name "SubmitSamplesConsent" -Value 2 -Type DWord
-Write-Host "  - 클라우드 보호 비활성화" -ForegroundColor Green
-
-# Windows Defender 서비스 비활성화 시도
-# 주의: WdFilter, WdNisDrv, WdBoot은 네트워크 스택에 필요하므로 비활성화하지 않음
-# 이들을 비활성화하면 방화벽(mpssvc), RDP, SSH 등이 작동하지 않음
-$defenderServices = @("WinDefend", "WdNisSvc")  # WdNisDrv, WdFilter, WdBoot 제외
-foreach ($service in $defenderServices) {
-    $regPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$service"
-    if (Test-Path $regPath) {
-        Set-ItemProperty -Path $regPath -Name "Start" -Value 4 -Type DWord -ErrorAction SilentlyContinue
-    }
-}
-Write-Host "  - Defender 서비스 비활성화 (WinDefend, WdNisSvc)" -ForegroundColor Green
-Write-Host "  - WdFilter, WdNisDrv, WdBoot은 네트워크 스택에 필요하여 유지" -ForegroundColor Yellow
-
-
-# 3. Windows Security Center 알림 비활성화
+Write-Host "  ================================================" -ForegroundColor Cyan
+Write-Host "  Windows Defender 비활성화 권장 방법" -ForegroundColor Cyan
+Write-Host "  ================================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "[3/7] Windows Security Center 알림 비활성화 중..." -ForegroundColor Yellow
-
-$secCenterPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender Security Center"
-if (!(Test-Path $secCenterPath)) {
-    New-Item -Path $secCenterPath -Force | Out-Null
-}
-
-# 각 보호 영역 알림 비활성화
-$notifications = @(
-    "App and Browser protection",
-    "Device performance and health",
-    "Family options",
-    "Firewall and network protection",
-    "Virus and threat protection"
-)
-
-foreach ($notification in $notifications) {
-    $notifPath = "$secCenterPath\Notifications"
-    if (!(Test-Path $notifPath)) {
-        New-Item -Path $notifPath -Force | Out-Null
-    }
-    Set-ItemProperty -Path $notifPath -Name "DisableNotifications" -Value 1 -Type DWord -ErrorAction SilentlyContinue
-}
-
-# 시스템 트레이 아이콘 숨기기
-$explorerPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender Security Center\Systray"
-if (!(Test-Path $explorerPath)) {
-    New-Item -Path $explorerPath -Force | Out-Null
-}
-Set-ItemProperty -Path $explorerPath -Name "HideSystray" -Value 1 -Type DWord
-Write-Host "  - Security Center 알림 및 트레이 아이콘 비활성화" -ForegroundColor Green
-
-
-# 4. Windows 방화벽 완전 해제
+Write-Host "  Defender를 직접 비활성화하면 다음 문제가 발생할 수 있습니다:" -ForegroundColor White
+Write-Host "    - Windows 업데이트 후 자동 재활성화" -ForegroundColor White
+Write-Host "    - Tamper Protection으로 인한 설정 무시" -ForegroundColor White
+Write-Host "    - 시스템 부팅 문제 (약 10% 발생)" -ForegroundColor White
 Write-Host ""
-Write-Host "[4/7] Windows 방화벽 해제 중..." -ForegroundColor Yellow
+Write-Host "  권장: 서드파티 백신을 설치하면 Defender가 자동으로" -ForegroundColor Green
+Write-Host "        비활성화되며, 보안도 유지됩니다." -ForegroundColor Green
+Write-Host ""
+Write-Host "  추천 무료 백신:" -ForegroundColor Yellow
+Write-Host "    - Avast Free Antivirus" -ForegroundColor White
+Write-Host "    - AVG AntiVirus FREE" -ForegroundColor White
+Write-Host "    - Bitdefender Antivirus Free" -ForegroundColor White
+Write-Host "    - Kaspersky Free" -ForegroundColor White
+Write-Host ""
+Write-Host "  설치 명령 (winget):" -ForegroundColor Yellow
+Write-Host "    winget install -e --id Avast.AvastFreeAntivirus" -ForegroundColor Gray
+Write-Host "    winget install -e --id AVG.AVGAntiVirusFREE" -ForegroundColor Gray
+Write-Host ""
+Write-Host "  ================================================" -ForegroundColor Cyan
+Write-Host ""
 
-# 4-1. mpsdrv (방화벽 드라이버) 활성화 - mpssvc의 필수 의존성
-Write-Host "  [4-1] mpsdrv (방화벽 드라이버) 확인 중..." -ForegroundColor Cyan
+
+# 2. Windows 방화벽 완전 해제
+Write-Host ""
+Write-Host "[2/5] Windows 방화벽 해제 중..." -ForegroundColor Yellow
+
+# 2-1. mpsdrv (방화벽 드라이버) 활성화 - mpssvc의 필수 의존성
+Write-Host "  [2-1] mpsdrv (방화벽 드라이버) 확인 중..." -ForegroundColor Cyan
 $mpsdrvRegPath = "HKLM:\SYSTEM\CurrentControlSet\Services\mpsdrv"
 $mpsdrvStart = (Get-ItemProperty -Path $mpsdrvRegPath -Name "Start" -ErrorAction SilentlyContinue).Start
 Write-Host "    - 현재 mpsdrv Start 값: $mpsdrvStart (0=Boot, 1=System, 2=Auto, 3=수동, 4=비활성화)" -ForegroundColor White
@@ -135,8 +63,8 @@ Write-Host "    - sc config mpsdrv: $scResult" -ForegroundColor White
 $scStartResult = sc.exe start mpsdrv 2>&1
 Write-Host "    - sc start mpsdrv: $scStartResult" -ForegroundColor White
 
-# 4-2. BFE (Base Filtering Engine) 서비스 확인 및 시작
-Write-Host "  [4-2] BFE (Base Filtering Engine) 서비스 확인 중..." -ForegroundColor Cyan
+# 2-2. BFE (Base Filtering Engine) 서비스 확인 및 시작
+Write-Host "  [2-2] BFE (Base Filtering Engine) 서비스 확인 중..." -ForegroundColor Cyan
 $bfeService = Get-Service -Name "BFE" -ErrorAction SilentlyContinue
 Write-Host "    - 현재 BFE 상태: $($bfeService.Status)" -ForegroundColor White
 if ($bfeService.Status -ne "Running") {
@@ -153,8 +81,8 @@ if ($bfeService.Status -ne "Running") {
     Write-Host "    - BFE 이미 실행 중" -ForegroundColor Green
 }
 
-# 4-3. mpssvc (Windows Defender Firewall) 서비스 확인 및 시작
-Write-Host "  [4-3] mpssvc (방화벽 서비스) 확인 중..." -ForegroundColor Cyan
+# 2-3. mpssvc (Windows Defender Firewall) 서비스 확인 및 시작
+Write-Host "  [2-3] mpssvc (방화벽 서비스) 확인 중..." -ForegroundColor Cyan
 $firewallService = Get-Service -Name "mpssvc" -ErrorAction SilentlyContinue
 Write-Host "    - 현재 mpssvc 상태: $($firewallService.Status)" -ForegroundColor White
 if ($firewallService.Status -ne "Running") {
@@ -175,8 +103,8 @@ if ($firewallService.Status -ne "Running") {
     Write-Host "    - mpssvc 이미 실행 중" -ForegroundColor Green
 }
 
-# 4-4. 방화벽 설정 적용
-Write-Host "  [4-4] 방화벽 설정 적용 중..." -ForegroundColor Cyan
+# 2-4. 방화벽 설정 적용
+Write-Host "  [2-4] 방화벽 설정 적용 중..." -ForegroundColor Cyan
 $firewallService = Get-Service -Name "mpssvc" -ErrorAction SilentlyContinue
 if ($firewallService.Status -eq "Running") {
     # 모든 프로필 방화벽 해제
@@ -207,7 +135,7 @@ if ($firewallService.Status -eq "Running") {
 }
 
 # 방화벽 정책 비활성화 (레지스트리 - 서비스 상태와 무관)
-Write-Host "  [4-5] 방화벽 정책 레지스트리 설정 중..." -ForegroundColor Cyan
+Write-Host "  [2-5] 방화벽 정책 레지스트리 설정 중..." -ForegroundColor Cyan
 $firewallPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\WindowsFirewall"
 if (!(Test-Path "$firewallPolicyPath\DomainProfile")) {
     New-Item -Path "$firewallPolicyPath\DomainProfile" -Force | Out-Null
@@ -223,8 +151,8 @@ Set-ItemProperty -Path "$firewallPolicyPath\StandardProfile" -Name "EnableFirewa
 Set-ItemProperty -Path "$firewallPolicyPath\PublicProfile" -Name "EnableFirewall" -Value 0 -Type DWord
 Write-Host "    - 방화벽 정책 레지스트리 비활성화" -ForegroundColor Green
 
-# 4-6. RDP (원격 데스크톱) 서비스 활성화
-Write-Host "  [4-6] RDP (원격 데스크톱) 서비스 활성화 중..." -ForegroundColor Cyan
+# 2-6. RDP (원격 데스크톱) 서비스 활성화
+Write-Host "  [2-6] RDP (원격 데스크톱) 서비스 활성화 중..." -ForegroundColor Cyan
 
 # RDP 활성화 (레지스트리)
 $rdpRegPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server"
@@ -266,18 +194,18 @@ Write-Host "    - mpssvc: $finalMpssvc" -ForegroundColor White
 Write-Host "    - TermService (RDP): $finalTermService" -ForegroundColor White
 
 
-# 5. OneDrive 프로세스 종료
+# 3. OneDrive 프로세스 종료
 Write-Host ""
-Write-Host "[5/7] OneDrive 프로세스 종료 중..." -ForegroundColor Yellow
+Write-Host "[3/5] OneDrive 프로세스 종료 중..." -ForegroundColor Yellow
 
 Stop-Process -Name "OneDrive" -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 Write-Host "  - OneDrive 프로세스 종료" -ForegroundColor Green
 
 
-# 6. OneDrive 제거
+# 4. OneDrive 제거
 Write-Host ""
-Write-Host "[6/7] OneDrive 제거 중..." -ForegroundColor Yellow
+Write-Host "[4/5] OneDrive 제거 중..." -ForegroundColor Yellow
 
 # OneDrive 제거 실행
 $oneDriveSetup64 = "$env:SystemRoot\SysWOW64\OneDriveSetup.exe"
@@ -301,9 +229,9 @@ if (Test-Path $oneDriveSetup64) {
 }
 
 
-# 7. OneDrive 관련 레지스트리 및 폴더 정리
+# 5. OneDrive 관련 레지스트리 및 폴더 정리
 Write-Host ""
-Write-Host "[7/7] OneDrive 잔여 파일 정리 중..." -ForegroundColor Yellow
+Write-Host "[5/5] OneDrive 잔여 파일 정리 중..." -ForegroundColor Yellow
 
 # OneDrive 자동 시작 제거
 Remove-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "OneDrive" -ErrorAction SilentlyContinue
@@ -361,14 +289,12 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "모든 설정이 완료되었습니다!" -ForegroundColor Green
 Write-Host ""
 Write-Host "적용된 설정:" -ForegroundColor Yellow
-Write-Host "  - Windows Defender 비활성화" -ForegroundColor White
 Write-Host "  - Windows 방화벽 해제" -ForegroundColor White
 Write-Host "  - OneDrive 완전 삭제" -ForegroundColor White
 Write-Host ""
-Write-Host "주의: Tamper Protection이 켜져 있으면 Defender가" -ForegroundColor Red
-Write-Host "      완전히 비활성화되지 않을 수 있습니다." -ForegroundColor Red
-Write-Host "      Windows 보안 > 바이러스 및 위협 방지 > 설정 관리" -ForegroundColor Red
-Write-Host "      에서 변조 방지를 먼저 끄세요." -ForegroundColor Red
+Write-Host "Defender 비활성화가 필요하면:" -ForegroundColor Yellow
+Write-Host "  서드파티 백신을 설치하세요 (자동으로 Defender 비활성화됨)" -ForegroundColor White
+Write-Host "  예: winget install -e --id Avast.AvastFreeAntivirus" -ForegroundColor Gray
 Write-Host ""
 Write-Host "변경 사항을 완전히 적용하려면 재부팅이 필요합니다." -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Cyan

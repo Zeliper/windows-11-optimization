@@ -1,6 +1,6 @@
 # Windows 11 Pro 설정 스크립트
 # 관리자 권한으로 실행 필요
-# 설정: 수동 업데이트, 자동 재시작 방지, UAC 해제
+# 설정: 수동 업데이트, 자동 재시작 방지, UAC 프롬프트 비활성화
 
 #Requires -RunAsAdministrator
 
@@ -51,14 +51,14 @@ Set-ItemProperty -Path $WUSettingsPath -Name "AUOptions" -Value 2 -Type DWord
 Write-Host "  - 예약 설치 비활성화 완료" -ForegroundColor Green
 
 
-# 3. UAC (사용자 계정 컨트롤) 해제
+# 3. UAC (사용자 계정 컨트롤) 프롬프트 비활성화
 Write-Host ""
-Write-Host "[3/3] UAC (사용자 계정 컨트롤) 해제 중..." -ForegroundColor Yellow
+Write-Host "[3/3] UAC 프롬프트 비활성화 중..." -ForegroundColor Yellow
 
 $UACPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
 
-# UAC 완전 해제
-Set-ItemProperty -Path $UACPath -Name "EnableLUA" -Value 0 -Type DWord
+# EnableLUA는 1로 유지 (완전 해제 시 로그인 문제, UI 오류 발생 가능)
+Set-ItemProperty -Path $UACPath -Name "EnableLUA" -Value 1 -Type DWord
 
 # UAC 프롬프트 동작 설정 (0 = 알림 없이 권한 상승)
 Set-ItemProperty -Path $UACPath -Name "ConsentPromptBehaviorAdmin" -Value 0 -Type DWord
@@ -67,7 +67,7 @@ Set-ItemProperty -Path $UACPath -Name "ConsentPromptBehaviorUser" -Value 0 -Type
 # 보안 데스크톱에서 프롬프트 표시 안 함
 Set-ItemProperty -Path $UACPath -Name "PromptOnSecureDesktop" -Value 0 -Type DWord
 
-Write-Host "  - UAC 해제 완료" -ForegroundColor Green
+Write-Host "  - UAC 프롬프트 비활성화 완료 (시스템 안정성 유지)" -ForegroundColor Green
 
 
 # 완료 메시지
