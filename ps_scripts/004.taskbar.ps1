@@ -10,6 +10,9 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
+# Progress Bar 비활성화 (병렬 실행 시 출력 겹침 방지)
+$ProgressPreference = 'SilentlyContinue'
+
 # Orchestrate 모드 확인
 if ($null -eq $global:OrchestrateMode) {
     $global:OrchestrateMode = $false
