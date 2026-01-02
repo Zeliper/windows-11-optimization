@@ -144,14 +144,16 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 - Google Chrome (Enterprise 64비트)
 - 7-Zip (64비트)
 - ShareX (최신 버전, 업로드 기능 및 컨텍스트 메뉴 비활성화)
+- MSEdgeRedirect (시작 메뉴/위젯 검색 → Chrome 리다이렉트)
 
 **특징:**
-- GitHub API를 통한 최신 버전 자동 감지 (Notepad++, ShareX)
+- GitHub API를 통한 최신 버전 자동 감지 (Notepad++, ShareX, MSEdgeRedirect)
 - 완전 자동(headless) 설치
 - Notepad++ 파일 연결 자동 설정 (txt, ini, cfg, conf, config, properties, json, xml, yaml 등)
 - Chrome 기본 브라우저 설정
 - ShareX 업로드 기능 레지스트리로 비활성화
 - ShareX 우클릭 컨텍스트 메뉴 제거
+- MSEdgeRedirect: Windows 시작 메뉴/위젯 검색을 Chrome으로 리다이렉트
 - 개별 설치 실패 시 다음 프로그램으로 계속 진행
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/006.software_install.ps1)
@@ -343,6 +345,14 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 - AI Fabric Service 비활성화
 - AI 진단 데이터 수집 비활성화
 - Voice Access AI, Live Captions 비활성화
+
+**추가 최적화 (25H2 심화):**
+- AI AppX 패키지 강제 제거 (Nonremovable 포함)
+- Recall Optional Feature 완전 제거
+- AI 자동 설치 방지 정책 설정
+- Windows Search AI 추천 비활성화 (Bing, 클라우드 검색)
+- Windows Spotlight AI 추천 콘텐츠 비활성화
+- ML 서비스 (mlsvc) 및 AI 예약 작업 비활성화
 
 > 재부팅 후 모든 설정이 적용됩니다.
 

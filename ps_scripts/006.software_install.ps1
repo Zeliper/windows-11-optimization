@@ -1,4 +1,4 @@
-# 필수 소프트웨어 자동 설치 (Notepad++, Chrome, 7-Zip, ShareX)
+# 필수 소프트웨어 자동 설치 (Notepad++, Chrome, 7-Zip, ShareX, MSEdgeRedirect)
 # 관리자 권한으로 실행 필요
 
 #Requires -RunAsAdministrator
@@ -17,15 +17,15 @@ if ($null -eq $global:OrchestrateMode) {
 $ProgressPreference = 'SilentlyContinue'
 
 Write-Host "=== 필수 소프트웨어 자동 설치 ===" -ForegroundColor Cyan
-Write-Host "Notepad++, Chrome, 7-Zip, ShareX를 자동으로 설치합니다." -ForegroundColor White
+Write-Host "Notepad++, Chrome, 7-Zip, ShareX, MSEdgeRedirect를 자동으로 설치합니다." -ForegroundColor White
 Write-Host ""
 
 $tempDir = $env:TEMP
 $successCount = 0
 $failCount = 0
 
-# [1/12] Notepad++ 다운로드
-Write-Host "[1/12] Notepad++ 다운로드 중..." -ForegroundColor Yellow
+# [1/14] Notepad++ 다운로드
+Write-Host "[1/14] Notepad++ 다운로드 중..." -ForegroundColor Yellow
 try {
     $nppRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/notepad-plus-plus/notepad-plus-plus/releases/latest"
     $nppAsset = $nppRelease.assets | Where-Object { $_.name -match "npp.*Installer\.x64\.exe$" } | Select-Object -First 1
@@ -39,8 +39,8 @@ try {
     $failCount++
 }
 
-# [2/12] Notepad++ 설치
-Write-Host "[2/12] Notepad++ 설치 중..." -ForegroundColor Yellow
+# [2/14] Notepad++ 설치
+Write-Host "[2/14] Notepad++ 설치 중..." -ForegroundColor Yellow
 if ($nppInstaller -and (Test-Path $nppInstaller)) {
     try {
         Start-Process -FilePath $nppInstaller -ArgumentList "/S" -Wait -NoNewWindow
@@ -55,8 +55,8 @@ if ($nppInstaller -and (Test-Path $nppInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [3/12] Chrome 다운로드
-Write-Host "[3/12] Chrome 다운로드 중..." -ForegroundColor Yellow
+# [3/14] Chrome 다운로드
+Write-Host "[3/14] Chrome 다운로드 중..." -ForegroundColor Yellow
 try {
     $chromeUrl = "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi"
     $chromeInstaller = Join-Path $tempDir "chrome_installer.msi"
@@ -68,8 +68,8 @@ try {
     $failCount++
 }
 
-# [4/12] Chrome 설치
-Write-Host "[4/12] Chrome 설치 중..." -ForegroundColor Yellow
+# [4/14] Chrome 설치
+Write-Host "[4/14] Chrome 설치 중..." -ForegroundColor Yellow
 if ($chromeInstaller -and (Test-Path $chromeInstaller)) {
     try {
         Start-Process msiexec -ArgumentList "/i `"$chromeInstaller`" /qn /norestart" -Wait -NoNewWindow
@@ -84,8 +84,8 @@ if ($chromeInstaller -and (Test-Path $chromeInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [5/12] 7-Zip 다운로드
-Write-Host "[5/12] 7-Zip 다운로드 중..." -ForegroundColor Yellow
+# [5/14] 7-Zip 다운로드
+Write-Host "[5/14] 7-Zip 다운로드 중..." -ForegroundColor Yellow
 try {
     $sevenZipUrl = "https://www.7-zip.org/a/7z2408-x64.msi"
     $sevenZipInstaller = Join-Path $tempDir "7zip_installer.msi"
@@ -97,8 +97,8 @@ try {
     $failCount++
 }
 
-# [6/12] 7-Zip 설치
-Write-Host "[6/12] 7-Zip 설치 중..." -ForegroundColor Yellow
+# [6/14] 7-Zip 설치
+Write-Host "[6/14] 7-Zip 설치 중..." -ForegroundColor Yellow
 if ($sevenZipInstaller -and (Test-Path $sevenZipInstaller)) {
     try {
         Start-Process msiexec -ArgumentList "/i `"$sevenZipInstaller`" /qn" -Wait -NoNewWindow
@@ -113,8 +113,8 @@ if ($sevenZipInstaller -and (Test-Path $sevenZipInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [7/12] ShareX 다운로드
-Write-Host "[7/12] ShareX 다운로드 중..." -ForegroundColor Yellow
+# [7/14] ShareX 다운로드
+Write-Host "[7/14] ShareX 다운로드 중..." -ForegroundColor Yellow
 try {
     $shareXRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/ShareX/ShareX/releases/latest"
     $shareXAsset = $shareXRelease.assets | Where-Object { $_.name -match "ShareX-.*-setup\.exe$" } | Select-Object -First 1
@@ -128,8 +128,8 @@ try {
     $failCount++
 }
 
-# [8/12] ShareX 설치 (업로드 기능 비활성화)
-Write-Host "[8/12] ShareX 설치 중 (업로드 기능 비활성화)..." -ForegroundColor Yellow
+# [8/14] ShareX 설치 (업로드 기능 비활성화)
+Write-Host "[8/14] ShareX 설치 중 (업로드 기능 비활성화)..." -ForegroundColor Yellow
 if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
     try {
         # ShareX 설치
@@ -158,8 +158,8 @@ if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [9/12] ShareX 컨텍스트 메뉴 제거
-Write-Host "[9/12] ShareX 컨텍스트 메뉴 제거 중..." -ForegroundColor Yellow
+# [9/14] ShareX 컨텍스트 메뉴 제거
+Write-Host "[9/14] ShareX 컨텍스트 메뉴 제거 중..." -ForegroundColor Yellow
 try {
     # ShareX 컨텍스트 메뉴 레지스트리 키 삭제 (모든 파일용)
     $contextMenuPaths = @(
@@ -187,8 +187,8 @@ try {
     Write-Host "  - 컨텍스트 메뉴 제거 실패: $_" -ForegroundColor Red
 }
 
-# [10/12] ShareX 시작 시 트레이 모드 설정
-Write-Host "[10/12] ShareX 시작 프로그램 등록 중..." -ForegroundColor Yellow
+# [10/14] ShareX 시작 시 트레이 모드 설정
+Write-Host "[10/14] ShareX 시작 프로그램 등록 중..." -ForegroundColor Yellow
 try {
     $shareXExe = "${env:ProgramFiles}\ShareX\ShareX.exe"
     if (Test-Path $shareXExe) {
@@ -203,8 +203,8 @@ try {
     Write-Host "  - 시작 프로그램 등록 실패: $_" -ForegroundColor Red
 }
 
-# [11/12] Notepad++ 파일 연결 설정
-Write-Host "[11/12] Notepad++ 파일 연결 설정 중..." -ForegroundColor Yellow
+# [11/14] Notepad++ 파일 연결 설정
+Write-Host "[11/14] Notepad++ 파일 연결 설정 중..." -ForegroundColor Yellow
 try {
     $nppPath = "${env:ProgramFiles}\Notepad++\notepad++.exe"
     if (Test-Path $nppPath) {
@@ -232,8 +232,52 @@ try {
     Write-Host "  - 파일 연결 실패: $_" -ForegroundColor Red
 }
 
-# [12/12] Chrome 기본 브라우저 설정
-Write-Host "[12/12] Chrome 기본 브라우저 설정 중..." -ForegroundColor Yellow
+# [12/14] MSEdgeRedirect 다운로드
+Write-Host "[12/14] MSEdgeRedirect 다운로드 중..." -ForegroundColor Yellow
+try {
+    $msEdgeRedirectRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/rcmaehl/MSEdgeRedirect/releases/latest"
+    $msEdgeRedirectAsset = $msEdgeRedirectRelease.assets | Where-Object { $_.name -match "MSEdgeRedirect\.exe$" } | Select-Object -First 1
+    $msEdgeRedirectUrl = $msEdgeRedirectAsset.browser_download_url
+    $msEdgeRedirectInstaller = Join-Path $tempDir "MSEdgeRedirect.exe"
+    Invoke-WebRequest -Uri $msEdgeRedirectUrl -OutFile $msEdgeRedirectInstaller -UseBasicParsing
+    Write-Host "  - 다운로드 완료: $($msEdgeRedirectAsset.name)" -ForegroundColor Green
+} catch {
+    Write-Host "  - 다운로드 실패: $_" -ForegroundColor Red
+    $msEdgeRedirectInstaller = $null
+    $failCount++
+}
+
+# [13/14] MSEdgeRedirect 설치 (시작 메뉴 검색 → Chrome 리다이렉트)
+Write-Host "[13/14] MSEdgeRedirect 설치 중 (Edge 강제 링크 → Chrome)..." -ForegroundColor Yellow
+if ($msEdgeRedirectInstaller -and (Test-Path $msEdgeRedirectInstaller)) {
+    try {
+        $installPath = "$env:LOCALAPPDATA\MSEdgeRedirect"
+        if (!(Test-Path $installPath)) {
+            New-Item -Path $installPath -ItemType Directory -Force | Out-Null
+        }
+        Copy-Item $msEdgeRedirectInstaller "$installPath\MSEdgeRedirect.exe" -Force
+        Remove-Item $msEdgeRedirectInstaller -Force -ErrorAction SilentlyContinue
+
+        # 시작 프로그램에 등록
+        $startupKey = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+        Set-ItemProperty -Path $startupKey -Name "MSEdgeRedirect" -Value "`"$installPath\MSEdgeRedirect.exe`"" -Force
+
+        # 첫 실행 (Active Mode)
+        Start-Process "$installPath\MSEdgeRedirect.exe" -ArgumentList "/silentinstall" -WindowStyle Hidden -ErrorAction SilentlyContinue
+
+        Write-Host "  - 설치 완료 (시작 프로그램 등록)" -ForegroundColor Green
+        Write-Host "  - 시작 메뉴/위젯 검색이 Chrome으로 열립니다" -ForegroundColor Green
+        $successCount++
+    } catch {
+        Write-Host "  - 설치 실패: $_" -ForegroundColor Red
+        $failCount++
+    }
+} else {
+    Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
+}
+
+# [14/14] Chrome 기본 브라우저 설정
+Write-Host "[14/14] Chrome 기본 브라우저 설정 중..." -ForegroundColor Yellow
 try {
     $chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
     if (Test-Path $chromePath) {

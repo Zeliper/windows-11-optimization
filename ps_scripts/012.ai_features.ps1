@@ -30,7 +30,7 @@ if (-not $global:OrchestrateMode) {
     }
 }
 
-$totalSteps = 8
+$totalSteps = 14
 Write-Host ""
 
 
@@ -253,6 +253,165 @@ Set-ItemProperty -Path $liveCaptionsPath -Name "LiveCaptionsEnabled" -Value 0 -T
 Write-Host "  - Live Captions 비활성화" -ForegroundColor Green
 
 
+# [9/14] AI AppX 패키지 강제 제거
+Write-Host ""
+Write-Host "[9/$totalSteps] AI AppX 패키지 강제 제거 중..." -ForegroundColor Yellow
+
+$aiPackagePatterns = @(
+    "*Copilot*"
+    "*Recall*"
+    "*Microsoft.Windows.Ai*"
+    "*Microsoft.AI*"
+)
+
+foreach ($pattern in $aiPackagePatterns) {
+    # 사용자 패키지 제거
+    Get-AppxPackage -AllUsers -Name $pattern -ErrorAction SilentlyContinue |
+        ForEach-Object {
+            Write-Host "  - 제거 중: $($_.Name)" -ForegroundColor White
+            Remove-AppxPackage -Package $_.PackageFullName -AllUsers -ErrorAction SilentlyContinue
+        }
+    # 프로비저닝 패키지 제거
+    Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue |
+        Where-Object { $_.DisplayName -like $pattern } |
+        ForEach-Object {
+            Write-Host "  - 프로비저닝 제거 중: $($_.DisplayName)" -ForegroundColor White
+            Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction SilentlyContinue | Out-Null
+        }
+}
+Write-Host "  - AI 패키지 제거 완료" -ForegroundColor Green
+
+
+# [10/14] Recall Optional Feature 제거
+Write-Host ""
+Write-Host "[10/$totalSteps] Recall Optional Feature 제거 중..." -ForegroundColor Yellow
+
+try {
+    # DISM으로 Recall 기능 제거 시도
+    $recallFeature = Get-WindowsOptionalFeature -Online -FeatureName "Recall" -ErrorAction SilentlyContinue
+    if ($recallFeature -and $recallFeature.State -eq "Enabled") {
+        Disable-WindowsOptionalFeature -Online -FeatureName "Recall" -Remove -NoRestart -ErrorAction SilentlyContinue | Out-Null
+        Write-Host "  - Recall 선택적 기능 제거됨" -ForegroundColor Green
+    } else {
+        Write-Host "  - Recall 기능이 설치되어 있지 않거나 이미 비활성화됨" -ForegroundColor Green
+    }
+} catch {
+    Write-Host "  - Recall 기능 제거 건너뜀 (설치되지 않음)" -ForegroundColor Green
+}
+
+
+# [11/14] AI 자동 설치 방지 정책
+Write-Host ""
+Write-Host "[11/$totalSteps] AI 자동 설치 방지 정책 설정 중..." -ForegroundColor Yellow
+
+# ContentDeliveryManager - 자동 앱 설치 비활성화
+$cdmPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+if (!(Test-Path $cdmPath)) {
+    New-Item -Path $cdmPath -Force | Out-Null
+}
+Set-ItemProperty -Path $cdmPath -Name "SilentInstalledAppsEnabled" -Value 0 -Type DWord
+Set-ItemProperty -Path $cdmPath -Name "ContentDeliveryAllowed" -Value 0 -Type DWord
+Set-ItemProperty -Path $cdmPath -Name "OemPreInstalledAppsEnabled" -Value 0 -Type DWord
+Set-ItemProperty -Path $cdmPath -Name "PreInstalledAppsEnabled" -Value 0 -Type DWord
+Set-ItemProperty -Path $cdmPath -Name "PreInstalledAppsEverEnabled" -Value 0 -Type DWord
+Set-ItemProperty -Path $cdmPath -Name "SoftLandingEnabled" -Value 0 -Type DWord
+Set-ItemProperty -Path $cdmPath -Name "SystemPaneSuggestionsEnabled" -Value 0 -Type DWord
+Write-Host "  - 앱 자동 설치 비활성화" -ForegroundColor Green
+
+# AI 자동 배포 차단
+$deploymentPath = "HKLM:\SOFTWARE\Microsoft\PolicyManager\current\device\Experience"
+if (!(Test-Path $deploymentPath)) {
+    New-Item -Path $deploymentPath -Force | Out-Null
+}
+Set-ItemProperty -Path $deploymentPath -Name "AllowCopilot" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+Write-Host "  - AI 자동 배포 정책 설정" -ForegroundColor Green
+
+
+# [12/14] Windows Search AI 추천 비활성화
+Write-Host ""
+Write-Host "[12/$totalSteps] Windows Search AI 추천 비활성화 중..." -ForegroundColor Yellow
+
+# Search 설정
+$searchPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search"
+if (!(Test-Path $searchPath)) {
+    New-Item -Path $searchPath -Force | Out-Null
+}
+Set-ItemProperty -Path $searchPath -Name "BingSearchEnabled" -Value 0 -Type DWord
+Set-ItemProperty -Path $searchPath -Name "CortanaConsent" -Value 0 -Type DWord
+Set-ItemProperty -Path $searchPath -Name "AllowCloudSearch" -Value 0 -Type DWord
+Set-ItemProperty -Path $searchPath -Name "AllowSearchToUseLocation" -Value 0 -Type DWord
+Write-Host "  - Bing/Cloud 검색 비활성화" -ForegroundColor Green
+
+# SearchSettings - 검색 하이라이트 비활성화
+$searchSettingsPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\SearchSettings"
+if (!(Test-Path $searchSettingsPath)) {
+    New-Item -Path $searchSettingsPath -Force | Out-Null
+}
+Set-ItemProperty -Path $searchSettingsPath -Name "IsDynamicSearchBoxEnabled" -Value 0 -Type DWord
+Set-ItemProperty -Path $searchSettingsPath -Name "IsAADCloudSearchEnabled" -Value 0 -Type DWord
+Set-ItemProperty -Path $searchSettingsPath -Name "IsMSACloudSearchEnabled" -Value 0 -Type DWord
+Write-Host "  - 검색 하이라이트/클라우드 검색 비활성화" -ForegroundColor Green
+
+# 검색 히스토리 비활성화
+$historyPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+Set-ItemProperty -Path $historyPath -Name "Start_TrackDocs" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+Write-Host "  - 검색 히스토리 비활성화" -ForegroundColor Green
+
+
+# [13/14] Windows Spotlight AI 비활성화
+Write-Host ""
+Write-Host "[13/$totalSteps] Windows Spotlight AI 비활성화 중..." -ForegroundColor Yellow
+
+# Spotlight 및 추천 콘텐츠 비활성화
+$cdmPathSpotlight = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+Set-ItemProperty -Path $cdmPathSpotlight -Name "RotatingLockScreenEnabled" -Value 0 -Type DWord
+Set-ItemProperty -Path $cdmPathSpotlight -Name "RotatingLockScreenOverlayEnabled" -Value 0 -Type DWord
+Set-ItemProperty -Path $cdmPathSpotlight -Name "SubscribedContent-338387Enabled" -Value 0 -Type DWord
+Set-ItemProperty -Path $cdmPathSpotlight -Name "SubscribedContent-338388Enabled" -Value 0 -Type DWord
+Set-ItemProperty -Path $cdmPathSpotlight -Name "SubscribedContent-338389Enabled" -Value 0 -Type DWord
+Set-ItemProperty -Path $cdmPathSpotlight -Name "SubscribedContent-353694Enabled" -Value 0 -Type DWord
+Set-ItemProperty -Path $cdmPathSpotlight -Name "SubscribedContent-353696Enabled" -Value 0 -Type DWord
+Set-ItemProperty -Path $cdmPathSpotlight -Name "SubscribedContent-310093Enabled" -Value 0 -Type DWord
+Write-Host "  - Windows Spotlight 비활성화" -ForegroundColor Green
+
+# 잠금 화면 팁 비활성화
+Set-ItemProperty -Path $cdmPathSpotlight -Name "SubscribedContent-338393Enabled" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $cdmPathSpotlight -Name "SubscribedContent-353698Enabled" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+Write-Host "  - 잠금 화면 팁/추천 비활성화" -ForegroundColor Green
+
+
+# [14/14] ML 서비스 및 AI 예약 작업 비활성화
+Write-Host ""
+Write-Host "[14/$totalSteps] ML 서비스 및 AI 예약 작업 비활성화 중..." -ForegroundColor Yellow
+
+# Machine Learning Service 비활성화
+$mlServices = @("mlsvc", "WMPNetworkSvc")
+foreach ($svc in $mlServices) {
+    $service = Get-Service -Name $svc -ErrorAction SilentlyContinue
+    if ($service) {
+        Stop-Service -Name $svc -Force -ErrorAction SilentlyContinue
+        Set-Service -Name $svc -StartupType Disabled -ErrorAction SilentlyContinue
+        Write-Host "  - $svc 서비스 비활성화" -ForegroundColor Green
+    }
+}
+
+# AI 관련 예약 작업 비활성화
+$aiTaskPaths = @(
+    "\Microsoft\Windows\AI\"
+    "\Microsoft\Windows\Shell\AI\"
+    "\Microsoft\Windows\WindowsAI\"
+)
+
+foreach ($taskPath in $aiTaskPaths) {
+    Get-ScheduledTask -TaskPath $taskPath -ErrorAction SilentlyContinue |
+        ForEach-Object {
+            Disable-ScheduledTask -TaskName $_.TaskName -TaskPath $_.TaskPath -ErrorAction SilentlyContinue | Out-Null
+            Write-Host "  - 작업 비활성화: $($_.TaskName)" -ForegroundColor White
+        }
+}
+Write-Host "  - AI 예약 작업 비활성화 완료" -ForegroundColor Green
+
+
 # 완료 메시지
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
@@ -268,6 +427,12 @@ Write-Host "  - Paint/Notepad/Photos AI 기능" -ForegroundColor White
 Write-Host "  - AI Fabric Service" -ForegroundColor White
 Write-Host "  - AI 텔레메트리" -ForegroundColor White
 Write-Host "  - Voice Access AI / Live Captions" -ForegroundColor White
+Write-Host "  - AI AppX 패키지 강제 제거" -ForegroundColor White
+Write-Host "  - Recall Optional Feature 제거" -ForegroundColor White
+Write-Host "  - AI 자동 설치 방지 정책" -ForegroundColor White
+Write-Host "  - Windows Search AI 추천" -ForegroundColor White
+Write-Host "  - Windows Spotlight AI" -ForegroundColor White
+Write-Host "  - ML 서비스 및 AI 예약 작업" -ForegroundColor White
 Write-Host ""
 Write-Host "재부팅 후 모든 설정이 적용됩니다." -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Cyan
