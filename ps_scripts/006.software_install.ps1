@@ -24,8 +24,8 @@ $tempDir = $env:TEMP
 $successCount = 0
 $failCount = 0
 
-# [1/19] Notepad++ 다운로드
-Write-Host "[1/19] Notepad++ 다운로드 중..." -ForegroundColor Yellow
+# [1/20] Notepad++ 다운로드
+Write-Host "[1/20] Notepad++ 다운로드 중..." -ForegroundColor Yellow
 try {
     $nppRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/notepad-plus-plus/notepad-plus-plus/releases/latest"
     $nppAsset = $nppRelease.assets | Where-Object { $_.name -match "npp.*Installer\.x64\.exe$" } | Select-Object -First 1
@@ -39,8 +39,8 @@ try {
     $failCount++
 }
 
-# [2/19] Notepad++ 설치
-Write-Host "[2/19] Notepad++ 설치 중..." -ForegroundColor Yellow
+# [2/20] Notepad++ 설치
+Write-Host "[2/20] Notepad++ 설치 중..." -ForegroundColor Yellow
 if ($nppInstaller -and (Test-Path $nppInstaller)) {
     try {
         Start-Process -FilePath $nppInstaller -ArgumentList "/S" -Wait -NoNewWindow
@@ -55,8 +55,8 @@ if ($nppInstaller -and (Test-Path $nppInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [3/19] Chrome 다운로드
-Write-Host "[3/19] Chrome 다운로드 중..." -ForegroundColor Yellow
+# [3/20] Chrome 다운로드
+Write-Host "[3/20] Chrome 다운로드 중..." -ForegroundColor Yellow
 try {
     $chromeUrl = "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi"
     $chromeInstaller = Join-Path $tempDir "chrome_installer.msi"
@@ -68,8 +68,8 @@ try {
     $failCount++
 }
 
-# [4/19] Chrome 설치
-Write-Host "[4/19] Chrome 설치 중..." -ForegroundColor Yellow
+# [4/20] Chrome 설치
+Write-Host "[4/20] Chrome 설치 중..." -ForegroundColor Yellow
 if ($chromeInstaller -and (Test-Path $chromeInstaller)) {
     try {
         Start-Process msiexec -ArgumentList "/i `"$chromeInstaller`" /qn /norestart" -Wait -NoNewWindow
@@ -84,8 +84,8 @@ if ($chromeInstaller -and (Test-Path $chromeInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [5/19] 7-Zip 다운로드
-Write-Host "[5/19] 7-Zip 다운로드 중..." -ForegroundColor Yellow
+# [5/20] 7-Zip 다운로드
+Write-Host "[5/20] 7-Zip 다운로드 중..." -ForegroundColor Yellow
 try {
     $sevenZipUrl = "https://www.7-zip.org/a/7z2408-x64.msi"
     $sevenZipInstaller = Join-Path $tempDir "7zip_installer.msi"
@@ -97,8 +97,8 @@ try {
     $failCount++
 }
 
-# [6/19] 7-Zip 설치
-Write-Host "[6/19] 7-Zip 설치 중..." -ForegroundColor Yellow
+# [6/20] 7-Zip 설치
+Write-Host "[6/20] 7-Zip 설치 중..." -ForegroundColor Yellow
 if ($sevenZipInstaller -and (Test-Path $sevenZipInstaller)) {
     try {
         Start-Process msiexec -ArgumentList "/i `"$sevenZipInstaller`" /qn" -Wait -NoNewWindow
@@ -113,8 +113,8 @@ if ($sevenZipInstaller -and (Test-Path $sevenZipInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [7/19] ShareX 다운로드
-Write-Host "[7/19] ShareX 다운로드 중..." -ForegroundColor Yellow
+# [7/20] ShareX 다운로드
+Write-Host "[7/20] ShareX 다운로드 중..." -ForegroundColor Yellow
 try {
     $shareXRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/ShareX/ShareX/releases/latest"
     $shareXAsset = $shareXRelease.assets | Where-Object { $_.name -match "ShareX-.*-setup\.exe$" } | Select-Object -First 1
@@ -128,8 +128,8 @@ try {
     $failCount++
 }
 
-# [8/19] ShareX 설치 (업로드 기능 비활성화)
-Write-Host "[8/19] ShareX 설치 중 (업로드 기능 비활성화)..." -ForegroundColor Yellow
+# [8/20] ShareX 설치 (업로드 기능 비활성화)
+Write-Host "[8/20] ShareX 설치 중 (업로드 기능 비활성화)..." -ForegroundColor Yellow
 if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
     try {
         # ShareX 설치
@@ -158,8 +158,8 @@ if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [9/19] ShareX 컨텍스트 메뉴 제거
-Write-Host "[9/19] ShareX 컨텍스트 메뉴 제거 중..." -ForegroundColor Yellow
+# [9/20] ShareX 컨텍스트 메뉴 제거
+Write-Host "[9/20] ShareX 컨텍스트 메뉴 제거 중..." -ForegroundColor Yellow
 try {
     # ShareX 컨텍스트 메뉴 레지스트리 키 삭제 (모든 파일용)
     $contextMenuPaths = @(
@@ -187,8 +187,8 @@ try {
     Write-Host "  - 컨텍스트 메뉴 제거 실패: $_" -ForegroundColor Red
 }
 
-# [10/19] ShareX 시작 시 트레이 모드 설정
-Write-Host "[10/19] ShareX 시작 프로그램 등록 중..." -ForegroundColor Yellow
+# [10/20] ShareX 시작 시 트레이 모드 설정
+Write-Host "[10/20] ShareX 시작 프로그램 등록 중..." -ForegroundColor Yellow
 try {
     $shareXExe = "${env:ProgramFiles}\ShareX\ShareX.exe"
     if (Test-Path $shareXExe) {
@@ -203,8 +203,8 @@ try {
     Write-Host "  - 시작 프로그램 등록 실패: $_" -ForegroundColor Red
 }
 
-# [11/19] ImageGlass 다운로드
-Write-Host "[11/19] ImageGlass 다운로드 중..." -ForegroundColor Yellow
+# [11/20] ImageGlass 다운로드
+Write-Host "[11/20] ImageGlass 다운로드 중..." -ForegroundColor Yellow
 try {
     $imageGlassRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/d2phap/ImageGlass/releases/latest"
     $imageGlassAsset = $imageGlassRelease.assets | Where-Object { $_.name -match "ImageGlass_.*_x64\.msi$" } | Select-Object -First 1
@@ -218,8 +218,8 @@ try {
     $failCount++
 }
 
-# [12/19] ImageGlass 설치
-Write-Host "[12/19] ImageGlass 설치 중..." -ForegroundColor Yellow
+# [12/20] ImageGlass 설치
+Write-Host "[12/20] ImageGlass 설치 중..." -ForegroundColor Yellow
 if ($imageGlassInstaller -and (Test-Path $imageGlassInstaller)) {
     try {
         Start-Process msiexec -ArgumentList "/i `"$imageGlassInstaller`" /qn /norestart" -Wait -NoNewWindow
@@ -234,8 +234,57 @@ if ($imageGlassInstaller -and (Test-Path $imageGlassInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [13/19] SetUserFTA 다운로드 (파일 연결 도구)
-Write-Host "[13/19] SetUserFTA 다운로드 중..." -ForegroundColor Yellow
+# [13/20] ImageGlass 설정 적용
+Write-Host "[13/20] ImageGlass 설정 적용 중..." -ForegroundColor Yellow
+try {
+    $imageGlassConfigDir = "$env:LOCALAPPDATA\ImageGlass"
+    if (!(Test-Path $imageGlassConfigDir)) {
+        New-Item -Path $imageGlassConfigDir -ItemType Directory -Force | Out-Null
+    }
+
+    $config = @{
+        "_Metadata" = @{
+            "Description" = "ImageGlass configuration file"
+            "Version" = "9.1"
+        }
+        "QuickSetupVersion" = 10
+
+        # UI 설정 - 미니멀 모드
+        "ShowToolbar" = $false
+        "ShowGallery" = $false
+        "ShowWelcomeImage" = $false
+
+        # 배경 스타일
+        "WindowBackdrop" = "Mica"
+        "BackgroundColor" = "#FF1E1E1E"
+
+        # 기본 줌 모드 - 화면 맞춤
+        "ZoomMode" = "ScaleToFit"
+
+        # 단축키 설정
+        "MenuHotkeys" = @{
+            "MnuFullScreen" = @("Enter", "F11")
+            "MnuExit" = @("Ctrl+W", "Escape")
+            "MnuFitScreen" = @("F")
+            "MnuActualPixel" = @("Ctrl+0")
+            "MnuZoomIn" = @("Ctrl+Plus", "Plus")
+            "MnuZoomOut" = @("Ctrl+Minus", "Minus")
+            "MnuRotateRight" = @("R")
+            "MnuRotateLeft" = @("L")
+            "MnuDeleteFromHardDisk" = @()
+            "MnuMoveToRecycleBin" = @()
+        }
+    }
+
+    $configPath = "$imageGlassConfigDir\igconfig.json"
+    $config | ConvertTo-Json -Depth 10 | Set-Content -Path $configPath -Encoding UTF8 -Force
+    Write-Host "  - 설정 적용 완료 (미니멀 모드, Mica 배경)" -ForegroundColor Green
+} catch {
+    Write-Host "  - 설정 적용 실패: $_" -ForegroundColor Red
+}
+
+# [14/20] SetUserFTA 다운로드 (파일 연결 도구)
+Write-Host "[14/20] SetUserFTA 다운로드 중..." -ForegroundColor Yellow
 $setUserFtaPath = Join-Path $tempDir "SetUserFTA.exe"
 try {
     $setUserFtaUrl = "https://github.com/AveYo/fox/raw/main/SetUserFTA.exe"
@@ -246,8 +295,8 @@ try {
     $setUserFtaPath = $null
 }
 
-# [14/19] Notepad++ 파일 연결 설정 (SetUserFTA 사용)
-Write-Host "[14/19] Notepad++ 파일 연결 설정 중..." -ForegroundColor Yellow
+# [15/20] Notepad++ 파일 연결 설정 (SetUserFTA 사용)
+Write-Host "[15/20] Notepad++ 파일 연결 설정 중..." -ForegroundColor Yellow
 try {
     $nppPath = "${env:ProgramFiles}\Notepad++\notepad++.exe"
     if ((Test-Path $nppPath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
@@ -274,8 +323,8 @@ try {
     Write-Host "  - 파일 연결 실패: $_" -ForegroundColor Red
 }
 
-# [15/19] ImageGlass 이미지 파일 연결 설정 (SetUserFTA 사용)
-Write-Host "[15/19] ImageGlass 이미지 파일 연결 설정 중..." -ForegroundColor Yellow
+# [16/20] ImageGlass 이미지 파일 연결 설정 (SetUserFTA 사용)
+Write-Host "[16/20] ImageGlass 이미지 파일 연결 설정 중..." -ForegroundColor Yellow
 try {
     $imageGlassPath = "${env:ProgramFiles}\ImageGlass\ImageGlass.exe"
     if ((Test-Path $imageGlassPath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
@@ -302,8 +351,8 @@ try {
     Write-Host "  - 이미지 연결 실패: $_" -ForegroundColor Red
 }
 
-# [16/19] MSEdgeRedirect 다운로드
-Write-Host "[16/19] MSEdgeRedirect 다운로드 중..." -ForegroundColor Yellow
+# [17/20] MSEdgeRedirect 다운로드
+Write-Host "[17/20] MSEdgeRedirect 다운로드 중..." -ForegroundColor Yellow
 try {
     $msEdgeRedirectRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/rcmaehl/MSEdgeRedirect/releases/latest"
     $msEdgeRedirectAsset = $msEdgeRedirectRelease.assets | Where-Object { $_.name -match "MSEdgeRedirect\.exe$" } | Select-Object -First 1
@@ -317,8 +366,8 @@ try {
     $failCount++
 }
 
-# [17/19] MSEdgeRedirect 설치 (시작 메뉴 검색 → Chrome 리다이렉트)
-Write-Host "[17/19] MSEdgeRedirect 설치 중 (Edge 강제 링크 → Chrome)..." -ForegroundColor Yellow
+# [18/20] MSEdgeRedirect 설치 (시작 메뉴 검색 → Chrome 리다이렉트)
+Write-Host "[18/20] MSEdgeRedirect 설치 중 (Edge 강제 링크 → Chrome)..." -ForegroundColor Yellow
 if ($msEdgeRedirectInstaller -and (Test-Path $msEdgeRedirectInstaller)) {
     try {
         $installPath = "$env:LOCALAPPDATA\MSEdgeRedirect"
@@ -346,8 +395,8 @@ if ($msEdgeRedirectInstaller -and (Test-Path $msEdgeRedirectInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [18/19] Chrome 기본 브라우저 설정 (SetUserFTA 사용)
-Write-Host "[18/19] Chrome 기본 브라우저 설정 중..." -ForegroundColor Yellow
+# [19/20] Chrome 기본 브라우저 설정 (SetUserFTA 사용)
+Write-Host "[19/20] Chrome 기본 브라우저 설정 중..." -ForegroundColor Yellow
 try {
     $chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
     if ((Test-Path $chromePath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
@@ -368,8 +417,8 @@ try {
     Write-Host "  - 기본 브라우저 설정 실패: $_" -ForegroundColor Red
 }
 
-# [19/19] Windows 배경화면 기본 설정 (Spotlight 제거)
-Write-Host "[19/19] Windows 배경화면 기본 설정 중..." -ForegroundColor Yellow
+# [20/20] Windows 배경화면 기본 설정 (Spotlight 제거)
+Write-Host "[20/20] Windows 배경화면 기본 설정 중..." -ForegroundColor Yellow
 try {
     # 기본 Windows 배경화면 경로
     $defaultWallpaper = "C:\Windows\Web\Wallpaper\Windows\img0.jpg"
