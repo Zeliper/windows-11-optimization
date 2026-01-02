@@ -306,12 +306,14 @@ Write-Host "변경 사항을 완전히 적용하려면 재부팅이 필요합니
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 재부팅 확인
-$restart = Read-Host "지금 재부팅하시겠습니까? (Y/N)"
-if ($restart -eq "Y" -or $restart -eq "y") {
-    Write-Host "10초 후 재부팅됩니다..." -ForegroundColor Red
-    Start-Sleep -Seconds 10
-    Restart-Computer -Force
-} else {
-    Write-Host "나중에 수동으로 재부팅해주세요." -ForegroundColor Yellow
+# 재부팅 확인 (OrchestrateMode에서는 건너뜀)
+if (-not $global:OrchestrateMode) {
+    $restart = Read-Host "지금 재부팅하시겠습니까? (Y/N)"
+    if ($restart -eq "Y" -or $restart -eq "y") {
+        Write-Host "10초 후 재부팅됩니다..." -ForegroundColor Red
+        Start-Sleep -Seconds 10
+        Restart-Computer -Force
+    } else {
+        Write-Host "나중에 수동으로 재부팅해주세요." -ForegroundColor Yellow
+    }
 }
