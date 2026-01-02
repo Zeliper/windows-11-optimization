@@ -2,7 +2,7 @@
 
 ## 로컬 계정 생성
 
-<kbd>Ctrl</kbd> + <kbd>F10</kbd> 으로 Console Open
+<kbd>Shift</kbd> + <kbd>F10</kbd> 으로 Console Open
 
 ```cmd
 start ms-cxh:localonly
