@@ -286,12 +286,42 @@ try {
 # [14/20] SetUserFTA 다운로드 (파일 연결 도구)
 Write-Host "[14/20] SetUserFTA 다운로드 중..." -ForegroundColor Yellow
 $setUserFtaPath = Join-Path $tempDir "SetUserFTA.exe"
-try {
-    $setUserFtaUrl = "https://github.com/AveYo/fox/raw/main/SetUserFTA.exe"
-    Invoke-WebRequest -Uri $setUserFtaUrl -OutFile $setUserFtaPath -UseBasicParsing
-    Write-Host "  - 다운로드 완료" -ForegroundColor Green
-} catch {
-    Write-Host "  - 다운로드 실패: $_" -ForegroundColor Red
+$downloaded = $false
+
+# 다운로드 URL 목록 (공식 사이트 우선)
+$setUserFtaUrls = @(
+    @{ Url = "https://kolbi.cz/SetUserFTA.zip"; IsZip = $true },
+    @{ Url = "https://github.com/mrmattipants/Adobe_Reader_And_Adobe_Acrobat_Pro_File_Type_Associations/raw/main/SetUserFTA/SetUserFTA.exe"; IsZip = $false }
+)
+
+foreach ($source in $setUserFtaUrls) {
+    if ($downloaded) { break }
+    try {
+        if ($source.IsZip) {
+            # ZIP 파일 다운로드 후 압축 해제
+            $zipPath = Join-Path $tempDir "SetUserFTA.zip"
+            Invoke-WebRequest -Uri $source.Url -OutFile $zipPath -UseBasicParsing -TimeoutSec 30
+            Expand-Archive -Path $zipPath -DestinationPath $tempDir -Force
+            if (Test-Path $setUserFtaPath) {
+                $downloaded = $true
+                Write-Host "  - 다운로드 완료 (kolbi.cz)" -ForegroundColor Green
+            }
+            Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+        } else {
+            # EXE 직접 다운로드
+            Invoke-WebRequest -Uri $source.Url -OutFile $setUserFtaPath -UseBasicParsing -TimeoutSec 30
+            if (Test-Path $setUserFtaPath) {
+                $downloaded = $true
+                Write-Host "  - 다운로드 완료 (GitHub)" -ForegroundColor Green
+            }
+        }
+    } catch {
+        Write-Host "  - $($source.Url) 실패, 다음 소스 시도..." -ForegroundColor Yellow
+    }
+}
+
+if (-not $downloaded) {
+    Write-Host "  - 모든 소스에서 다운로드 실패" -ForegroundColor Red
     $setUserFtaPath = $null
 }
 
