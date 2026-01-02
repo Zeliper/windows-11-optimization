@@ -24,8 +24,8 @@ $tempDir = $env:TEMP
 $successCount = 0
 $failCount = 0
 
-# [1/14] Notepad++ 다운로드
-Write-Host "[1/14] Notepad++ 다운로드 중..." -ForegroundColor Yellow
+# [1/16] Notepad++ 다운로드
+Write-Host "[1/16] Notepad++ 다운로드 중..." -ForegroundColor Yellow
 try {
     $nppRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/notepad-plus-plus/notepad-plus-plus/releases/latest"
     $nppAsset = $nppRelease.assets | Where-Object { $_.name -match "npp.*Installer\.x64\.exe$" } | Select-Object -First 1
@@ -39,8 +39,8 @@ try {
     $failCount++
 }
 
-# [2/14] Notepad++ 설치
-Write-Host "[2/14] Notepad++ 설치 중..." -ForegroundColor Yellow
+# [2/16] Notepad++ 설치
+Write-Host "[2/16] Notepad++ 설치 중..." -ForegroundColor Yellow
 if ($nppInstaller -and (Test-Path $nppInstaller)) {
     try {
         Start-Process -FilePath $nppInstaller -ArgumentList "/S" -Wait -NoNewWindow
@@ -55,8 +55,8 @@ if ($nppInstaller -and (Test-Path $nppInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [3/14] Chrome 다운로드
-Write-Host "[3/14] Chrome 다운로드 중..." -ForegroundColor Yellow
+# [3/16] Chrome 다운로드
+Write-Host "[3/16] Chrome 다운로드 중..." -ForegroundColor Yellow
 try {
     $chromeUrl = "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi"
     $chromeInstaller = Join-Path $tempDir "chrome_installer.msi"
@@ -68,8 +68,8 @@ try {
     $failCount++
 }
 
-# [4/14] Chrome 설치
-Write-Host "[4/14] Chrome 설치 중..." -ForegroundColor Yellow
+# [4/16] Chrome 설치
+Write-Host "[4/16] Chrome 설치 중..." -ForegroundColor Yellow
 if ($chromeInstaller -and (Test-Path $chromeInstaller)) {
     try {
         Start-Process msiexec -ArgumentList "/i `"$chromeInstaller`" /qn /norestart" -Wait -NoNewWindow
@@ -84,8 +84,8 @@ if ($chromeInstaller -and (Test-Path $chromeInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [5/14] 7-Zip 다운로드
-Write-Host "[5/14] 7-Zip 다운로드 중..." -ForegroundColor Yellow
+# [5/16] 7-Zip 다운로드
+Write-Host "[5/16] 7-Zip 다운로드 중..." -ForegroundColor Yellow
 try {
     $sevenZipUrl = "https://www.7-zip.org/a/7z2408-x64.msi"
     $sevenZipInstaller = Join-Path $tempDir "7zip_installer.msi"
@@ -97,8 +97,8 @@ try {
     $failCount++
 }
 
-# [6/14] 7-Zip 설치
-Write-Host "[6/14] 7-Zip 설치 중..." -ForegroundColor Yellow
+# [6/16] 7-Zip 설치
+Write-Host "[6/16] 7-Zip 설치 중..." -ForegroundColor Yellow
 if ($sevenZipInstaller -and (Test-Path $sevenZipInstaller)) {
     try {
         Start-Process msiexec -ArgumentList "/i `"$sevenZipInstaller`" /qn" -Wait -NoNewWindow
@@ -113,8 +113,8 @@ if ($sevenZipInstaller -and (Test-Path $sevenZipInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [7/14] ShareX 다운로드
-Write-Host "[7/14] ShareX 다운로드 중..." -ForegroundColor Yellow
+# [7/16] ShareX 다운로드
+Write-Host "[7/16] ShareX 다운로드 중..." -ForegroundColor Yellow
 try {
     $shareXRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/ShareX/ShareX/releases/latest"
     $shareXAsset = $shareXRelease.assets | Where-Object { $_.name -match "ShareX-.*-setup\.exe$" } | Select-Object -First 1
@@ -128,8 +128,8 @@ try {
     $failCount++
 }
 
-# [8/14] ShareX 설치 (업로드 기능 비활성화)
-Write-Host "[8/14] ShareX 설치 중 (업로드 기능 비활성화)..." -ForegroundColor Yellow
+# [8/16] ShareX 설치 (업로드 기능 비활성화)
+Write-Host "[8/16] ShareX 설치 중 (업로드 기능 비활성화)..." -ForegroundColor Yellow
 if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
     try {
         # ShareX 설치
@@ -158,8 +158,8 @@ if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [9/14] ShareX 컨텍스트 메뉴 제거
-Write-Host "[9/14] ShareX 컨텍스트 메뉴 제거 중..." -ForegroundColor Yellow
+# [9/16] ShareX 컨텍스트 메뉴 제거
+Write-Host "[9/16] ShareX 컨텍스트 메뉴 제거 중..." -ForegroundColor Yellow
 try {
     # ShareX 컨텍스트 메뉴 레지스트리 키 삭제 (모든 파일용)
     $contextMenuPaths = @(
@@ -187,8 +187,8 @@ try {
     Write-Host "  - 컨텍스트 메뉴 제거 실패: $_" -ForegroundColor Red
 }
 
-# [10/14] ShareX 시작 시 트레이 모드 설정
-Write-Host "[10/14] ShareX 시작 프로그램 등록 중..." -ForegroundColor Yellow
+# [10/16] ShareX 시작 시 트레이 모드 설정
+Write-Host "[10/16] ShareX 시작 프로그램 등록 중..." -ForegroundColor Yellow
 try {
     $shareXExe = "${env:ProgramFiles}\ShareX\ShareX.exe"
     if (Test-Path $shareXExe) {
@@ -203,11 +203,23 @@ try {
     Write-Host "  - 시작 프로그램 등록 실패: $_" -ForegroundColor Red
 }
 
-# [11/14] Notepad++ 파일 연결 설정
-Write-Host "[11/14] Notepad++ 파일 연결 설정 중..." -ForegroundColor Yellow
+# [11/16] SetUserFTA 다운로드 (파일 연결 도구)
+Write-Host "[11/16] SetUserFTA 다운로드 중..." -ForegroundColor Yellow
+$setUserFtaPath = Join-Path $tempDir "SetUserFTA.exe"
+try {
+    $setUserFtaUrl = "https://github.com/AveYo/fox/raw/main/SetUserFTA.exe"
+    Invoke-WebRequest -Uri $setUserFtaUrl -OutFile $setUserFtaPath -UseBasicParsing
+    Write-Host "  - 다운로드 완료" -ForegroundColor Green
+} catch {
+    Write-Host "  - 다운로드 실패: $_" -ForegroundColor Red
+    $setUserFtaPath = $null
+}
+
+# [12/16] Notepad++ 파일 연결 설정 (SetUserFTA 사용)
+Write-Host "[12/16] Notepad++ 파일 연결 설정 중..." -ForegroundColor Yellow
 try {
     $nppPath = "${env:ProgramFiles}\Notepad++\notepad++.exe"
-    if (Test-Path $nppPath) {
+    if ((Test-Path $nppPath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
         # 연결할 확장자 목록 (실행 스크립트 제외: .bat, .cmd, .ps1, .vbs 등)
         $extensions = @(
             ".txt", ".ini", ".cfg", ".conf", ".config",
@@ -216,24 +228,23 @@ try {
             ".sql", ".csv", ".tsv", ".sh"
         )
 
-        # ftype/assoc 명령 사용 (Windows 11 호환)
+        # SetUserFTA로 파일 연결 설정
+        $progId = "Applications\notepad++.exe"
         foreach ($ext in $extensions) {
-            $extName = $ext.TrimStart('.')
-            $progId = "Notepad++.$extName"
-            cmd /c "ftype $progId=`"$nppPath`" `"%1`"" 2>$null
-            cmd /c "assoc $ext=$progId" 2>$null
+            Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -Wait -NoNewWindow -ErrorAction SilentlyContinue
         }
-        Write-Host "  - 파일 연결 시도 완료: $($extensions.Count)개 확장자" -ForegroundColor Green
-        Write-Host "  - 참고: 일부 확장자는 Windows 설정에서 수동 변경 필요" -ForegroundColor Yellow
-    } else {
+        Write-Host "  - 파일 연결 완료: $($extensions.Count)개 확장자" -ForegroundColor Green
+    } elseif (!(Test-Path $nppPath)) {
         Write-Host "  - 건너뜀 (Notepad++ 설치 경로 없음)" -ForegroundColor Red
+    } else {
+        Write-Host "  - 건너뜀 (SetUserFTA 없음)" -ForegroundColor Red
     }
 } catch {
     Write-Host "  - 파일 연결 실패: $_" -ForegroundColor Red
 }
 
-# [12/14] MSEdgeRedirect 다운로드
-Write-Host "[12/14] MSEdgeRedirect 다운로드 중..." -ForegroundColor Yellow
+# [13/16] MSEdgeRedirect 다운로드
+Write-Host "[13/16] MSEdgeRedirect 다운로드 중..." -ForegroundColor Yellow
 try {
     $msEdgeRedirectRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/rcmaehl/MSEdgeRedirect/releases/latest"
     $msEdgeRedirectAsset = $msEdgeRedirectRelease.assets | Where-Object { $_.name -match "MSEdgeRedirect\.exe$" } | Select-Object -First 1
@@ -247,8 +258,8 @@ try {
     $failCount++
 }
 
-# [13/14] MSEdgeRedirect 설치 (시작 메뉴 검색 → Chrome 리다이렉트)
-Write-Host "[13/14] MSEdgeRedirect 설치 중 (Edge 강제 링크 → Chrome)..." -ForegroundColor Yellow
+# [14/16] MSEdgeRedirect 설치 (시작 메뉴 검색 → Chrome 리다이렉트)
+Write-Host "[14/16] MSEdgeRedirect 설치 중 (Edge 강제 링크 → Chrome)..." -ForegroundColor Yellow
 if ($msEdgeRedirectInstaller -and (Test-Path $msEdgeRedirectInstaller)) {
     try {
         $installPath = "$env:LOCALAPPDATA\MSEdgeRedirect"
@@ -276,26 +287,56 @@ if ($msEdgeRedirectInstaller -and (Test-Path $msEdgeRedirectInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [14/14] Chrome 기본 브라우저 설정
-Write-Host "[14/14] Chrome 기본 브라우저 설정 중..." -ForegroundColor Yellow
+# [15/16] Chrome 기본 브라우저 설정 (SetUserFTA 사용)
+Write-Host "[15/16] Chrome 기본 브라우저 설정 중..." -ForegroundColor Yellow
 try {
     $chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
-    if (Test-Path $chromePath) {
-        # ftype/assoc 명령 사용 (Windows 11 호환)
-        cmd /c "ftype ChromeHTML=`"$chromePath`" -- `"%1`"" 2>$null
-        cmd /c "assoc .html=ChromeHTML" 2>$null
-        cmd /c "assoc .htm=ChromeHTML" 2>$null
-
-        # Chrome 자체 기본 브라우저 설정 호출
-        Start-Process $chromePath -ArgumentList "--make-default-browser" -WindowStyle Hidden
-
-        Write-Host "  - 기본 브라우저 설정 시도 완료" -ForegroundColor Green
-        Write-Host "  - 참고: Windows 설정에서 확인 필요할 수 있음" -ForegroundColor Yellow
-    } else {
+    if ((Test-Path $chromePath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
+        # SetUserFTA로 Chrome을 기본 브라우저로 설정
+        $browserAssocs = @(".html", ".htm", ".xhtml", "http", "https")
+        foreach ($assoc in $browserAssocs) {
+            Start-Process -FilePath $setUserFtaPath -ArgumentList "$assoc ChromeHTML" -Wait -NoNewWindow -ErrorAction SilentlyContinue
+        }
+        # PDF도 Chrome으로 열기
+        Start-Process -FilePath $setUserFtaPath -ArgumentList ".pdf ChromeHTML" -Wait -NoNewWindow -ErrorAction SilentlyContinue
+        Write-Host "  - 기본 브라우저 설정 완료 (html, htm, http, https, pdf)" -ForegroundColor Green
+    } elseif (!(Test-Path $chromePath)) {
         Write-Host "  - 건너뜀 (Chrome 설치 경로 없음)" -ForegroundColor Red
+    } else {
+        Write-Host "  - 건너뜀 (SetUserFTA 없음)" -ForegroundColor Red
     }
 } catch {
     Write-Host "  - 기본 브라우저 설정 실패: $_" -ForegroundColor Red
+}
+
+# [16/16] Windows 배경화면 기본 설정 (Spotlight 제거)
+Write-Host "[16/16] Windows 배경화면 기본 설정 중..." -ForegroundColor Yellow
+try {
+    # 기본 Windows 배경화면 경로
+    $defaultWallpaper = "C:\Windows\Web\Wallpaper\Windows\img0.jpg"
+    if (Test-Path $defaultWallpaper) {
+        # 레지스트리에서 배경화면 설정
+        Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "Wallpaper" -Value $defaultWallpaper -Force
+        Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "WallpaperStyle" -Value "10" -Force  # Fill
+
+        # SystemParametersInfo로 즉시 적용
+        Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class Wallpaper {
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+}
+"@
+        [Wallpaper]::SystemParametersInfo(0x0014, 0, $defaultWallpaper, 0x01 -bor 0x02) | Out-Null
+
+        Write-Host "  - 기본 배경화면으로 변경 완료" -ForegroundColor Green
+        Write-Host "  - Spotlight 배경 제거됨 (설정 로딩 속도 개선)" -ForegroundColor Green
+    } else {
+        Write-Host "  - 기본 배경화면 파일 없음, 건너뜀" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "  - 배경화면 설정 실패: $_" -ForegroundColor Red
 }
 
 # 완료 메시지
