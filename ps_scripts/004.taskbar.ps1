@@ -48,8 +48,12 @@ Write-Host ""
 Write-Host "[3/9] 위젯 버튼 숨기기..." -ForegroundColor Yellow
 
 # TaskbarDa = 0 (위젯 숨김)
-Set-ItemProperty -Path $advancedPath -Name "TaskbarDa" -Value 0 -Type DWord
-Write-Host "  - 위젯 버튼 숨김 (사용자 설정)" -ForegroundColor Green
+try {
+    Set-ItemProperty -Path $advancedPath -Name "TaskbarDa" -Value 0 -Type DWord -ErrorAction Stop
+    Write-Host "  - 위젯 버튼 숨김 (사용자 설정)" -ForegroundColor Green
+} catch {
+    Write-Host "  - 위젯 버튼 숨김 실패 (정책으로 대체)" -ForegroundColor Yellow
+}
 
 # 위젯 정책 비활성화 (Dsh = Dashboard)
 $dshPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Dsh"
