@@ -120,19 +120,20 @@ $bloatwareApps = @(
 # 1. UWP 앱 제거 (현재 사용자)
 Write-Host "[1/6] 현재 사용자 블로트웨어 앱 제거 중..." -ForegroundColor Yellow
 
+# 한 번의 호출로 모든 패키지 가져오기 (성능 최적화)
+$allPackages = Get-AppxPackage -ErrorAction SilentlyContinue
 $removedCount = 0
-$skippedCount = 0
 
 foreach ($app in $bloatwareApps) {
-    $package = Get-AppxPackage -Name "*$app*" -ErrorAction SilentlyContinue
-    if ($package) {
+    $matched = $allPackages | Where-Object { $_.Name -like "*$app*" }
+    foreach ($package in $matched) {
         try {
             $package | Remove-AppxPackage -ErrorAction SilentlyContinue
             Write-Host "  - $($package.Name) 제거됨" -ForegroundColor Green
             $removedCount++
         }
         catch {
-            Write-Host "  - $app 제거 실패" -ForegroundColor Red
+            Write-Host "  - $($package.Name) 제거 실패" -ForegroundColor Red
         }
     }
 }
@@ -148,12 +149,16 @@ if ($removedCount -eq 0) {
 Write-Host ""
 Write-Host "[2/6] 모든 사용자 블로트웨어 앱 제거 중..." -ForegroundColor Yellow
 
+# 한 번의 호출로 모든 AllUsers 패키지 가져오기 (성능 최적화)
+$allUsersPackages = Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue
 $allUsersRemoved = 0
+
 foreach ($app in $bloatwareApps) {
-    $package = Get-AppxPackage -AllUsers -Name "*$app*" -ErrorAction SilentlyContinue
-    if ($package) {
+    $matched = $allUsersPackages | Where-Object { $_.Name -like "*$app*" }
+    foreach ($package in $matched) {
         try {
             $package | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+            Write-Host "  - $($package.Name) 제거됨 (AllUsers)" -ForegroundColor Green
             $allUsersRemoved++
         }
         catch {
