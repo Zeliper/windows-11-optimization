@@ -139,26 +139,39 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/006.software_install.ps1 | iex
 ```
 
-**설치 대상:**
+**설치 대상 (20단계):**
 - Notepad++ (최신 버전 자동 감지)
 - Google Chrome (Enterprise 64비트)
 - 7-Zip (64비트)
-- ShareX (최신 버전, 업로드 기능 및 컨텍스트 메뉴 비활성화)
+- ShareX (최신 버전, 업로드 기능 비활성화, 트레이 시작)
+- ImageGlass (이미지 뷰어, 미니멀 모드 자동 설정)
 - MSEdgeRedirect (시작 메뉴/위젯 검색 → Chrome 리다이렉트)
 
-**특징:**
-- GitHub API를 통한 최신 버전 자동 감지 (Notepad++, ShareX, MSEdgeRedirect)
-- 완전 자동(headless) 설치
-- Notepad++ 파일 연결 자동 설정 (txt, ini, cfg, conf, config, properties, json, xml, yaml 등)
-- Chrome 기본 브라우저 설정
-- ShareX 업로드 기능 레지스트리로 비활성화
-- ShareX 우클릭 컨텍스트 메뉴 제거
-- MSEdgeRedirect: Windows 시작 메뉴/위젯 검색을 Chrome으로 리다이렉트
-- 개별 설치 실패 시 다음 프로그램으로 계속 진행
+**파일 연결 (SetUserFTA 사용):**
+- Notepad++: txt, ini, cfg, conf, config, json, xml, yaml, md, log 등 16개 확장자
+- ImageGlass: jpg, png, gif, bmp, webp, heic, avif, raw, psd 등 24개 이미지 확장자
+- Chrome: html, htm, http, https, pdf (기본 브라우저)
+
+**ImageGlass 자동 설정:**
+- 미니멀 모드 (툴바/갤러리 숨김)
+- Mica 배경 (Windows 11 투명 효과)
+- 단축키: Enter=전체화면, Ctrl+W=닫기, F=화면맞춤
+- 삭제 단축키(D, Delete) 비활성화 (실수 방지)
+- 초기 설정 대화상자 건너뛰기
+
+**ShareX 설정:**
+- 업로드 기능 비활성화
+- 컨텍스트 메뉴 제거
+- 시작 시 트레이 모드로 자동 실행
+
+**추가 설정:**
+- Windows 배경화면을 기본값으로 변경 (Spotlight 제거 → 설정 로딩 속도 개선)
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/006.software_install.ps1)
 
 ## OpenSSH 서버 및 rsync 설치 스크립트
+
+> **참고:** 이 스크립트는 설치 시간이 오래 걸려 통합 스크립트(orchestrate)에서 제외되었습니다. 필요시 개별 실행하세요.
 
 관리자 권한 PowerShell에서 실행:
 
@@ -373,6 +386,7 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 **주요 기능:**
 - 대화형 콘솔 메뉴로 원하는 항목 선택/해제 (체크박스 토글)
 - 프리셋 지원: 기본, 게임용, 서버용, 웹서버용
+- **병렬 실행**: 충돌하지 않는 스크립트는 동시 실행 (속도 향상)
 - 재부팅 필요 항목 자동 그룹화 (마지막에 한 번만 재부팅)
 - 25H2 AI 기능 완전 비활성화 포함
 
@@ -382,8 +396,8 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 |--------|----------|
 | 기본 | Update, 전원/네트워크, OneDrive, 작업표시줄, 블로트웨어, 소프트웨어, 공통최적화, AI비활성화 |
 | 게임 | 기본 + 게임용 최적화 (VBS/GPU) |
-| 서버 | Update, 전원/네트워크, OneDrive, SSH/rsync, 공통최적화, 게임서버 최적화 |
-| 웹서버 | Update, 전원/네트워크, OneDrive, SSH/rsync, 공통최적화, IIS 최적화 |
+| 서버 | Update, 전원/네트워크, OneDrive, 공통최적화, 게임서버 최적화 |
+| 웹서버 | Update, 전원/네트워크, OneDrive, 공통최적화, IIS 최적화 |
 
 **사용 방법:**
 1. 스크립트 실행 후 콘솔 메뉴 표시
