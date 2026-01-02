@@ -161,10 +161,11 @@ Write-Host "    - 현재 fDenyTSConnections 값: $currentRdpValue (0=활성화, 
 Set-ItemProperty -Path $rdpRegPath -Name "fDenyTSConnections" -Value 0 -Type DWord
 Write-Host "    - RDP 연결 허용 설정 완료" -ForegroundColor Green
 
-# 네트워크 레벨 인증(NLA) 비활성화 (연결 호환성 향상)
+# 네트워크 레벨 인증(NLA) 활성화 유지 (보안 강화)
+# NLA는 RDP 연결 전 인증을 요구하여 무단 접근 방지
 $rdpTcpPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp"
-Set-ItemProperty -Path $rdpTcpPath -Name "UserAuthentication" -Value 0 -Type DWord -ErrorAction SilentlyContinue
-Write-Host "    - 네트워크 레벨 인증(NLA) 비활성화" -ForegroundColor Green
+Set-ItemProperty -Path $rdpTcpPath -Name "UserAuthentication" -Value 1 -Type DWord -ErrorAction SilentlyContinue
+Write-Host "    - 네트워크 레벨 인증(NLA) 활성화 (보안 유지)" -ForegroundColor Green
 
 # TermService (원격 데스크톱 서비스) 활성화 및 시작
 Write-Host "    - TermService (원격 데스크톱 서비스) 확인 중..." -ForegroundColor White

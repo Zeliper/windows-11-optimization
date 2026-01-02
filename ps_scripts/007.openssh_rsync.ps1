@@ -192,18 +192,32 @@ if (Test-Path $sshdConfigPath) {
         $sshdConfig = Get-Content $sshdConfigPath -Raw
         $modified = $false
 
-        # 비밀번호 인증 활성화 확인
-        if ($sshdConfig -notmatch "(?m)^PasswordAuthentication\s+yes") {
-            $sshdConfig = $sshdConfig -replace "(?m)^#?PasswordAuthentication\s+\w+", "PasswordAuthentication yes"
-            $modified = $true
-            Write-Host "  - 비밀번호 인증 활성화됨" -ForegroundColor Green
-        }
-
-        # PubkeyAuthentication 활성화
+        # 공개키 인증 활성화 (권장)
         if ($sshdConfig -notmatch "(?m)^PubkeyAuthentication\s+yes") {
             $sshdConfig = $sshdConfig -replace "(?m)^#?PubkeyAuthentication\s+\w+", "PubkeyAuthentication yes"
             $modified = $true
             Write-Host "  - 공개키 인증 활성화됨" -ForegroundColor Green
+        }
+
+        # 비밀번호 인증 비활성화 (보안 강화 - 공개키 인증 권장)
+        if ($sshdConfig -notmatch "(?m)^PasswordAuthentication\s+no") {
+            $sshdConfig = $sshdConfig -replace "(?m)^#?PasswordAuthentication\s+\w+", "PasswordAuthentication no"
+            $modified = $true
+            Write-Host "  - 비밀번호 인증 비활성화됨 (공개키 인증 사용)" -ForegroundColor Green
+        }
+
+        # 브루트포스 방지: 최대 인증 시도 횟수 제한
+        if ($sshdConfig -notmatch "(?m)^MaxAuthTries\s+") {
+            $sshdConfig = $sshdConfig + "`nMaxAuthTries 3"
+            $modified = $true
+            Write-Host "  - 최대 인증 시도 횟수 제한 (3회)" -ForegroundColor Green
+        }
+
+        # 로그인 유예 시간 제한
+        if ($sshdConfig -notmatch "(?m)^LoginGraceTime\s+") {
+            $sshdConfig = $sshdConfig + "`nLoginGraceTime 60"
+            $modified = $true
+            Write-Host "  - 로그인 유예 시간 제한 (60초)" -ForegroundColor Green
         }
 
         # Subsystem sftp 설정 확인
@@ -253,6 +267,19 @@ if (Test-Path $rsyncExe) {
     }
 }
 
+Write-Host ""
+Write-Host "[SSH 키 설정 방법 (필수)]" -ForegroundColor Cyan
+Write-Host "  비밀번호 인증이 비활성화되어 공개키 설정이 필요합니다." -ForegroundColor Yellow
+Write-Host ""
+Write-Host "  1. 클라이언트에서 키 생성:" -ForegroundColor White
+Write-Host "     ssh-keygen -t ed25519" -ForegroundColor Gray
+Write-Host ""
+Write-Host "  2. 공개키를 서버에 복사:" -ForegroundColor White
+Write-Host "     - 일반 사용자: %USERPROFILE%\.ssh\authorized_keys" -ForegroundColor Gray
+Write-Host "     - 관리자: %ProgramData%\ssh\administrators_authorized_keys" -ForegroundColor Gray
+Write-Host ""
+Write-Host "  3. 관리자 키 파일 권한 설정 (관리자 PowerShell):" -ForegroundColor White
+Write-Host "     icacls `"%ProgramData%\ssh\administrators_authorized_keys`" /inheritance:r /grant `"Administrators:F`" /grant `"SYSTEM:F`"" -ForegroundColor Gray
 Write-Host ""
 Write-Host "[사용 방법]" -ForegroundColor Cyan
 Write-Host "  - SSH 접속: ssh 사용자명@$env:COMPUTERNAME" -ForegroundColor White

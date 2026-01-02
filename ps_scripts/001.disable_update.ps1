@@ -60,9 +60,11 @@ $UACPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
 # EnableLUA는 1로 유지 (완전 해제 시 로그인 문제, UI 오류 발생 가능)
 Set-ItemProperty -Path $UACPath -Name "EnableLUA" -Value 1 -Type DWord
 
-# UAC 프롬프트 동작 설정 (0 = 알림 없이 권한 상승)
+# UAC 프롬프트 동작 설정
+# 관리자: 0 = 알림 없이 권한 상승 (편의성)
+# 일반 사용자: 3 = 자격 증명 요청 (보안 유지)
 Set-ItemProperty -Path $UACPath -Name "ConsentPromptBehaviorAdmin" -Value 0 -Type DWord
-Set-ItemProperty -Path $UACPath -Name "ConsentPromptBehaviorUser" -Value 0 -Type DWord
+Set-ItemProperty -Path $UACPath -Name "ConsentPromptBehaviorUser" -Value 3 -Type DWord
 
 # 보안 데스크톱에서 프롬프트 표시 안 함
 Set-ItemProperty -Path $UACPath -Name "PromptOnSecureDesktop" -Value 0 -Type DWord
