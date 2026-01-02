@@ -9,6 +9,11 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
+# Orchestrate 모드 확인
+if ($null -eq $global:OrchestrateMode) {
+    $global:OrchestrateMode = $false
+}
+
 Write-Host "=== Windows 11 25H2 게임 서버 최적화 스크립트 ===" -ForegroundColor Cyan
 Write-Host "TCP/UDP, 네트워크 어댑터, NVMe, NUMA 최적화를 수행합니다." -ForegroundColor White
 Write-Host ""
@@ -51,8 +56,11 @@ Write-Host "  [2] CUBIC - 일반 인터넷 환경용" -ForegroundColor White
 Write-Host "  [3] NewReno (CTCP) - 레거시 호환성" -ForegroundColor White
 Write-Host ""
 
-$ccChoice = Read-Host "선택 (1-3, 기본값: 1)"
-if ([string]::IsNullOrEmpty($ccChoice)) { $ccChoice = "1" }
+$ccChoice = "1"
+if (-not $global:OrchestrateMode) {
+    $ccChoice = Read-Host "선택 (1-3, 기본값: 1)"
+    if ([string]::IsNullOrEmpty($ccChoice)) { $ccChoice = "1" }
+}
 
 switch ($ccChoice) {
     "1" {
@@ -284,7 +292,10 @@ Write-Host "  장점: 최대 80% IOPS 향상, I/O 레이턴시 감소" -Foregrou
 Write-Host "  위험: 일부 NVMe 드라이브에서 호환성 문제 가능" -ForegroundColor Red
 Write-Host ""
 
-$nvmeChoice = Read-Host "Native NVMe 지원을 활성화하시겠습니까? (Y/N, 기본값: N)"
+$nvmeChoice = "N"
+if (-not $global:OrchestrateMode) {
+    $nvmeChoice = Read-Host "Native NVMe 지원을 활성화하시겠습니까? (Y/N, 기본값: N)"
+}
 
 if ($nvmeChoice -eq "Y" -or $nvmeChoice -eq "y") {
     $buildNumber = [System.Environment]::OSVersion.Version.Build
@@ -359,11 +370,13 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # 재부팅 확인
-$restart = Read-Host "지금 재부팅하시겠습니까? (Y/N)"
-if ($restart -eq "Y" -or $restart -eq "y") {
-    Write-Host "10초 후 재부팅됩니다..." -ForegroundColor Red
-    Start-Sleep -Seconds 10
-    Restart-Computer -Force
-} else {
-    Write-Host "나중에 수동으로 재부팅해주세요." -ForegroundColor Yellow
+if (-not $global:OrchestrateMode) {
+    $restart = Read-Host "지금 재부팅하시겠습니까? (Y/N)"
+    if ($restart -eq "Y" -or $restart -eq "y") {
+        Write-Host "10초 후 재부팅됩니다..." -ForegroundColor Red
+        Start-Sleep -Seconds 10
+        Restart-Computer -Force
+    } else {
+        Write-Host "나중에 수동으로 재부팅해주세요." -ForegroundColor Yellow
+    }
 }

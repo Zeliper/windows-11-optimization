@@ -9,6 +9,11 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
+# Orchestrate 모드 확인
+if ($null -eq $global:OrchestrateMode) {
+    $global:OrchestrateMode = $false
+}
+
 Write-Host "=== OpenSSH 서버 설정 및 rsync 설치 ===" -ForegroundColor Cyan
 Write-Host ""
 
@@ -101,8 +106,13 @@ Write-Host ""
 Write-Host "[4/$totalSteps] SSH 기본 셸을 PowerShell로 설정 중..." -ForegroundColor Yellow
 
 try {
-    $pwshPath = (Get-Command powershell.exe).Source
-    New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value $pwshPath -PropertyType String -Force | Out-Null
+    $pwshPath = (Get-Command powershell.exe -ErrorAction Stop).Source
+    $openSSHPath = "HKLM:\SOFTWARE\OpenSSH"
+    # 레지스트리 경로가 없으면 생성
+    if (!(Test-Path $openSSHPath)) {
+        New-Item -Path $openSSHPath -Force | Out-Null
+    }
+    New-ItemProperty -Path $openSSHPath -Name DefaultShell -Value $pwshPath -PropertyType String -Force | Out-Null
     Write-Host "  - 기본 셸: PowerShell ($pwshPath)" -ForegroundColor Green
 } catch {
     Write-Host "  - 기본 셸 설정 실패: $_" -ForegroundColor Red
@@ -199,12 +209,8 @@ if (Test-Path $sshdConfigPath) {
             Write-Host "  - 공개키 인증 활성화됨" -ForegroundColor Green
         }
 
-        # 비밀번호 인증 비활성화 (보안 강화 - 공개키 인증 권장)
-        if ($sshdConfig -notmatch "(?m)^PasswordAuthentication\s+no") {
-            $sshdConfig = $sshdConfig -replace "(?m)^#?PasswordAuthentication\s+\w+", "PasswordAuthentication no"
-            $modified = $true
-            Write-Host "  - 비밀번호 인증 비활성화됨 (공개키 인증 사용)" -ForegroundColor Green
-        }
+        # 비밀번호 인증 유지 (공개키 설정 전에도 접속 가능)
+        # 보안 강화가 필요하면 공개키 설정 후 수동으로 PasswordAuthentication no 설정
 
         # 브루트포스 방지: 최대 인증 시도 횟수 제한
         if ($sshdConfig -notmatch "(?m)^MaxAuthTries\s+") {
@@ -268,9 +274,10 @@ if (Test-Path $rsyncExe) {
 }
 
 Write-Host ""
-Write-Host "[SSH 키 설정 방법 (필수)]" -ForegroundColor Cyan
-Write-Host "  비밀번호 인증이 비활성화되어 공개키 설정이 필요합니다." -ForegroundColor Yellow
+Write-Host "[SSH 접속 방법]" -ForegroundColor Cyan
+Write-Host "  비밀번호 인증이 활성화되어 있어 바로 접속 가능합니다." -ForegroundColor Green
 Write-Host ""
+Write-Host "[SSH 키 설정 방법 (선택 - 보안 강화)]" -ForegroundColor Cyan
 Write-Host "  1. 클라이언트에서 키 생성:" -ForegroundColor White
 Write-Host "     ssh-keygen -t ed25519" -ForegroundColor Gray
 Write-Host ""

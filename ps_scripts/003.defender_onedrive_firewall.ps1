@@ -9,6 +9,11 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
+# Orchestrate 모드 확인
+if ($null -eq $global:OrchestrateMode) {
+    $global:OrchestrateMode = $false
+}
+
 Write-Host "=== OneDrive 삭제, 방화벽 해제 스크립트 ===" -ForegroundColor Cyan
 Write-Host "주의: 이 스크립트는 서버/로컬 네트워크 환경용입니다." -ForegroundColor Red
 Write-Host ""

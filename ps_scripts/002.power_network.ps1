@@ -8,27 +8,49 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
+# Orchestrate 모드 확인
+if ($null -eq $global:OrchestrateMode) {
+    $global:OrchestrateMode = $false
+}
+
 Write-Host "=== 전원 관리, 네트워크 최적화 및 텔레메트리 비활성화 스크립트 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # 1. 전원 옵션을 최고 성능으로 설정
 Write-Host "[1/7] 전원 옵션 설정 중..." -ForegroundColor Yellow
 
+# GUID 추출 함수 (정규식 사용)
+function Get-PowerSchemeGuid {
+    param([string]$Line)
+    $match = [regex]::Match($Line, '[a-fA-F0-9]{8}-([a-fA-F0-9]{4}-){3}[a-fA-F0-9]{12}')
+    if ($match.Success) { return $match.Value }
+    return $null
+}
+
 # 최고 성능 전원 관리 옵션 활성화 (숨겨진 옵션)
 powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 2>$null
+
 # 고성능 모드로 설정
 $highPerf = powercfg -list | Select-String "고성능|High performance" | Select-Object -First 1
 if ($highPerf) {
-    $guid = ($highPerf -split '\s+')[3]
-    powercfg -setactive $guid
-    Write-Host "  - 고성능 전원 관리 옵션 활성화" -ForegroundColor Green
+    $guid = Get-PowerSchemeGuid -Line $highPerf.Line
+    if ($guid) {
+        powercfg -setactive $guid
+        Write-Host "  - 고성능 전원 관리 옵션 활성화" -ForegroundColor Green
+    } else {
+        Write-Host "  - 고성능 GUID 추출 실패" -ForegroundColor Red
+    }
 } else {
     # 최고 성능 모드 시도
     $ultimatePerf = powercfg -list | Select-String "최고 성능|Ultimate Performance" | Select-Object -First 1
     if ($ultimatePerf) {
-        $guid = ($ultimatePerf -split '\s+')[3]
-        powercfg -setactive $guid
-        Write-Host "  - 최고 성능 전원 관리 옵션 활성화" -ForegroundColor Green
+        $guid = Get-PowerSchemeGuid -Line $ultimatePerf.Line
+        if ($guid) {
+            powercfg -setactive $guid
+            Write-Host "  - 최고 성능 전원 관리 옵션 활성화" -ForegroundColor Green
+        } else {
+            Write-Host "  - 최고 성능 GUID 추출 실패" -ForegroundColor Red
+        }
     } else {
         Write-Host "  - 고성능 옵션을 찾을 수 없음, 기본값 유지" -ForegroundColor Red
     }
@@ -63,29 +85,38 @@ Write-Host "  - 최대 절전 모드 비활성화" -ForegroundColor Green
 Write-Host ""
 Write-Host "[3/7] USB 선택적 절전 모드 비활성화 중..." -ForegroundColor Yellow
 
-# 현재 전원 관리 옵션의 GUID 가져오기
-$activeScheme = (powercfg -getactivescheme) -replace '.*:\s*(.{36}).*', '$1'
+# 현재 전원 관리 옵션의 GUID 가져오기 (정규식 사용)
+$activeSchemeOutput = powercfg -getactivescheme
+$activeScheme = Get-PowerSchemeGuid -Line $activeSchemeOutput
 
-# USB 선택적 절전 모드 설정 (AC: 0=비활성화, DC: 0=비활성화)
-# USB 설정 GUID: 2a737441-1930-4402-8d77-b2bebba308a3
-# USB 선택적 절전 GUID: 48e6b7a6-50f5-4782-a5d4-53bb8f07e226
-powercfg -setacvalueindex $activeScheme 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
-powercfg -setdcvalueindex $activeScheme 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
-powercfg -setactive $activeScheme
-Write-Host "  - USB 선택적 절전 모드 비활성화 완료" -ForegroundColor Green
+if ($activeScheme) {
+    # USB 선택적 절전 모드 설정 (AC: 0=비활성화, DC: 0=비활성화)
+    # USB 설정 GUID: 2a737441-1930-4402-8d77-b2bebba308a3
+    # USB 선택적 절전 GUID: 48e6b7a6-50f5-4782-a5d4-53bb8f07e226
+    powercfg -setacvalueindex $activeScheme 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
+    powercfg -setdcvalueindex $activeScheme 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
+    powercfg -setactive $activeScheme
+    Write-Host "  - USB 선택적 절전 모드 비활성화 완료" -ForegroundColor Green
+} else {
+    Write-Host "  - 활성 전원 구성표 GUID를 가져올 수 없음" -ForegroundColor Red
+}
 
 
 # 4. PCI Express 링크 상태 전원 관리 끄기
 Write-Host ""
 Write-Host "[4/7] PCI Express 전원 관리 비활성화 중..." -ForegroundColor Yellow
 
-# PCI Express 설정 GUID: 501a4d13-42af-4429-9fd1-a8218c268e20
-# 링크 상태 전원 관리 GUID: ee12f906-d277-404b-b6da-e5fa1a576df5
-# 0 = 끄기, 1 = 보통 절전, 2 = 최대 절전
-powercfg -setacvalueindex $activeScheme 501a4d13-42af-4429-9fd1-a8218c268e20 ee12f906-d277-404b-b6da-e5fa1a576df5 0
-powercfg -setdcvalueindex $activeScheme 501a4d13-42af-4429-9fd1-a8218c268e20 ee12f906-d277-404b-b6da-e5fa1a576df5 0
-powercfg -setactive $activeScheme
-Write-Host "  - PCI Express 링크 상태 전원 관리 끄기 완료" -ForegroundColor Green
+if ($activeScheme) {
+    # PCI Express 설정 GUID: 501a4d13-42af-4429-9fd1-a8218c268e20
+    # 링크 상태 전원 관리 GUID: ee12f906-d277-404b-b6da-e5fa1a576df5
+    # 0 = 끄기, 1 = 보통 절전, 2 = 최대 절전
+    powercfg -setacvalueindex $activeScheme 501a4d13-42af-4429-9fd1-a8218c268e20 ee12f906-d277-404b-b6da-e5fa1a576df5 0
+    powercfg -setdcvalueindex $activeScheme 501a4d13-42af-4429-9fd1-a8218c268e20 ee12f906-d277-404b-b6da-e5fa1a576df5 0
+    powercfg -setactive $activeScheme
+    Write-Host "  - PCI Express 링크 상태 전원 관리 끄기 완료" -ForegroundColor Green
+} else {
+    Write-Host "  - 활성 전원 구성표를 사용할 수 없어 건너뜀" -ForegroundColor Red
+}
 
 
 # 5. 네트워크 어댑터 절전 모드 비활성화
@@ -218,11 +249,13 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # 재부팅 확인
-$restart = Read-Host "지금 재부팅하시겠습니까? (Y/N)"
-if ($restart -eq "Y" -or $restart -eq "y") {
-    Write-Host "10초 후 재부팅됩니다..." -ForegroundColor Red
-    Start-Sleep -Seconds 10
-    Restart-Computer -Force
-} else {
-    Write-Host "나중에 수동으로 재부팅해주세요." -ForegroundColor Yellow
+if (-not $global:OrchestrateMode) {
+    $restart = Read-Host "지금 재부팅하시겠습니까? (Y/N)"
+    if ($restart -eq "Y" -or $restart -eq "y") {
+        Write-Host "10초 후 재부팅됩니다..." -ForegroundColor Red
+        Start-Sleep -Seconds 10
+        Restart-Computer -Force
+    } else {
+        Write-Host "나중에 수동으로 재부팅해주세요." -ForegroundColor Yellow
+    }
 }

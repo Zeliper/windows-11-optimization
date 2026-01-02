@@ -9,6 +9,11 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
+# Orchestrate 모드 확인
+if ($null -eq $global:OrchestrateMode) {
+    $global:OrchestrateMode = $false
+}
+
 Write-Host "=== Windows 11 IIS 웹 서버 최적화 스크립트 ===" -ForegroundColor Cyan
 Write-Host "IIS 설치, 성능 최적화, 보안 설정을 수행합니다." -ForegroundColor White
 Write-Host ""
@@ -31,12 +36,14 @@ if ($iisInstalled.State -eq "Enabled") {
     Write-Host ""
 }
 
-$confirm = Read-Host "IIS 설치 및 최적화를 진행하시겠습니까? (Y/N)"
-if ($confirm -ne "Y" -and $confirm -ne "y") {
-    Write-Host "사용자가 취소하였습니다." -ForegroundColor Red
-    exit
+if (-not $global:OrchestrateMode) {
+    $confirm = Read-Host "IIS 설치 및 최적화를 진행하시겠습니까? (Y/N)"
+    if ($confirm -ne "Y" -and $confirm -ne "y") {
+        Write-Host "사용자가 취소하였습니다." -ForegroundColor Red
+        exit
+    }
+    Write-Host "  - 사용자 동의 확인됨" -ForegroundColor Green
 }
-Write-Host "  - 사용자 동의 확인됨" -ForegroundColor Green
 
 
 # [2/11] 기존 IIS 설정 백업
@@ -343,11 +350,13 @@ Write-Host ""
 
 # 재부팅 확인
 Write-Host "일부 설정은 재부팅 후 완전히 적용됩니다." -ForegroundColor Yellow
-$restart = Read-Host "지금 재부팅하시겠습니까? (Y/N)"
-if ($restart -eq "Y" -or $restart -eq "y") {
-    Write-Host "10초 후 재부팅됩니다..." -ForegroundColor Red
-    Start-Sleep -Seconds 10
-    Restart-Computer -Force
-} else {
-    Write-Host "나중에 수동으로 재부팅해주세요." -ForegroundColor Yellow
+if (-not $global:OrchestrateMode) {
+    $restart = Read-Host "지금 재부팅하시겠습니까? (Y/N)"
+    if ($restart -eq "Y" -or $restart -eq "y") {
+        Write-Host "10초 후 재부팅됩니다..." -ForegroundColor Red
+        Start-Sleep -Seconds 10
+        Restart-Computer -Force
+    } else {
+        Write-Host "나중에 수동으로 재부팅해주세요." -ForegroundColor Yellow
+    }
 }

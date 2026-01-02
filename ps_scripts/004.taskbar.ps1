@@ -10,6 +10,11 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
+# Orchestrate 모드 확인
+if ($null -eq $global:OrchestrateMode) {
+    $global:OrchestrateMode = $false
+}
+
 Write-Host "=== Windows 11 작업 표시줄, 컨텍스트 메뉴 및 파일 탐색기 정리 스크립트 ===" -ForegroundColor Cyan
 Write-Host ""
 

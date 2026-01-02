@@ -9,6 +9,11 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
+# Orchestrate 모드 확인
+if ($null -eq $global:OrchestrateMode) {
+    $global:OrchestrateMode = $false
+}
+
 Write-Host "=== Windows 11 블로트웨어 제거 스크립트 ===" -ForegroundColor Cyan
 Write-Host ""
 
@@ -242,10 +247,10 @@ Write-Host "[5/6] 시작 메뉴 고정 앱 제거 중..." -ForegroundColor Yello
 # Windows 11 시작 메뉴 레이아웃 초기화 (고정 앱 제거)
 $startMenuPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\CloudStore\Store\Cache\DefaultAccount"
 
-# 시작 메뉴 캐시 제거
+# 시작 메뉴 캐시 제거 ($ 기호 이스케이프)
 $startCachePaths = @(
-    "$startMenuPath\*$*windows.data.unifiedtile.startglobalproperties$*",
-    "$startMenuPath\*$*windows.data.unifiedtile.pinnedtileiddata$*"
+    "$startMenuPath\`$`$windows.data.unifiedtile.startglobalproperties`$`$*",
+    "$startMenuPath\`$`$windows.data.unifiedtile.pinnedtileiddata`$`$*"
 )
 
 foreach ($cachePath in $startCachePaths) {

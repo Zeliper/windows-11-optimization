@@ -8,6 +8,14 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
+# Orchestrate 모드 확인
+if ($null -eq $global:OrchestrateMode) {
+    $global:OrchestrateMode = $false
+}
+
+# 다운로드 속도 개선 (진행률 표시 비활성화)
+$ProgressPreference = 'SilentlyContinue'
+
 Write-Host "=== 필수 소프트웨어 자동 설치 ===" -ForegroundColor Cyan
 Write-Host "Notepad++, Chrome, 7-Zip, ShareX를 자동으로 설치합니다." -ForegroundColor White
 Write-Host ""
@@ -124,16 +132,24 @@ try {
 Write-Host "[8/11] ShareX 설치 중 (업로드 기능 비활성화)..." -ForegroundColor Yellow
 if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
     try {
-        # 업로드 비활성화 레지스트리 설정 (설치 전)
-        New-Item -Path "HKLM:\SOFTWARE\ShareX" -Force | Out-Null
-        New-ItemProperty -Path "HKLM:\SOFTWARE\ShareX" -Name "DisableUpload" -Value 1 -PropertyType DWORD -Force | Out-Null
-        Write-Host "  - 업로드 기능 비활성화 레지스트리 설정 완료" -ForegroundColor Green
-
         # ShareX 설치
         Start-Process -FilePath $shareXInstaller -ArgumentList "/SP- /VERYSILENT /NORESTART /NORUN /SUPPRESSMSGBOXES" -Wait -NoNewWindow
         Remove-Item $shareXInstaller -Force -ErrorAction SilentlyContinue
         Write-Host "  - 설치 완료" -ForegroundColor Green
         $successCount++
+
+        # 업로드 비활성화 설정 (JSON 설정 파일)
+        $shareXConfigDir = "$env:APPDATA\ShareX"
+        $shareXConfigPath = "$shareXConfigDir\ApplicationConfig.json"
+        if (!(Test-Path $shareXConfigDir)) {
+            New-Item -Path $shareXConfigDir -ItemType Directory -Force | Out-Null
+        }
+        $config = @{
+            "DisableUploadActions" = $true
+            "ShowAfterUploadForm" = $false
+        }
+        $config | ConvertTo-Json | Set-Content -Path $shareXConfigPath -Encoding UTF8 -Force
+        Write-Host "  - 업로드 기능 비활성화 설정 완료" -ForegroundColor Green
     } catch {
         Write-Host "  - 설치 실패: $_" -ForegroundColor Red
         $failCount++
@@ -184,23 +200,15 @@ try {
             ".sql", ".csv", ".tsv", ".sh"
         )
 
+        # ftype/assoc 명령 사용 (Windows 11 호환)
         foreach ($ext in $extensions) {
             $extName = $ext.TrimStart('.')
             $progId = "Notepad++.$extName"
-
-            # ProgId 등록
-            New-Item -Path "HKLM:\SOFTWARE\Classes\$progId" -Force | Out-Null
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\Classes\$progId" -Name "(Default)" -Value "$extName File" -Force
-            New-Item -Path "HKLM:\SOFTWARE\Classes\$progId\DefaultIcon" -Force | Out-Null
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\Classes\$progId\DefaultIcon" -Name "(Default)" -Value "`"$nppPath`",0" -Force
-            New-Item -Path "HKLM:\SOFTWARE\Classes\$progId\shell\open\command" -Force | Out-Null
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\Classes\$progId\shell\open\command" -Name "(Default)" -Value "`"$nppPath`" `"%1`"" -Force
-
-            # 확장자 연결
-            New-Item -Path "HKLM:\SOFTWARE\Classes\$ext" -Force | Out-Null
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\Classes\$ext" -Name "(Default)" -Value $progId -Force
+            cmd /c "ftype $progId=`"$nppPath`" `"%1`"" 2>$null
+            cmd /c "assoc $ext=$progId" 2>$null
         }
-        Write-Host "  - 파일 연결 완료: $($extensions.Count)개 확장자" -ForegroundColor Green
+        Write-Host "  - 파일 연결 시도 완료: $($extensions.Count)개 확장자" -ForegroundColor Green
+        Write-Host "  - 참고: 일부 확장자는 Windows 설정에서 수동 변경 필요" -ForegroundColor Yellow
     } else {
         Write-Host "  - 건너뜀 (Notepad++ 설치 경로 없음)" -ForegroundColor Red
     }
@@ -213,26 +221,16 @@ Write-Host "[11/11] Chrome 기본 브라우저 설정 중..." -ForegroundColor Y
 try {
     $chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
     if (Test-Path $chromePath) {
-        # Chrome ProgId 설정
-        $chromeProgId = "ChromeHTML"
+        # ftype/assoc 명령 사용 (Windows 11 호환)
+        cmd /c "ftype ChromeHTML=`"$chromePath`" -- `"%1`"" 2>$null
+        cmd /c "assoc .html=ChromeHTML" 2>$null
+        cmd /c "assoc .htm=ChromeHTML" 2>$null
 
-        # HTTP/HTTPS URL 연결
-        $urlProtocols = @("http", "https")
-        foreach ($protocol in $urlProtocols) {
-            # 사용자 선택 설정 (UserChoice는 시스템에서 관리되므로 ProgId만 설정)
-            New-Item -Path "HKLM:\SOFTWARE\Classes\$protocol\shell\open\command" -Force | Out-Null
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\Classes\$protocol\shell\open\command" -Name "(Default)" -Value "`"$chromePath`" -- `"%1`"" -Force
-        }
+        # Chrome 자체 기본 브라우저 설정 호출
+        Start-Process $chromePath -ArgumentList "--make-default-browser" -WindowStyle Hidden
 
-        # HTML 파일 연결
-        $htmlExts = @(".htm", ".html", ".shtml", ".xht", ".xhtml")
-        foreach ($ext in $htmlExts) {
-            New-Item -Path "HKLM:\SOFTWARE\Classes\$ext" -Force | Out-Null
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\Classes\$ext" -Name "(Default)" -Value $chromeProgId -Force
-        }
-
-        Write-Host "  - Chrome 기본 브라우저 설정 완료" -ForegroundColor Green
-        Write-Host "  - 참고: 완전한 기본 브라우저 설정은 설정 앱에서 확인 필요" -ForegroundColor White
+        Write-Host "  - 기본 브라우저 설정 시도 완료" -ForegroundColor Green
+        Write-Host "  - 참고: Windows 설정에서 확인 필요할 수 있음" -ForegroundColor Yellow
     } else {
         Write-Host "  - 건너뜀 (Chrome 설치 경로 없음)" -ForegroundColor Red
     }

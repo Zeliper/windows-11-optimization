@@ -9,6 +9,11 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
+# Orchestrate 모드 확인
+if ($null -eq $global:OrchestrateMode) {
+    $global:OrchestrateMode = $false
+}
+
 Write-Host "=== Windows 11 Pro 설정 스크립트 ===" -ForegroundColor Cyan
 Write-Host ""
 
@@ -81,11 +86,13 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # 재부팅 확인
-$restart = Read-Host "지금 재부팅하시겠습니까? (Y/N)"
-if ($restart -eq "Y" -or $restart -eq "y") {
-    Write-Host "10초 후 재부팅됩니다..." -ForegroundColor Red
-    Start-Sleep -Seconds 10
-    Restart-Computer -Force
-} else {
-    Write-Host "나중에 수동으로 재부팅해주세요." -ForegroundColor Yellow
+if (-not $global:OrchestrateMode) {
+    $restart = Read-Host "지금 재부팅하시겠습니까? (Y/N)"
+    if ($restart -eq "Y" -or $restart -eq "y") {
+        Write-Host "10초 후 재부팅됩니다..." -ForegroundColor Red
+        Start-Sleep -Seconds 10
+        Restart-Computer -Force
+    } else {
+        Write-Host "나중에 수동으로 재부팅해주세요." -ForegroundColor Yellow
+    }
 }

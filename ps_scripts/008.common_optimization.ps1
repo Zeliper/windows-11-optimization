@@ -9,6 +9,11 @@
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
+# Orchestrate 모드 확인
+if ($null -eq $global:OrchestrateMode) {
+    $global:OrchestrateMode = $false
+}
+
 Write-Host "=== Windows 11 25H2 공통 최적화 스크립트 ===" -ForegroundColor Cyan
 Write-Host "디스크 정리, DNS 설정, 서비스 최적화, 부팅 최적화를 수행합니다." -ForegroundColor White
 Write-Host ""
@@ -213,7 +218,10 @@ Write-Host "    권장: 시스템 관리 크기 또는 RAM의 1.5~2배" -Foregro
 Write-Host ""
 Write-Host "[7/$totalSteps] 시스템 파일 무결성 검사..." -ForegroundColor Yellow
 
-$runSFC = Read-Host "시스템 파일 무결성 검사를 실행하시겠습니까? (Y/N, 기본값: N)"
+$runSFC = "N"
+if (-not $global:OrchestrateMode) {
+    $runSFC = Read-Host "시스템 파일 무결성 검사를 실행하시겠습니까? (Y/N, 기본값: N)"
+}
 
 if ($runSFC -eq "Y" -or $runSFC -eq "y") {
     Write-Host "  - DISM 이미지 복구 중... (시간이 걸릴 수 있습니다)" -ForegroundColor Yellow
@@ -277,11 +285,13 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # 재부팅 확인
-$restart = Read-Host "지금 재부팅하시겠습니까? (Y/N)"
-if ($restart -eq "Y" -or $restart -eq "y") {
-    Write-Host "10초 후 재부팅됩니다..." -ForegroundColor Red
-    Start-Sleep -Seconds 10
-    Restart-Computer -Force
-} else {
-    Write-Host "나중에 수동으로 재부팅해주세요." -ForegroundColor Yellow
+if (-not $global:OrchestrateMode) {
+    $restart = Read-Host "지금 재부팅하시겠습니까? (Y/N)"
+    if ($restart -eq "Y" -or $restart -eq "y") {
+        Write-Host "10초 후 재부팅됩니다..." -ForegroundColor Red
+        Start-Sleep -Seconds 10
+        Restart-Computer -Force
+    } else {
+        Write-Host "나중에 수동으로 재부팅해주세요." -ForegroundColor Yellow
+    }
 }
