@@ -24,6 +24,11 @@ Windows 11 최적화를 위한 PowerShell 스크립트 모음입니다. 서버 �
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
+# Orchestrate 모드 확인 (통합 스크립트에서 호출 시 대화 건너뜀)
+if ($null -eq $global:OrchestrateMode) {
+    $global:OrchestrateMode = $false
+}
+
 Write-Host "=== 스크립트 제목 ===" -ForegroundColor Cyan
 Write-Host ""
 
@@ -37,7 +42,24 @@ Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "모든 설정이 완료되었습니다!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
+
+# 재부팅 확인 (OrchestrateMode에서는 건너뜀)
+if (-not $global:OrchestrateMode) {
+    $restart = Read-Host "지금 재부팅하시겠습니까? (Y/N)"
+    if ($restart -eq "Y" -or $restart -eq "y") {
+        Write-Host "10초 후 재부팅됩니다..." -ForegroundColor Red
+        Start-Sleep -Seconds 10
+        Restart-Computer -Force
+    }
+}
 ```
+
+### OrchestrateMode 규칙
+- 모든 스크립트는 `$global:OrchestrateMode` 플래그를 확인해야 합니다
+- `OrchestrateMode`가 `$true`일 때 다음을 건너뜁니다:
+  - 사용자 확인 프롬프트 (`Read-Host "계속하시겠습니까?"`)
+  - 재부팅 확인 프롬프트 (`Read-Host "지금 재부팅하시겠습니까?"`)
+  - 선택적 기능 프롬프트 (기본값 사용)
 
 ### 색상 규칙
 - 제목/구분선: `Cyan`
@@ -52,7 +74,8 @@ Write-Host "========================================" -ForegroundColor Cyan
 
 1. 새 스크립트 또는 수정된 파일을 스테이징
 2. README.md 업데이트 (새 스크립트 추가 시)
-3. 커밋 메시지 형식:
+3. **000.orchestrate.ps1 업데이트** (새 스크립트 추가 시 - 아래 참조)
+4. 커밋 메시지 형식:
    ```
    Add/Update 기능 설명 (영문)
 
@@ -63,7 +86,53 @@ Write-Host "========================================" -ForegroundColor Cyan
 
    Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
    ```
-4. 원격 저장소에 푸시
+5. 원격 저장소에 푸시
+
+## 000.orchestrate.ps1 업데이트 방법
+
+새 스크립트 추가 시 **반드시** `000.orchestrate.ps1`을 업데이트해야 합니다.
+
+### 1. ScriptItems 배열에 항목 추가
+
+`$global:ScriptItems` 배열에 새 스크립트 항목을 추가합니다:
+
+```powershell
+$global:ScriptItems = @(
+    # ... 기존 항목 ...
+    @{ Id = 13; File = "013.new_script.ps1"; Name = "새 기능 설명"; RequiresReboot = $false; Group = "기본" }
+)
+```
+
+| 속성 | 설명 |
+|------|------|
+| Id | 고유 번호 (메뉴에서 선택 키) |
+| File | 스크립트 파일명 |
+| Name | 메뉴에 표시될 이름 (한글) |
+| RequiresReboot | 재부팅 필요 여부 (`$true`/`$false`) |
+| Group | 그룹 표시 (기본, 서버, 게임, 25H2 등) |
+
+### 2. 프리셋 업데이트 (필요 시)
+
+새 스크립트가 특정 프리셋에 포함되어야 하면 `$global:Presets`를 업데이트합니다:
+
+```powershell
+$global:Presets = @{
+    "기본"   = @(1, 2, 3, 4, 5, 6, 8, 12, 13)      # 새 항목 13 추가
+    "게임"   = @(1, 2, 3, 4, 5, 6, 8, 9, 12, 13)   # 게임에도 해당되면 추가
+    "서버"   = @(1, 2, 3, 7, 8, 10)                 # 서버용이면 여기 추가
+    "웹서버" = @(1, 2, 3, 7, 8, 11)                 # 웹서버용이면 여기 추가
+}
+```
+
+### 3. RequiresReboot 기준
+
+다음 경우 `RequiresReboot = $true`로 설정:
+- VBS/HVCI 설정 변경
+- 드라이버 서비스 비활성화
+- 시스템 서비스 시작 유형 변경
+- 커널 레벨 설정 변경
+
+---
 
 ## README.md 업데이트 형식
 
@@ -89,6 +158,7 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 
 | 번호 | 파일명 | 설명 |
 |------|--------|------|
+| 000 | orchestrate.ps1 | **통합 원클릭 스크립트** (대화형 메뉴, 프리셋, 재부팅 관리) |
 | 001 | disable_update.ps1 | Windows Update 수동 설정, UAC 프롬프트 비활성화 |
 | 002 | power_network.ps1 | 전원 관리, 네트워크 최적화, 텔레메트리 비활성화 |
 | 003 | defender_onedrive_firewall.ps1 | OneDrive 삭제, 방화벽 해제, Defender 안내 |
@@ -100,3 +170,4 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 | 009 | gaming_optimization.ps1 | 게임용 PC 최적화 (VBS, GPU, 시각효과) |
 | 010 | game_server.ps1 | 게임 서버 최적화 (TCP/UDP, NVMe, QoS) |
 | 011 | web_server.ps1 | 웹 서버 IIS 최적화 (압축, 캐싱, TLS) |
+| 012 | ai_features.ps1 | **25H2 AI 기능 비활성화** (Recall, Copilot, AI Actions 등) |
