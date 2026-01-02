@@ -24,7 +24,6 @@ $global:ScriptItems = @(
     @{ Id = 4;  File = "004.taskbar.ps1";                     Name = "작업 표시줄/컨텍스트 메뉴";          RequiresReboot = $false; Group = "기본" }
     @{ Id = 5;  File = "005.bloatware.ps1";                   Name = "블로트웨어 제거";                    RequiresReboot = $false; Group = "기본" }
     @{ Id = 6;  File = "006.software_install.ps1";            Name = "필수 소프트웨어 설치";               RequiresReboot = $false; Group = "기본" }
-    @{ Id = 7;  File = "007.openssh_rsync.ps1";               Name = "OpenSSH/rsync 설치";                RequiresReboot = $false; Group = "서버" }
     @{ Id = 8;  File = "008.common_optimization.ps1";         Name = "공통 최적화 (DNS/서비스/부팅)";      RequiresReboot = $true;  Group = "기본" }
     @{ Id = 9;  File = "009.gaming_optimization.ps1";         Name = "게임용 최적화 (VBS/GPU)";           RequiresReboot = $true;  Group = "게임" }
     @{ Id = 10; File = "010.game_server.ps1";                 Name = "게임 서버 최적화 (TCP/UDP)";         RequiresReboot = $true;  Group = "서버" }
@@ -36,8 +35,8 @@ $global:ScriptItems = @(
 $global:Presets = @{
     "기본"   = @(1, 2, 3, 4, 5, 6, 8, 12)       # 기본 최적화 + AI 비활성화
     "게임"   = @(1, 2, 3, 4, 5, 6, 8, 9, 12)    # 게임용 PC
-    "서버"   = @(1, 2, 3, 7, 8, 10)             # 게임 서버용
-    "웹서버" = @(1, 2, 3, 7, 8, 11)             # 웹 서버용
+    "서버"   = @(1, 2, 3, 8, 10)                # 게임 서버용
+    "웹서버" = @(1, 2, 3, 8, 11)                # 웹 서버용
 }
 
 
