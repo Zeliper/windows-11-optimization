@@ -495,6 +495,39 @@ function Start-OptimizationProcess {
         }
     }
 
+    # 바탕화면 바로가기 정리
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "바탕화면 바로가기 정리 중..." -ForegroundColor Yellow
+    Write-Host "========================================" -ForegroundColor Cyan
+
+    $desktopPaths = @(
+        [Environment]::GetFolderPath('Desktop'),
+        [Environment]::GetFolderPath('CommonDesktopDirectory')
+    )
+
+    $removedCount = 0
+    foreach ($desktopPath in $desktopPaths) {
+        if (Test-Path $desktopPath) {
+            $shortcuts = Get-ChildItem -Path $desktopPath -Filter "*.lnk" -ErrorAction SilentlyContinue
+            foreach ($shortcut in $shortcuts) {
+                try {
+                    Remove-Item -Path $shortcut.FullName -Force
+                    Write-Host "  - 삭제: $($shortcut.Name)" -ForegroundColor Green
+                    $removedCount++
+                } catch {
+                    Write-Host "  - 삭제 실패: $($shortcut.Name)" -ForegroundColor Red
+                }
+            }
+        }
+    }
+
+    if ($removedCount -eq 0) {
+        Write-Host "  - 삭제할 바로가기가 없습니다." -ForegroundColor Gray
+    } else {
+        Write-Host "  - 총 $removedCount 개 바로가기 삭제 완료" -ForegroundColor Green
+    }
+
     # 완료 메시지
     Write-Host ""
     Write-Host "====================================================" -ForegroundColor Cyan
