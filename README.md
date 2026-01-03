@@ -154,17 +154,19 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/006.software_install.ps1 | iex
 ```
 
-**설치 대상 (18단계):**
+**설치 대상 (22단계):**
 - Notepad++ (최신 버전 자동 감지)
 - Google Chrome (Enterprise 64비트)
 - 7-Zip (64비트)
 - ShareX (최신 버전, 업로드 기능 비활성화, 트레이 시작)
 - ImageGlass (이미지 뷰어, 미니멀 모드 자동 설정)
+- PotPlayer (동영상 플레이어, 깔끔한 재생 화면 설정)
 
 **파일 연결 (SetUserFTA 사용):**
 - Notepad++: txt, ini, cfg, conf, config, json, xml, yaml, md, log 등 16개 확장자
 - ImageGlass: jpg, png, gif, bmp, webp, heic, avif, raw, psd 등 24개 이미지 확장자
-- Chrome: html, htm, http, https, pdf (기본 브라우저)
+- PotPlayer: mp4, mkv, avi, mov, wmv, flv, webm, ts 등 14개 동영상 확장자
+- Chrome: html, htm, http, https (기본 브라우저)
 
 **ImageGlass 자동 설정:**
 - 미니멀 모드 (툴바/갤러리 숨김)
@@ -177,6 +179,12 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 - 업로드 기능 비활성화
 - 컨텍스트 메뉴 제거
 - 시작 시 트레이 모드로 자동 실행
+
+**PotPlayer 자동 설정:**
+- 단축키: Ctrl+W=종료, Enter=전체화면, Space=재생/일시정지
+- OSD 최소화 (재생 시작/탐색 시 표시 안함)
+- 컨트롤 바 자동 숨김
+- 자동 업데이트 비활성화
 
 **추가 설정:**
 - Windows 배경화면을 기본값으로 변경 (Spotlight 제거 → 설정 로딩 속도 개선)

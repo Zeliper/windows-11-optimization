@@ -1,4 +1,4 @@
-# 필수 소프트웨어 자동 설치 (Notepad++, Chrome, 7-Zip, ShareX, ImageGlass, MSEdgeRedirect)
+# 필수 소프트웨어 자동 설치 (Notepad++, Chrome, 7-Zip, ShareX, ImageGlass, PotPlayer)
 # 관리자 권한으로 실행 필요
 
 #Requires -RunAsAdministrator
@@ -17,15 +17,15 @@ if ($null -eq $global:OrchestrateMode) {
 $ProgressPreference = 'SilentlyContinue'
 
 Write-Host "=== 필수 소프트웨어 자동 설치 ===" -ForegroundColor Cyan
-Write-Host "Notepad++, Chrome, 7-Zip, ShareX, ImageGlass, MSEdgeRedirect를 자동으로 설치합니다." -ForegroundColor White
+Write-Host "Notepad++, Chrome, 7-Zip, ShareX, ImageGlass, PotPlayer를 자동으로 설치합니다." -ForegroundColor White
 Write-Host ""
 
 $tempDir = $env:TEMP
 $successCount = 0
 $failCount = 0
 
-# [1/18] Notepad++ 다운로드
-Write-Host "[1/18] Notepad++ 다운로드 중..." -ForegroundColor Yellow
+# [1/22] Notepad++ 다운로드
+Write-Host "[1/22] Notepad++ 다운로드 중..." -ForegroundColor Yellow
 try {
     $nppRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/notepad-plus-plus/notepad-plus-plus/releases/latest"
     $nppAsset = $nppRelease.assets | Where-Object { $_.name -match "npp.*Installer\.x64\.exe$" } | Select-Object -First 1
@@ -39,8 +39,8 @@ try {
     $failCount++
 }
 
-# [2/18] Notepad++ 설치
-Write-Host "[2/18] Notepad++ 설치 중..." -ForegroundColor Yellow
+# [2/22] Notepad++ 설치
+Write-Host "[2/22] Notepad++ 설치 중..." -ForegroundColor Yellow
 if ($nppInstaller -and (Test-Path $nppInstaller)) {
     try {
         Start-Process -FilePath $nppInstaller -ArgumentList "/S" -Wait -NoNewWindow
@@ -55,8 +55,8 @@ if ($nppInstaller -and (Test-Path $nppInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [3/18] Chrome 다운로드
-Write-Host "[3/18] Chrome 다운로드 중..." -ForegroundColor Yellow
+# [3/22] Chrome 다운로드
+Write-Host "[3/22] Chrome 다운로드 중..." -ForegroundColor Yellow
 try {
     $chromeUrl = "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi"
     $chromeInstaller = Join-Path $tempDir "chrome_installer.msi"
@@ -68,8 +68,8 @@ try {
     $failCount++
 }
 
-# [4/18] Chrome 설치
-Write-Host "[4/18] Chrome 설치 중..." -ForegroundColor Yellow
+# [4/22] Chrome 설치
+Write-Host "[4/22] Chrome 설치 중..." -ForegroundColor Yellow
 if ($chromeInstaller -and (Test-Path $chromeInstaller)) {
     try {
         Start-Process msiexec -ArgumentList "/i `"$chromeInstaller`" /qn /norestart" -Wait -NoNewWindow
@@ -92,8 +92,8 @@ if ($chromeInstaller -and (Test-Path $chromeInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [5/18] 7-Zip 다운로드
-Write-Host "[5/18] 7-Zip 다운로드 중..." -ForegroundColor Yellow
+# [5/22] 7-Zip 다운로드
+Write-Host "[5/22] 7-Zip 다운로드 중..." -ForegroundColor Yellow
 try {
     $sevenZipUrl = "https://www.7-zip.org/a/7z2408-x64.msi"
     $sevenZipInstaller = Join-Path $tempDir "7zip_installer.msi"
@@ -105,8 +105,8 @@ try {
     $failCount++
 }
 
-# [6/18] 7-Zip 설치
-Write-Host "[6/18] 7-Zip 설치 중..." -ForegroundColor Yellow
+# [6/22] 7-Zip 설치
+Write-Host "[6/22] 7-Zip 설치 중..." -ForegroundColor Yellow
 if ($sevenZipInstaller -and (Test-Path $sevenZipInstaller)) {
     try {
         Start-Process msiexec -ArgumentList "/i `"$sevenZipInstaller`" /qn" -Wait -NoNewWindow
@@ -121,8 +121,8 @@ if ($sevenZipInstaller -and (Test-Path $sevenZipInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [7/18] ShareX 다운로드
-Write-Host "[7/18] ShareX 다운로드 중..." -ForegroundColor Yellow
+# [7/22] ShareX 다운로드
+Write-Host "[7/22] ShareX 다운로드 중..." -ForegroundColor Yellow
 try {
     $shareXRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/ShareX/ShareX/releases/latest"
     $shareXAsset = $shareXRelease.assets | Where-Object { $_.name -match "ShareX-.*-setup\.exe$" } | Select-Object -First 1
@@ -136,8 +136,8 @@ try {
     $failCount++
 }
 
-# [8/18] ShareX 설치 (업로드 기능 비활성화)
-Write-Host "[8/18] ShareX 설치 중 (업로드 기능 비활성화)..." -ForegroundColor Yellow
+# [8/22] ShareX 설치 (업로드 기능 비활성화)
+Write-Host "[8/22] ShareX 설치 중 (업로드 기능 비활성화)..." -ForegroundColor Yellow
 if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
     try {
         # ShareX 설치
@@ -166,8 +166,8 @@ if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [9/18] ShareX 컨텍스트 메뉴 제거
-Write-Host "[9/18] ShareX 컨텍스트 메뉴 제거 중..." -ForegroundColor Yellow
+# [9/22] ShareX 컨텍스트 메뉴 제거
+Write-Host "[9/22] ShareX 컨텍스트 메뉴 제거 중..." -ForegroundColor Yellow
 try {
     # ShareX 컨텍스트 메뉴 레지스트리 키 삭제 (모든 파일용)
     $contextMenuPaths = @(
@@ -195,8 +195,8 @@ try {
     Write-Host "  - 컨텍스트 메뉴 제거 실패: $_" -ForegroundColor Red
 }
 
-# [10/18] ShareX 시작 시 트레이 모드 설정
-Write-Host "[10/18] ShareX 시작 프로그램 등록 중..." -ForegroundColor Yellow
+# [10/22] ShareX 시작 시 트레이 모드 설정
+Write-Host "[10/22] ShareX 시작 프로그램 등록 중..." -ForegroundColor Yellow
 try {
     $shareXExe = "${env:ProgramFiles}\ShareX\ShareX.exe"
     if (Test-Path $shareXExe) {
@@ -211,8 +211,8 @@ try {
     Write-Host "  - 시작 프로그램 등록 실패: $_" -ForegroundColor Red
 }
 
-# [11/18] ImageGlass 다운로드
-Write-Host "[11/18] ImageGlass 다운로드 중..." -ForegroundColor Yellow
+# [11/22] ImageGlass 다운로드
+Write-Host "[11/22] ImageGlass 다운로드 중..." -ForegroundColor Yellow
 try {
     $imageGlassRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/d2phap/ImageGlass/releases/latest"
     $imageGlassAsset = $imageGlassRelease.assets | Where-Object { $_.name -match "ImageGlass_.*_x64\.msi$" } | Select-Object -First 1
@@ -226,8 +226,8 @@ try {
     $failCount++
 }
 
-# [12/18] ImageGlass 설치
-Write-Host "[12/18] ImageGlass 설치 중..." -ForegroundColor Yellow
+# [12/22] ImageGlass 설치
+Write-Host "[12/22] ImageGlass 설치 중..." -ForegroundColor Yellow
 if ($imageGlassInstaller -and (Test-Path $imageGlassInstaller)) {
     try {
         Start-Process msiexec -ArgumentList "/i `"$imageGlassInstaller`" /qn /norestart" -Wait -NoNewWindow
@@ -242,8 +242,8 @@ if ($imageGlassInstaller -and (Test-Path $imageGlassInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [13/18] ImageGlass 설정 적용
-Write-Host "[13/18] ImageGlass 설정 적용 중..." -ForegroundColor Yellow
+# [13/22] ImageGlass 설정 적용
+Write-Host "[13/22] ImageGlass 설정 적용 중..." -ForegroundColor Yellow
 try {
     $imageGlassConfigDir = "$env:LOCALAPPDATA\ImageGlass"
     if (!(Test-Path $imageGlassConfigDir)) {
@@ -297,8 +297,80 @@ try {
     Write-Host "  - 설정 적용 실패: $_" -ForegroundColor Red
 }
 
-# [14/18] SetUserFTA 다운로드 (파일 연결 도구)
-Write-Host "[14/18] SetUserFTA 다운로드 중..." -ForegroundColor Yellow
+# [14/22] PotPlayer 다운로드
+Write-Host "[14/22] PotPlayer 다운로드 중..." -ForegroundColor Yellow
+try {
+    $potPlayerUrl = "https://t1.kakaocdn.net/potplayer/PotPlayer/Version/Latest/PotPlayerSetup64.exe"
+    $potPlayerInstaller = Join-Path $tempDir "PotPlayerSetup64.exe"
+    Invoke-WebRequest -Uri $potPlayerUrl -OutFile $potPlayerInstaller -UseBasicParsing
+    Write-Host "  - 다운로드 완료" -ForegroundColor Green
+} catch {
+    Write-Host "  - 다운로드 실패: $_" -ForegroundColor Red
+    $potPlayerInstaller = $null
+    $failCount++
+}
+
+# [15/22] PotPlayer 설치
+Write-Host "[15/22] PotPlayer 설치 중..." -ForegroundColor Yellow
+if ($potPlayerInstaller -and (Test-Path $potPlayerInstaller)) {
+    try {
+        Start-Process -FilePath $potPlayerInstaller -ArgumentList "/S" -Wait -NoNewWindow
+        Remove-Item $potPlayerInstaller -Force -ErrorAction SilentlyContinue
+        Write-Host "  - 설치 완료" -ForegroundColor Green
+        $successCount++
+    } catch {
+        Write-Host "  - 설치 실패: $_" -ForegroundColor Red
+        $failCount++
+    }
+} else {
+    Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
+}
+
+# [16/22] PotPlayer 설정 적용
+Write-Host "[16/22] PotPlayer 설정 적용 중..." -ForegroundColor Yellow
+try {
+    $potPlayerConfigDir = "$env:APPDATA\PotPlayerMini64"
+    if (!(Test-Path $potPlayerConfigDir)) {
+        New-Item -Path $potPlayerConfigDir -ItemType Directory -Force | Out-Null
+    }
+
+    # INI 파일 생성 - 설정 저장 모드 활성화, 단축키, OSD 설정
+    $iniContent = @"
+[Settings]
+; 설정을 INI 파일에 저장
+CheckAutoUpdate=0
+SkinUseOsc=1
+; OSD 최소화
+ShowOSDOnPlayStart=0
+ShowOSDOnSeek=0
+ShowOSDMessage=0
+; 컨트롤 바 자동 숨김
+AutoHideControl=1
+AutoHideControlTime=1000
+; 타이틀 바 숨김 (전체화면 아닐 때)
+ShowTitleBar=0
+
+[MainShortCutList]
+; Ctrl+W (W=87, Ctrl modifier=2) -> Exit (10002)
+0=87,2,10002,0
+; Enter (13) -> Fullscreen toggle (10010)
+1=13,0,10010,0
+; Space (32) -> Play/Pause (10014)
+2=32,0,10014,0
+; Escape (27) -> Exit fullscreen or close (10015)
+3=27,0,10015,0
+"@
+
+    $iniPath = "$potPlayerConfigDir\PotPlayerMini64.ini"
+    $iniContent | Set-Content -Path $iniPath -Encoding UTF8 -Force
+    Write-Host "  - 설정 적용 완료 (단축키: Ctrl+W=종료, Enter=전체화면)" -ForegroundColor Green
+    Write-Host "  - OSD 최소화, 컨트롤 바 자동 숨김 설정됨" -ForegroundColor Green
+} catch {
+    Write-Host "  - 설정 적용 실패: $_" -ForegroundColor Red
+}
+
+# [17/22] SetUserFTA 다운로드 (파일 연결 도구)
+Write-Host "[17/22] SetUserFTA 다운로드 중..." -ForegroundColor Yellow
 $setUserFtaPath = Join-Path $tempDir "SetUserFTA.exe"
 $downloaded = $false
 
@@ -339,8 +411,8 @@ if (-not $downloaded) {
     $setUserFtaPath = $null
 }
 
-# [15/18] Notepad++ 파일 연결 설정 (SetUserFTA 사용)
-Write-Host "[15/18] Notepad++ 파일 연결 설정 중..." -ForegroundColor Yellow
+# [18/22] Notepad++ 파일 연결 설정 (SetUserFTA 사용)
+Write-Host "[18/22] Notepad++ 파일 연결 설정 중..." -ForegroundColor Yellow
 try {
     $nppPath = "${env:ProgramFiles}\Notepad++\notepad++.exe"
     if ((Test-Path $nppPath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
@@ -379,8 +451,8 @@ try {
     Write-Host "  - 파일 연결 실패: $_" -ForegroundColor Red
 }
 
-# [16/18] ImageGlass 이미지 파일 연결 설정 (SetUserFTA 사용)
-Write-Host "[16/18] ImageGlass 이미지 파일 연결 설정 중..." -ForegroundColor Yellow
+# [19/22] ImageGlass 이미지 파일 연결 설정 (SetUserFTA 사용)
+Write-Host "[19/22] ImageGlass 이미지 파일 연결 설정 중..." -ForegroundColor Yellow
 try {
     $imageGlassPath = "${env:ProgramFiles}\ImageGlass\ImageGlass.exe"
     if ((Test-Path $imageGlassPath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
@@ -423,8 +495,50 @@ try {
     Write-Host "  - 이미지 연결 실패: $_" -ForegroundColor Red
 }
 
-# [17/18] Chrome 기본 브라우저 설정 (SetUserFTA 사용)
-Write-Host "[17/18] Chrome 기본 브라우저 설정 중..." -ForegroundColor Yellow
+# [20/22] PotPlayer 동영상 파일 연결 (SetUserFTA 사용)
+Write-Host "[20/22] PotPlayer 동영상 파일 연결 설정 중..." -ForegroundColor Yellow
+try {
+    $potPlayerPath = "${env:ProgramFiles}\DAUM\PotPlayer\PotPlayerMini64.exe"
+    if ((Test-Path $potPlayerPath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
+        # 동영상 확장자 목록
+        $videoExtensions = @(
+            ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm",
+            ".m4v", ".mpg", ".mpeg", ".ts", ".3gp", ".m2ts", ".vob"
+        )
+
+        # PotPlayer ProgId 등록 (HKCU\SOFTWARE\Classes 사용)
+        $progIdBase = "PotPlayer.AssocFile"
+        $setCount = 0
+
+        foreach ($ext in $videoExtensions) {
+            $extName = $ext.TrimStart(".")
+            $progId = "$progIdBase.$extName"
+            $hkcuClassesPath = "HKCU:\SOFTWARE\Classes\$progId"
+
+            # ProgId 등록 (HKCU에 생성)
+            if (-not (Test-Path $hkcuClassesPath)) {
+                New-Item -Path $hkcuClassesPath -Force | Out-Null
+                New-Item -Path "$hkcuClassesPath\shell\open\command" -Force | Out-Null
+            }
+            Set-ItemProperty -Path $hkcuClassesPath -Name "(Default)" -Value "PotPlayer $extName" -Force
+            Set-ItemProperty -Path "$hkcuClassesPath\shell\open\command" -Name "(Default)" -Value "`"$potPlayerPath`" `"%1`"" -Force
+
+            # SetUserFTA로 연결
+            $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -Wait -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+            if ($result.ExitCode -eq 0) { $setCount++ }
+        }
+        Write-Host "  - 동영상 연결 완료: $setCount/$($videoExtensions.Count)개 확장자" -ForegroundColor Green
+    } elseif (!(Test-Path $potPlayerPath)) {
+        Write-Host "  - 건너뜀 (PotPlayer 설치 경로 없음)" -ForegroundColor Red
+    } else {
+        Write-Host "  - 건너뜀 (SetUserFTA 없음)" -ForegroundColor Red
+    }
+} catch {
+    Write-Host "  - 동영상 연결 실패: $_" -ForegroundColor Red
+}
+
+# [21/22] Chrome 기본 브라우저 설정 (SetUserFTA 사용)
+Write-Host "[21/22] Chrome 기본 브라우저 설정 중..." -ForegroundColor Yellow
 try {
     $chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
     if ((Test-Path $chromePath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
@@ -464,8 +578,8 @@ try {
     Write-Host "  - 기본 브라우저 설정 실패: $_" -ForegroundColor Red
 }
 
-# [18/18] Windows 배경화면 기본 설정 (Spotlight 제거)
-Write-Host "[18/18] Windows 배경화면 기본 설정 중..." -ForegroundColor Yellow
+# [22/22] Windows 배경화면 기본 설정 (Spotlight 제거)
+Write-Host "[22/22] Windows 배경화면 기본 설정 중..." -ForegroundColor Yellow
 try {
     # 기본 Windows 배경화면 경로
     $defaultWallpaper = "C:\Windows\Web\Wallpaper\Windows\img0.jpg"
