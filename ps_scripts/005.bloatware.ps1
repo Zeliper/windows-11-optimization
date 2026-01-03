@@ -70,6 +70,7 @@ $bloatwareApps = @(
     "Microsoft.OutlookForWindows"       # New Outlook
     "Microsoft.Copilot"                 # Windows Copilot
     "Microsoft.Windows.DevHome"
+    "Microsoft.Windows.Photos"          # Windows 사진 앱 (Honeyview로 대체)
     "MicrosoftTeams"                    # Microsoft Teams (classic)
     "MSTeams"                           # Microsoft Teams (new)
     "MicrosoftCorporationII.MicrosoftTeams" # Microsoft Teams

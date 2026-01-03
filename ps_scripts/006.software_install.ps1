@@ -386,6 +386,30 @@ try {
 # [17/20] Honeyview 이미지 파일 연결 설정 (SetUserFTA 병렬 실행)
 Write-Host "[17/20] Honeyview 이미지 파일 연결 설정 중..." -ForegroundColor Yellow
 try {
+    # Windows 사진 앱 제거 (파일 연결 충돌 방지)
+    $photosApp = Get-AppxPackage -Name "Microsoft.Windows.Photos" -ErrorAction SilentlyContinue
+    if ($photosApp) {
+        try {
+            $photosApp | Remove-AppxPackage -ErrorAction SilentlyContinue
+            Write-Host "  - Windows 사진 앱 제거됨" -ForegroundColor Green
+        } catch {
+            Write-Host "  - 사진 앱 제거 실패 (수동 제거 필요)" -ForegroundColor Yellow
+        }
+    }
+
+    # 프로비저닝된 사진 앱도 제거 (새 사용자 설치 방지)
+    $photosProvisioned = Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object { $_.PackageName -like "*Photos*" }
+    if ($photosProvisioned) {
+        try {
+            $photosProvisioned | ForEach-Object {
+                Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction SilentlyContinue | Out-Null
+            }
+            Write-Host "  - 사진 앱 프로비저닝 제거됨" -ForegroundColor Green
+        } catch {
+            # 무시
+        }
+    }
+
     $honeyviewPath = "${env:ProgramFiles}\Honeyview\Honeyview.exe"
     if ((Test-Path $honeyviewPath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
         # 이미지 확장자 목록
