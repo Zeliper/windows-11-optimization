@@ -50,7 +50,8 @@ $global:Presets = @{
 $global:ConflictGroups = @(
     @(4, 5),    # taskbar ↔ bloatware (explorer/AppX 충돌)
     @(8, 12),   # common ↔ ai_features (ContentDeliveryManager 충돌)
-    @(9, 10)    # gaming ↔ game_server (NetworkThrottlingIndex 충돌)
+    @(9, 10),   # gaming ↔ game_server (NetworkThrottlingIndex 충돌)
+    @(6, 1, 3, 4, 5, 14, 16)  # software_install 단독 실행 (Add-Type/Start-Process Job 비호환)
 )
 
 
