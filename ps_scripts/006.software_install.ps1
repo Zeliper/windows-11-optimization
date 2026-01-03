@@ -275,6 +275,7 @@ try {
             "MnuExit" = @("Ctrl+W", "Escape")
             "MnuFitScreen" = @("F")
             "MnuScaleToFit" = @("D5", "NumPad5", "Z")
+            "MnuToggleZoomLevels" = @("D1", "D2", "D3", "D4", "D6", "D7", "D8", "D9", "D0")
             "MnuActualPixel" = @("Ctrl+0")
             "MnuZoomIn" = @("Ctrl+Plus", "Plus")
             "MnuZoomOut" = @("Ctrl+Minus", "Minus")
