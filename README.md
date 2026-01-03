@@ -14,6 +14,21 @@ start ms-cxh:localonly
 Set-ExecutionPolicy RemoteSigned -Force
 ```
 
+## 변조 방지(Tamper Protection) 비활성화
+
+> Windows Defender를 완전히 비활성화하려면 먼저 변조 방지를 꺼야 합니다.
+
+**수동 설정 (필수):**
+1. `Windows 보안` 앱 실행 (Win + I → 개인 정보 및 보안 → Windows 보안)
+2. `바이러스 및 위협 방지` 클릭
+3. `바이러스 및 위협 방지 설정`에서 `설정 관리` 클릭
+4. `변조 방지`를 **끔**으로 설정
+
+또는 PowerShell에서 설정 페이지 직접 열기:
+```powershell
+start windowsdefender://threatsettings
+```
+
 ## 윈도우즈 업데이트 수동 설정 및 UAC 프롬프트 비활성화 스크립트
 
 관리자 권한 PowerShell에서 실행:
