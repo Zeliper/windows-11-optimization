@@ -268,14 +268,17 @@ try {
 
         # 기본 줌 모드 - 화면 맞춤
         "ZoomMode" = "ScaleToFit"
-        "ZoomLevels" = @(100)
+
+        # 줌 레벨 기능 비활성화
+        "ZoomLevels" = @()
+        "ZoomLockValue" = -1
 
         # 단축키 설정
         "MenuHotkeys" = @{
             "MnuFullScreen" = @("Enter", "F11")
             "MnuExit" = @("Ctrl+W", "Escape")
             "MnuFitScreen" = @("F")
-            "MnuScaleToFit" = @("D5", "NumPad5", "Z")
+            "MnuScaleToFit" = @("D5", "NumPad5")
             "MnuToggleZoomLevels" = @()
             "MnuActualPixel" = @("Ctrl+0")
             "MnuZoomIn" = @("Ctrl+Plus", "Plus")
