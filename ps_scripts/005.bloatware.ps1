@@ -64,6 +64,7 @@ $bloatwareApps = @(
     "Microsoft.PowerAutomateDesktop"
     "Microsoft.Todos"
     "Microsoft.WindowsCamera"
+    "Microsoft.ScreenSketch"            # 캡쳐도구 (ShareX로 대체)
     "MicrosoftCorporationII.QuickAssist"
     "Microsoft.MicrosoftStickyNotes"
     "Microsoft.OutlookForWindows"       # New Outlook
@@ -274,6 +275,13 @@ if (Test-Path $start2BinPath) {
     Remove-Item -Path $start2BinPath -Force -ErrorAction SilentlyContinue
     Write-Host "  - 시작 메뉴 레이아웃 초기화됨" -ForegroundColor Green
 }
+
+# Explorer 재시작으로 시작 메뉴 변경사항 즉시 적용
+Write-Host "  - Explorer 재시작 중..." -ForegroundColor Yellow
+Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+Start-Process explorer
+Write-Host "  - 시작 메뉴 변경사항 적용됨" -ForegroundColor Green
 
 # Microsoft Teams 관련 추가 정리
 $teamsPath = "$env:LOCALAPPDATA\Microsoft\Teams"

@@ -451,16 +451,19 @@ if ($msEdgeRedirectInstaller -and (Test-Path $msEdgeRedirectInstaller)) {
             $chromePath = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
         }
 
-        # 설정 파일 생성 (INI 형식) - 자동 설정
-        $settingsPath = "$installPath\Settings.ini"
+        # Setup.ini 파일 생성 (Silent Install용)
+        $settingsPath = "$installPath\Setup.ini"
         $settingsContent = @"
-[MSEdgeRedirect]
+[Config]
+Mode=Service
+Managed=True
+
+[Settings]
 AdsEnabled=0
 AppMode=2
 CheckUpdates=0
 EdgeDeflectorEnabled=1
 Enabled=1
-FirstRun=0
 NoApps=1
 NoBing=1
 NoCopilot=1
@@ -469,7 +472,6 @@ NoOOBE=1
 NoWeather=1
 NoWidgets=1
 SearchEngine=Google
-SetupComplete=1
 StartMenuSearchEnabled=1
 UseProxy=0
 "@
@@ -481,14 +483,10 @@ UseProxy=0
 
         $settingsContent | Set-Content -Path $settingsPath -Encoding UTF8 -Force
 
-        # 시작 프로그램에 등록
-        $startupKey = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
-        Set-ItemProperty -Path $startupKey -Name "MSEdgeRedirect" -Value "`"$installPath\MSEdgeRedirect.exe`"" -Force
+        # Silent Install 실행 (Setup.ini 사용)
+        $installResult = Start-Process "$installPath\MSEdgeRedirect.exe" -ArgumentList "/silentinstall" -Wait -NoNewWindow -PassThru -ErrorAction SilentlyContinue
 
-        # 백그라운드에서 실행 (설정 파일이 있으므로 UI 없이 동작)
-        Start-Process "$installPath\MSEdgeRedirect.exe" -WindowStyle Hidden -ErrorAction SilentlyContinue
-
-        Write-Host "  - 설치 완료 (자동 설정 적용)" -ForegroundColor Green
+        Write-Host "  - 설치 완료 (Silent Install)" -ForegroundColor Green
         Write-Host "  - 시작 메뉴/위젯 검색이 Chrome으로 열립니다" -ForegroundColor Green
         $successCount++
     } catch {
