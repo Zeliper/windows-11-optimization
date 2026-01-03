@@ -427,6 +427,30 @@ try {
             ".psd", ".xcf", ".jfif", ".jpe", ".dib", ".wdp", ".jxr"
         )
 
+        # 그림판을 이미지 연결 프로그램 목록에서 제거 (선택 창 방지)
+        foreach ($ext in $imageExtensions) {
+            $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
+
+            # OpenWithProgids에서 mspaint 제거
+            $openWithProgids = "$fileExtPath\OpenWithProgids"
+            if (Test-Path $openWithProgids) {
+                Remove-ItemProperty -Path $openWithProgids -Name "Applications\mspaint.exe" -ErrorAction SilentlyContinue
+                Remove-ItemProperty -Path $openWithProgids -Name "PBrush" -ErrorAction SilentlyContinue
+            }
+
+            # OpenWithList에서 mspaint 제거
+            $openWithList = "$fileExtPath\OpenWithList"
+            if (Test-Path $openWithList) {
+                $props = Get-ItemProperty -Path $openWithList -ErrorAction SilentlyContinue
+                foreach ($prop in $props.PSObject.Properties) {
+                    if ($prop.Value -like "*mspaint*") {
+                        Remove-ItemProperty -Path $openWithList -Name $prop.Name -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+        }
+        Write-Host "  - 그림판 연결 프로그램 제거됨" -ForegroundColor Green
+
         # Honeyview 자체 Applications ProgId 사용 (설치 시 자동 등록됨)
         # 이렇게 하면 "Honeyview" 하나만 표시됨
         $honeyviewProgId = "Applications\Honeyview.exe"
@@ -496,6 +520,50 @@ try {
         }
 
         if ($chromeProgId) {
+            # Edge를 연결 프로그램 목록에서 제거 (선택 창 방지)
+            $edgeProgIds = @("MSEdgeHTM", "MSEdgePDF", "MSEdgeMHT", "AppXq0fevzme2pys62n3e0fbqa7peapykr8v")
+
+            # http/https 프로토콜에서 Edge 제거
+            foreach ($protocol in @("http", "https")) {
+                $urlAssocPath = "HKCU:\SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\$protocol"
+                $openWithProgids = "$urlAssocPath\OpenWithProgids"
+                if (Test-Path $openWithProgids) {
+                    foreach ($edgeId in $edgeProgIds) {
+                        Remove-ItemProperty -Path $openWithProgids -Name $edgeId -ErrorAction SilentlyContinue
+                    }
+                }
+                $openWithList = "$urlAssocPath\OpenWithList"
+                if (Test-Path $openWithList) {
+                    $props = Get-ItemProperty -Path $openWithList -ErrorAction SilentlyContinue
+                    foreach ($prop in $props.PSObject.Properties) {
+                        if ($prop.Value -like "*edge*" -or $prop.Value -like "*MSEdge*") {
+                            Remove-ItemProperty -Path $openWithList -Name $prop.Name -ErrorAction SilentlyContinue
+                        }
+                    }
+                }
+            }
+
+            # .html, .htm 확장자에서 Edge 제거
+            foreach ($ext in @(".html", ".htm")) {
+                $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
+                $openWithProgids = "$fileExtPath\OpenWithProgids"
+                if (Test-Path $openWithProgids) {
+                    foreach ($edgeId in $edgeProgIds) {
+                        Remove-ItemProperty -Path $openWithProgids -Name $edgeId -ErrorAction SilentlyContinue
+                    }
+                }
+                $openWithList = "$fileExtPath\OpenWithList"
+                if (Test-Path $openWithList) {
+                    $props = Get-ItemProperty -Path $openWithList -ErrorAction SilentlyContinue
+                    foreach ($prop in $props.PSObject.Properties) {
+                        if ($prop.Value -like "*edge*" -or $prop.Value -like "*MSEdge*") {
+                            Remove-ItemProperty -Path $openWithList -Name $prop.Name -ErrorAction SilentlyContinue
+                        }
+                    }
+                }
+            }
+            Write-Host "  - Edge 연결 프로그램 제거됨" -ForegroundColor Green
+
             # SetUserFTA로 Chrome을 기본 브라우저로 설정
             $browserAssocs = @(".html", ".htm", "http", "https")
             $browserSuccessCount = 0
