@@ -268,6 +268,7 @@ try {
 
         # 기본 줌 모드 - 화면 맞춤
         "ZoomMode" = "ScaleToFit"
+        "ZoomLevels" = @(100)
 
         # 단축키 설정
         "MenuHotkeys" = @{
