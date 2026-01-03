@@ -266,9 +266,20 @@ try {
         New-Item -Path $potPlayerConfigDir -ItemType Directory -Force | Out-Null
     }
 
+    # 레지스트리에 INI 모드 활성화 (PotPlayer가 INI 파일 설정을 사용하도록)
+    $potRegPath = "HKCU:\Software\DAUM\PotPlayerMini64"
+    if (!(Test-Path $potRegPath)) {
+        New-Item -Path $potRegPath -Force | Out-Null
+    }
+    # UseIni=1: INI 파일에 설정 저장, CheckAutoUpdate=0: 자동 업데이트 체크 비활성화
+    Set-ItemProperty -Path $potRegPath -Name "UseIni" -Value 1 -Type DWord -Force
+    Set-ItemProperty -Path $potRegPath -Name "CheckAutoUpdate" -Value 0 -Type DWord -Force
+    Write-Host "  - 레지스트리: INI 모드 활성화" -ForegroundColor Green
+
     # INI 파일 생성 - 주석 없이 작성 (PotPlayer 파싱 호환성)
     $iniContent = @"
 [Settings]
+UseIni=1
 CheckAutoUpdate=0
 SkinUseOsc=1
 ShowOSDOnPlayStart=0
@@ -416,46 +427,17 @@ try {
             ".psd", ".xcf", ".jfif", ".jpe", ".dib", ".wdp", ".jxr"
         )
 
-        # Honeyview ProgId 등록 (HKCU\SOFTWARE\Classes 사용)
-        $progIdBase = "Honeyview.AssocFile"
+        # Honeyview 자체 Applications ProgId 사용 (설치 시 자동 등록됨)
+        # 이렇게 하면 "Honeyview" 하나만 표시됨
+        $honeyviewProgId = "Applications\Honeyview.exe"
 
-        # 1단계: 모든 ProgId 레지스트리 등록 및 확장자 키 설정
-        foreach ($ext in $imageExtensions) {
-            $extName = $ext.TrimStart(".")
-            $progId = "$progIdBase.$extName"
-            $hkcuClassesPath = "HKCU:\SOFTWARE\Classes\$progId"
-
-            # ProgId 등록
-            if (-not (Test-Path $hkcuClassesPath)) {
-                New-Item -Path $hkcuClassesPath -Force | Out-Null
-                New-Item -Path "$hkcuClassesPath\shell\open\command" -Force | Out-Null
-            }
-            Set-ItemProperty -Path $hkcuClassesPath -Name "(Default)" -Value "Honeyview $extName" -Force
-            Set-ItemProperty -Path "$hkcuClassesPath\shell\open\command" -Name "(Default)" -Value "`"$honeyviewPath`" `"%1`"" -Force
-
-            # DefaultIcon 추가
-            if (-not (Test-Path "$hkcuClassesPath\DefaultIcon")) {
-                New-Item -Path "$hkcuClassesPath\DefaultIcon" -Force | Out-Null
-            }
-            Set-ItemProperty -Path "$hkcuClassesPath\DefaultIcon" -Name "(Default)" -Value "`"$honeyviewPath`",0" -Force
-
-            # 확장자 키에 직접 ProgId 설정 (SetUserFTA 실패 시 대비)
-            $extKeyPath = "HKCU:\SOFTWARE\Classes\$ext"
-            if (-not (Test-Path $extKeyPath)) {
-                New-Item -Path $extKeyPath -Force | Out-Null
-            }
-            Set-ItemProperty -Path $extKeyPath -Name "(Default)" -Value $progId -Force
-        }
-
-        # 2단계: SetUserFTA 병렬 실행
+        # SetUserFTA 병렬 실행
         $jobs = @()
         foreach ($ext in $imageExtensions) {
-            $extName = $ext.TrimStart(".")
-            $progId = "$progIdBase.$extName"
-            $jobs += Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+            $jobs += Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $honeyviewProgId" -NoNewWindow -PassThru -ErrorAction SilentlyContinue
         }
 
-        # 3단계: 모든 작업 완료 대기
+        # 모든 작업 완료 대기
         $jobs | Wait-Process -Timeout 60 -ErrorAction SilentlyContinue
         $setCount = ($jobs | Where-Object { $_.ExitCode -eq 0 }).Count
         Write-Host "  - 이미지 연결 완료: $setCount/$($imageExtensions.Count)개 확장자" -ForegroundColor Green
@@ -468,7 +450,7 @@ try {
     Write-Host "  - 이미지 연결 실패: $_" -ForegroundColor Red
 }
 
-# [18/20] PotPlayer 동영상 파일 연결 (SetUserFTA 병렬 실행)
+# [18/20] PotPlayer 동영상 파일 연결 (SetUserFTA 사용, PotPlayer 자체 ProgId 활용)
 Write-Host "[18/20] PotPlayer 동영상 파일 연결 설정 중..." -ForegroundColor Yellow
 try {
     $potPlayerPath = "${env:ProgramFiles}\DAUM\PotPlayer\PotPlayerMini64.exe"
@@ -479,46 +461,17 @@ try {
             ".m4v", ".mpg", ".mpeg", ".ts", ".3gp", ".m2ts", ".vob"
         )
 
-        # PotPlayer ProgId 등록 (HKCU\SOFTWARE\Classes 사용)
-        $progIdBase = "PotPlayer.AssocFile"
+        # PotPlayer 자체 Applications ProgId 사용 (설치 시 자동 등록됨)
+        # 이렇게 하면 "팟플레이어 (64비트)" 하나만 표시됨
+        $potPlayerProgId = "Applications\PotPlayerMini64.exe"
 
-        # 1단계: 모든 ProgId 레지스트리 등록 및 확장자 키 설정
-        foreach ($ext in $videoExtensions) {
-            $extName = $ext.TrimStart(".")
-            $progId = "$progIdBase.$extName"
-            $hkcuClassesPath = "HKCU:\SOFTWARE\Classes\$progId"
-
-            # ProgId 등록
-            if (-not (Test-Path $hkcuClassesPath)) {
-                New-Item -Path $hkcuClassesPath -Force | Out-Null
-                New-Item -Path "$hkcuClassesPath\shell\open\command" -Force | Out-Null
-            }
-            Set-ItemProperty -Path $hkcuClassesPath -Name "(Default)" -Value "PotPlayer $extName" -Force
-            Set-ItemProperty -Path "$hkcuClassesPath\shell\open\command" -Name "(Default)" -Value "`"$potPlayerPath`" `"%1`"" -Force
-
-            # DefaultIcon 추가
-            if (-not (Test-Path "$hkcuClassesPath\DefaultIcon")) {
-                New-Item -Path "$hkcuClassesPath\DefaultIcon" -Force | Out-Null
-            }
-            Set-ItemProperty -Path "$hkcuClassesPath\DefaultIcon" -Name "(Default)" -Value "`"$potPlayerPath`",0" -Force
-
-            # 확장자 키에 직접 ProgId 설정 (SetUserFTA 실패 시 대비)
-            $extKeyPath = "HKCU:\SOFTWARE\Classes\$ext"
-            if (-not (Test-Path $extKeyPath)) {
-                New-Item -Path $extKeyPath -Force | Out-Null
-            }
-            Set-ItemProperty -Path $extKeyPath -Name "(Default)" -Value $progId -Force
-        }
-
-        # 2단계: SetUserFTA 병렬 실행
+        # SetUserFTA 병렬 실행
         $jobs = @()
         foreach ($ext in $videoExtensions) {
-            $extName = $ext.TrimStart(".")
-            $progId = "$progIdBase.$extName"
-            $jobs += Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+            $jobs += Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $potPlayerProgId" -NoNewWindow -PassThru -ErrorAction SilentlyContinue
         }
 
-        # 3단계: 모든 작업 완료 대기
+        # 모든 작업 완료 대기
         $jobs | Wait-Process -Timeout 60 -ErrorAction SilentlyContinue
         $setCount = ($jobs | Where-Object { $_.ExitCode -eq 0 }).Count
         Write-Host "  - 동영상 연결 완료: $setCount/$($videoExtensions.Count)개 확장자" -ForegroundColor Green
