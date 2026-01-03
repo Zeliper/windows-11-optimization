@@ -266,6 +266,7 @@ try {
             "MnuFullScreen" = @("Enter", "F11")
             "MnuExit" = @("Ctrl+W", "Escape")
             "MnuFitScreen" = @("F")
+            "MnuScaleToFit" = @("D5", "NumPad5", "Z")
             "MnuActualPixel" = @("Ctrl+0")
             "MnuZoomIn" = @("Ctrl+Plus", "Plus")
             "MnuZoomOut" = @("Ctrl+Minus", "Minus")
@@ -288,10 +289,10 @@ Write-Host "[14/20] SetUserFTA 다운로드 중..." -ForegroundColor Yellow
 $setUserFtaPath = Join-Path $tempDir "SetUserFTA.exe"
 $downloaded = $false
 
-# 다운로드 URL 목록 (공식 사이트 우선)
+# 다운로드 URL 목록 (GitHub 우선 - kolbi.cz 불안정)
 $setUserFtaUrls = @(
-    @{ Url = "https://kolbi.cz/SetUserFTA.zip"; IsZip = $true },
-    @{ Url = "https://github.com/mrmattipants/Adobe_Reader_And_Adobe_Acrobat_Pro_File_Type_Associations/raw/main/SetUserFTA/SetUserFTA.exe"; IsZip = $false }
+    @{ Url = "https://github.com/mrmattipants/Adobe_Reader_And_Adobe_Acrobat_Pro_File_Type_Associations/raw/main/SetUserFTA/SetUserFTA.exe"; IsZip = $false },
+    @{ Url = "https://kolbi.cz/SetUserFTA.zip"; IsZip = $true }
 )
 
 foreach ($source in $setUserFtaUrls) {
@@ -338,12 +339,35 @@ try {
             ".sql", ".csv", ".tsv", ".sh"
         )
 
-        # SetUserFTA로 파일 연결 설정
-        $progId = "Applications\notepad++.exe"
-        foreach ($ext in $extensions) {
-            Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -Wait -NoNewWindow -ErrorAction SilentlyContinue
+        # Notepad++ ProgId 찾기 (레지스트리에서 검색)
+        $progId = $null
+        $nppProgIds = @("Notepad++_file", "Applications\notepad++.exe")
+        foreach ($pid in $nppProgIds) {
+            $regPath = "HKCR:\$pid"
+            if (-not (Test-Path "HKCR:")) {
+                New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue | Out-Null
+            }
+            if (Test-Path $regPath) {
+                $progId = $pid
+                break
+            }
         }
-        Write-Host "  - 파일 연결 완료: $($extensions.Count)개 확장자" -ForegroundColor Green
+
+        if (-not $progId) {
+            # ProgId가 없으면 직접 등록
+            $progId = "Notepad++_file"
+            New-Item -Path "HKCR:\$progId" -Force -ErrorAction SilentlyContinue | Out-Null
+            New-Item -Path "HKCR:\$progId\shell\open\command" -Force -ErrorAction SilentlyContinue | Out-Null
+            Set-ItemProperty -Path "HKCR:\$progId\shell\open\command" -Name "(Default)" -Value "`"$nppPath`" `"%1`"" -Force -ErrorAction SilentlyContinue
+        }
+
+        # SetUserFTA로 파일 연결 설정
+        $setCount = 0
+        foreach ($ext in $extensions) {
+            $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -Wait -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+            if ($result.ExitCode -eq 0) { $setCount++ }
+        }
+        Write-Host "  - 파일 연결 완료: $setCount/$($extensions.Count)개 확장자 (ProgId: $progId)" -ForegroundColor Green
     } elseif (!(Test-Path $nppPath)) {
         Write-Host "  - 건너뜀 (Notepad++ 설치 경로 없음)" -ForegroundColor Red
     } else {
@@ -366,12 +390,31 @@ try {
             ".psd", ".xcf", ".jfif", ".jpe", ".dib", ".wdp", ".jxr"
         )
 
-        # SetUserFTA로 이미지 연결 설정
-        $progId = "Applications\ImageGlass.exe"
-        foreach ($ext in $imageExtensions) {
-            Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -Wait -NoNewWindow -ErrorAction SilentlyContinue
+        # HKCR 드라이브 생성
+        if (-not (Test-Path "HKCR:")) {
+            New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue | Out-Null
         }
-        Write-Host "  - 이미지 연결 완료: $($imageExtensions.Count)개 확장자" -ForegroundColor Green
+
+        # ImageGlass ProgId 등록 (확장자별로 등록)
+        $progIdBase = "ImageGlass.AssocFile"
+        $setCount = 0
+
+        foreach ($ext in $imageExtensions) {
+            $extName = $ext.TrimStart(".")
+            $progId = "$progIdBase.$extName"
+
+            # ProgId 등록 (없으면 생성)
+            if (-not (Test-Path "HKCR:\$progId")) {
+                New-Item -Path "HKCR:\$progId" -Force -ErrorAction SilentlyContinue | Out-Null
+                New-Item -Path "HKCR:\$progId\shell\open\command" -Force -ErrorAction SilentlyContinue | Out-Null
+                Set-ItemProperty -Path "HKCR:\$progId\shell\open\command" -Name "(Default)" -Value "`"$imageGlassPath`" `"%1`"" -Force -ErrorAction SilentlyContinue
+            }
+
+            # SetUserFTA로 연결
+            $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -Wait -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+            if ($result.ExitCode -eq 0) { $setCount++ }
+        }
+        Write-Host "  - 이미지 연결 완료: $setCount/$($imageExtensions.Count)개 확장자" -ForegroundColor Green
     } elseif (!(Test-Path $imageGlassPath)) {
         Write-Host "  - 건너뜀 (ImageGlass 설치 경로 없음)" -ForegroundColor Red
     } else {
@@ -407,14 +450,50 @@ if ($msEdgeRedirectInstaller -and (Test-Path $msEdgeRedirectInstaller)) {
         Copy-Item $msEdgeRedirectInstaller "$installPath\MSEdgeRedirect.exe" -Force
         Remove-Item $msEdgeRedirectInstaller -Force -ErrorAction SilentlyContinue
 
+        # Chrome 경로 확인
+        $chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
+        if (-not (Test-Path $chromePath)) {
+            $chromePath = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
+        }
+
+        # 설정 파일 생성 (INI 형식) - 자동 설정
+        $settingsPath = "$installPath\Settings.ini"
+        $settingsContent = @"
+[MSEdgeRedirect]
+AdsEnabled=0
+AppMode=2
+CheckUpdates=0
+EdgeDeflectorEnabled=1
+Enabled=1
+FirstRun=0
+NoApps=1
+NoBing=1
+NoCopilot=1
+NoMSN=1
+NoOOBE=1
+NoWeather=1
+NoWidgets=1
+SearchEngine=Google
+SetupComplete=1
+StartMenuSearchEnabled=1
+UseProxy=0
+"@
+
+        # Chrome 경로 추가 (존재하는 경우)
+        if (Test-Path $chromePath) {
+            $settingsContent += "`nCustomBrowserPath=$chromePath"
+        }
+
+        $settingsContent | Set-Content -Path $settingsPath -Encoding UTF8 -Force
+
         # 시작 프로그램에 등록
         $startupKey = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
         Set-ItemProperty -Path $startupKey -Name "MSEdgeRedirect" -Value "`"$installPath\MSEdgeRedirect.exe`"" -Force
 
-        # 첫 실행 (Active Mode)
-        Start-Process "$installPath\MSEdgeRedirect.exe" -ArgumentList "/silentinstall" -WindowStyle Hidden -ErrorAction SilentlyContinue
+        # 백그라운드에서 실행 (설정 파일이 있으므로 UI 없이 동작)
+        Start-Process "$installPath\MSEdgeRedirect.exe" -WindowStyle Hidden -ErrorAction SilentlyContinue
 
-        Write-Host "  - 설치 완료 (시작 프로그램 등록)" -ForegroundColor Green
+        Write-Host "  - 설치 완료 (자동 설정 적용)" -ForegroundColor Green
         Write-Host "  - 시작 메뉴/위젯 검색이 Chrome으로 열립니다" -ForegroundColor Green
         $successCount++
     } catch {
