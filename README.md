@@ -371,6 +371,199 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/012.ai_features.ps1)
 
+## 개인정보 보호 최적화 스크립트
+
+⚠️ **경고: 일부 앱 기능이 제한될 수 있습니다.**
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/013.privacy_optimization.ps1 | iex
+```
+
+**위치 서비스 비활성화:**
+- 시스템/사용자 레벨 위치 서비스 비활성화
+- 위치 센서 및 스크립팅 비활성화
+- Geolocation Service (lfsvc) 비활성화
+
+**진단 피드백 완전 비활성화:**
+- 진단 데이터 수준 최소화 (Security)
+- 피드백 요청 빈도 비활성화
+- 진단 서비스 (DiagTrack, dmwappushservice) 비활성화
+- Windows 오류 보고 비활성화
+- 필기/타이핑 데이터 수집 비활성화
+
+**앱 권한 제한:**
+- 카메라, 마이크, 연락처, 일정, 이메일 등 20+ 항목 권한 제한
+- 시스템/사용자 레벨 앱 권한 제한 적용
+- 위치 권한 요청 프롬프트 비활성화
+
+**백그라운드 앱 비활성화:**
+- 전역 백그라운드 앱 비활성화
+- 백그라운드 앱 정책 비활성화
+- 검색 백그라운드 작업 비활성화
+
+**동기화 설정 비활성화:**
+- 설정 동기화 비활성화 (테마, 언어, 시작 메뉴 등)
+- 클라우드 동기화 정책 비활성화
+- OneDrive 파일 동기화 비활성화
+- 클립보드 기록 및 동기화 비활성화
+
+**활동 기록 완전 삭제:**
+- 활동 피드 및 타임라인 비활성화
+- 로컬 활동 기록 데이터 삭제
+- 최근 사용 파일/프로그램 추적 비활성화
+- 점프 목록 비활성화
+
+**광고 추적 비활성화 강화:**
+- 광고 ID 비활성화 및 삭제
+- 시작 메뉴 앱 제안 비활성화
+- 잠금 화면 광고/팁 비활성화
+- 자동 앱 설치 및 콘텐츠 전달 비활성화
+- Edge 추적 방지 강화 (Strict 모드)
+
+> 재부팅 후 모든 설정이 적용됩니다.
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/013.privacy_optimization.ps1)
+
+## 저장소 최적화 스크립트
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/014.storage_optimization.ps1 | iex
+```
+
+**Storage Sense 활성화 및 자동 정리:**
+- Storage Sense 활성화 (매주 실행)
+- 임시 파일 자동 정리
+- OneDrive 파일 로컬 전용 설정 (30일 미사용 시)
+
+**휴지통 및 다운로드 폴더 정리:**
+- 휴지통 자동 비우기 (30일 후)
+- 다운로드 폴더 자동 정리 (60일 미사용 파일)
+- 현재 휴지통 비우기
+
+**임시 파일 정리:**
+- 임시 폴더 정리 (%TEMP%, C:\Windows\Temp)
+- 프리페치 캐시 정리
+- Windows Update 다운로드 캐시 정리
+- 썸네일/아이콘 캐시 정리
+
+**Windows.old 폴더 삭제:**
+- Windows.old 폴더 완전 삭제
+- $Windows.~BT 및 $Windows.~WS 폴더 삭제
+- 디스크 정리 도구 활용
+
+**시스템 복원 포인트 최적화:**
+- 시스템 복원 최대 용량 제한 (5% 또는 최대 10GB)
+- 오래된 복원 포인트 정리 (최신 1개만 유지)
+
+**배달 최적화 캐시 정리:**
+- 배달 최적화 캐시 폴더 정리
+- 로컬 네트워크만 허용 설정
+
+**로그 파일 정리:**
+- Windows 로그 폴더 정리
+- 이벤트 로그 정리
+- CBS 로그 정리 (7일 이전)
+- 메모리 덤프 파일 정리
+
+> 모든 설정이 즉시 적용되었습니다.
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/014.storage_optimization.ps1)
+
+## 시작 프로그램/부팅 최적화 스크립트
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/015.startup_optimization.ps1 | iex
+```
+
+**불필요한 시작 프로그램 비활성화:**
+- OneDrive, Teams, Cortana, Xbox 등 자동 시작 비활성화
+- Adobe, Spotify, Discord, Steam 등 일반 프로그램 자동 시작 비활성화
+- 비활성화된 항목은 Run-Disabled 폴더로 이동 (복원 가능)
+
+**부팅 지연 설정 최적화:**
+- 시작 프로그램 지연 시간 0ms (즉시 시작)
+- 서비스 파이프 타임아웃 60초
+- 데스크톱 프로세스 분리 활성화
+
+**프리패치/슈퍼패치 설정:**
+- SSD 환경: 부팅 최적화만 활성화, 슈퍼패치 비활성화
+- HDD 환경: 전체 활성화 유지
+- SysMain 서비스 비활성화 (SSD)
+
+**Windows Boot Manager 최적화:**
+- 부팅 메뉴 대기 시간 0초
+- Windows 복구 환경 자동 진입 비활성화
+- 부팅 로그 비활성화
+- 부팅 상태 정책: 모든 실패 무시
+
+**NTFS 최적화:**
+- Last Access Time 시스템 관리 모드 (SSD 최적화)
+- 8dot3name 생성 비활성화 (DOS 호환성 제거)
+
+**페이지 파일 최적화:**
+- RAM 용량 기준 권장 크기 계산
+- 고정 크기 설정 (조각화 방지)
+- 종료 시 페이지 파일 삭제 비활성화
+
+**로그온 스크립트 지연 제거:**
+- 로그온 스크립트 비동기 실행
+- 시작 스크립트 지연 비활성화
+- 로그온 시 앱 자동 재시작 비활성화
+
+> 재부팅 후 모든 설정이 적용됩니다.
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/015.startup_optimization.ps1)
+
+## 접근성 기능 정리 스크립트
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/016.accessibility_cleanup.ps1 | iex
+```
+
+**고정 키 비활성화:**
+- Shift 5회 연타 팝업 비활성화
+- 고정 키 기능 완전 비활성화
+
+**토글 키 비활성화:**
+- NumLock 5초 누름 팝업 비활성화
+- 토글 키 기능 완전 비활성화
+
+**필터 키 비활성화:**
+- 오른쪽 Shift 8초 누름 팝업 비활성화
+- 필터 키 기능 완전 비활성화
+
+**마우스 키 비활성화:**
+- Alt+Shift+NumLock 단축키 비활성화
+- 마우스 키 기능 완전 비활성화
+
+**돋보기 자동 시작 비활성화:**
+- 돋보기 자동 시작 비활성화
+- 돋보기 추적 옵션 (캐럿, 마우스, 포커스) 모두 비활성화
+
+**내레이터 자동 시작 비활성화:**
+- 내레이터 자동 시작 비활성화
+- Win+Enter 내레이터 단축키 비활성화
+
+**화면 키보드 자동 시작 비활성화:**
+- 화면 키보드(OSK) 자동 시작 비활성화
+- 터치 키보드 자동 호출 비활성화
+
+**고대비 테마 바로가기 비활성화:**
+- Alt+Shift+PrintScreen 단축키 비활성화
+- 고대비 테마 기능 비활성화
+
+> 모든 설정이 즉시 적용되었습니다.
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/016.accessibility_cleanup.ps1)
+
 ---
 
 ## 문서

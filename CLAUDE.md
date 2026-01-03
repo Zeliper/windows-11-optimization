@@ -233,3 +233,7 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 | 010 | game_server.ps1 | 게임 서버 최적화 (TCP/UDP, NVMe, QoS) |
 | 011 | web_server.ps1 | 웹 서버 IIS 최적화 (압축, 캐싱, TLS) |
 | 012 | ai_features.ps1 | **25H2 AI 기능 비활성화** (Recall, Copilot, AI Actions, Search AI, Spotlight 등 14단계) |
+| 013 | privacy_optimization.ps1 | 개인정보 보호 강화 (위치 서비스, 권한 설정, 동기화 비활성화) |
+| 014 | storage_optimization.ps1 | Storage Sense 활성화, 자동 정리 설정 |
+| 015 | startup_optimization.ps1 | 부팅 시간 단축, 시작 프로그램 최적화 |
+| 016 | accessibility_cleanup.ps1 | 접근성 단축키 정리 (Windows 키 + U, Shift 5회 등) |
