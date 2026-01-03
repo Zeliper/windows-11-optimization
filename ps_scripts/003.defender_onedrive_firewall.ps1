@@ -110,10 +110,87 @@ $defenderPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender"
 if (!(Test-Path $defenderPolicyPath)) {
     New-Item -Path $defenderPolicyPath -Force | Out-Null
 }
-# Defender 자체 비활성화 정책 (Tamper Protection 우회 불가, 참고용)
+# Defender 자체 비활성화 정책
 Set-ItemProperty -Path $defenderPolicyPath -Name "DisableAntiSpyware" -Value 1 -Type DWord -ErrorAction SilentlyContinue
 Set-ItemProperty -Path $defenderPolicyPath -Name "DisableAntiVirus" -Value 1 -Type DWord -ErrorAction SilentlyContinue
+
+# Real-Time Protection 정책 경로
+$rtpPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection"
+if (!(Test-Path $rtpPolicyPath)) {
+    New-Item -Path $rtpPolicyPath -Force | Out-Null
+}
+Set-ItemProperty -Path $rtpPolicyPath -Name "DisableBehaviorMonitoring" -Value 1 -Type DWord -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $rtpPolicyPath -Name "DisableOnAccessProtection" -Value 1 -Type DWord -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $rtpPolicyPath -Name "DisableScanOnRealtimeEnable" -Value 1 -Type DWord -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $rtpPolicyPath -Name "DisableRealtimeMonitoring" -Value 1 -Type DWord -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $rtpPolicyPath -Name "DisableIOAVProtection" -Value 1 -Type DWord -ErrorAction SilentlyContinue
 Write-Host "    - Defender 비활성화 정책 레지스트리 설정 완료" -ForegroundColor Green
+
+# 1-7. 부팅 시 Defender 비활성화 예약 작업 등록
+Write-Host "  [1-7] 부팅 시 Defender 비활성화 예약 작업 등록..." -ForegroundColor Cyan
+$taskName = "DisableDefenderRealtime"
+$existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+
+# 기존 작업 삭제
+if ($existingTask) {
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+}
+
+# PowerShell 명령 (실시간 보호 및 관련 기능 비활성화)
+$psCommand = @'
+Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction SilentlyContinue
+Set-MpPreference -DisableBehaviorMonitoring $true -ErrorAction SilentlyContinue
+Set-MpPreference -DisableIOAVProtection $true -ErrorAction SilentlyContinue
+Set-MpPreference -DisableScriptScanning $true -ErrorAction SilentlyContinue
+Set-MpPreference -MAPSReporting 0 -ErrorAction SilentlyContinue
+Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction SilentlyContinue
+'@
+
+try {
+    # 예약 작업 액션 생성
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"$psCommand`""
+
+    # 트리거: 시스템 시작 시 (1분 지연)
+    $trigger = New-ScheduledTaskTrigger -AtStartup
+    $trigger.Delay = "PT1M"
+
+    # 설정: SYSTEM 계정으로 실행, 최고 권한
+    $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+
+    # 작업 설정
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 5)
+
+    # 예약 작업 등록
+    Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description "Disable Windows Defender Real-time Protection on boot" -Force | Out-Null
+    Write-Host "    - 부팅 시 Defender 비활성화 예약 작업 등록 완료" -ForegroundColor Green
+
+    # 즉시 한 번 실행
+    Start-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+    Write-Host "    - 예약 작업 즉시 실행" -ForegroundColor Green
+} catch {
+    Write-Host "    - 예약 작업 등록 실패: $($_.Exception.Message)" -ForegroundColor Red
+}
+
+# 1-8. 로그온 시에도 비활성화 (백업용)
+Write-Host "  [1-8] 로그온 시 Defender 비활성화 예약 작업 등록..." -ForegroundColor Cyan
+$taskNameLogon = "DisableDefenderRealtimeLogon"
+$existingTaskLogon = Get-ScheduledTask -TaskName $taskNameLogon -ErrorAction SilentlyContinue
+
+if ($existingTaskLogon) {
+    Unregister-ScheduledTask -TaskName $taskNameLogon -Confirm:$false -ErrorAction SilentlyContinue
+}
+
+try {
+    $actionLogon = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"$psCommand`""
+    $triggerLogon = New-ScheduledTaskTrigger -AtLogOn
+    $principalLogon = New-ScheduledTaskPrincipal -GroupId "BUILTIN\Administrators" -RunLevel Highest
+    $settingsLogon = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 5)
+
+    Register-ScheduledTask -TaskName $taskNameLogon -Action $actionLogon -Trigger $triggerLogon -Principal $principalLogon -Settings $settingsLogon -Description "Disable Windows Defender Real-time Protection on logon" -Force | Out-Null
+    Write-Host "    - 로그온 시 Defender 비활성화 예약 작업 등록 완료" -ForegroundColor Green
+} catch {
+    Write-Host "    - 로그온 예약 작업 등록 실패: $($_.Exception.Message)" -ForegroundColor Red
+}
 
 # 현재 상태 출력
 Write-Host ""
