@@ -342,13 +342,13 @@ try {
         # Notepad++ ProgId 찾기 (레지스트리에서 검색)
         $progId = $null
         $nppProgIds = @("Notepad++_file", "Applications\notepad++.exe")
-        foreach ($pid in $nppProgIds) {
-            $regPath = "HKCR:\$pid"
+        foreach ($testId in $nppProgIds) {
+            $regPath = "HKCR:\$testId"
             if (-not (Test-Path "HKCR:")) {
                 New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue | Out-Null
             }
             if (Test-Path $regPath) {
-                $progId = $pid
+                $progId = $testId
                 break
             }
         }
