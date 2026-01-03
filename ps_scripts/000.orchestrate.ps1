@@ -54,6 +54,21 @@ $global:ConflictGroups = @(
     @(6, 1, 3, 4, 5, 14, 16)  # software_install 단독 실행 (Add-Type/Start-Process Job 비호환)
 )
 
+# 실험적 기능 정의 (스크립트별)
+$global:ExperimentalFeatures = @(
+    @{
+        ScriptId = 10  # game_server.ps1
+        Name = "Native NVMe 지원"
+        Description = "Windows 11 25H2 실험적 기능 - 최대 80% IOPS 향상"
+        Warning = "일부 NVMe 드라이브에서 호환성 문제 가능"
+        Variable = "EnableNativeNVMe"
+        Default = $false
+    }
+)
+
+# 실험적 기능 선택 결과 저장 (글로벌)
+$global:ExperimentalOptions = @{}
+
 
 # ===== 상태 관리 함수 =====
 
@@ -269,6 +284,51 @@ function Get-ExecutionBatches {
     }
 
     return $batches
+}
+
+# 실험적 기능 선택 함수
+function Get-ExperimentalOptions {
+    param([array]$SelectedIds)
+
+    # 선택된 스크립트에 해당하는 실험적 기능 필터링
+    $relevantFeatures = $global:ExperimentalFeatures | Where-Object {
+        $SelectedIds -contains $_.ScriptId
+    }
+
+    if ($relevantFeatures.Count -eq 0) {
+        return
+    }
+
+    Write-Host ""
+    Write-Host "====================================================" -ForegroundColor Yellow
+    Write-Host "  실험적 기능 설정" -ForegroundColor Yellow
+    Write-Host "====================================================" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host " 선택한 스크립트에 실험적 기능이 포함되어 있습니다." -ForegroundColor White
+    Write-Host " 활성화할 기능을 선택하세요 (기본값: 비활성화)" -ForegroundColor Gray
+    Write-Host ""
+
+    foreach ($feature in $relevantFeatures) {
+        Write-Host " ------------------------------------------------" -ForegroundColor Gray
+        Write-Host " $($feature.Name)" -ForegroundColor Cyan
+        Write-Host "   설명: $($feature.Description)" -ForegroundColor Green
+        Write-Host "   경고: $($feature.Warning)" -ForegroundColor Red
+        Write-Host ""
+
+        $choice = Read-Host "   활성화하시겠습니까? (Y/N, 기본값: N)"
+        if ($choice -eq "Y" -or $choice -eq "y") {
+            $global:ExperimentalOptions[$feature.Variable] = $true
+            Write-Host "   → 활성화됨" -ForegroundColor Green
+        } else {
+            $global:ExperimentalOptions[$feature.Variable] = $false
+            Write-Host "   → 비활성화됨 (기본값)" -ForegroundColor Yellow
+        }
+        Write-Host ""
+    }
+
+    Write-Host " ------------------------------------------------" -ForegroundColor Gray
+    Write-Host ""
+    Start-Sleep -Seconds 1
 }
 
 
@@ -521,4 +581,8 @@ if ($savedState -and $savedState.PendingItems.Count -gt 0) {
 
 # 새 실행: 메뉴 표시
 $userSelection = Get-UserSelection
+
+# 실험적 기능 선택 (해당 스크립트가 선택된 경우에만 표시)
+Get-ExperimentalOptions -SelectedIds $userSelection.PendingItems
+
 Start-OptimizationProcess -State $userSelection

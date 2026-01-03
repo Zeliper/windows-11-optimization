@@ -295,8 +295,16 @@ Write-Host "  장점: 최대 80% IOPS 향상, I/O 레이턴시 감소" -Foregrou
 Write-Host "  위험: 일부 NVMe 드라이브에서 호환성 문제 가능" -ForegroundColor Red
 Write-Host ""
 
+# OrchestrateMode 확인: 글로벌 옵션에서 EnableNativeNVMe 확인
 $nvmeChoice = "N"
-if (-not $global:OrchestrateMode) {
+if ($global:OrchestrateMode) {
+    # Orchestrate 모드: 시작 시 선택한 실험적 기능 옵션 확인
+    if ($global:ExperimentalOptions -and $global:ExperimentalOptions.EnableNativeNVMe -eq $true) {
+        $nvmeChoice = "Y"
+        Write-Host "  - Orchestrate 모드: 실험적 기능 활성화 선택됨" -ForegroundColor Cyan
+    }
+} else {
+    # 단독 실행: 사용자에게 직접 물어봄
     $nvmeChoice = Read-Host "Native NVMe 지원을 활성화하시겠습니까? (Y/N, 기본값: N)"
 }
 
@@ -326,7 +334,7 @@ if ($nvmeChoice -eq "Y" -or $nvmeChoice -eq "y") {
     }
 } else {
     if ($global:OrchestrateMode) {
-        Write-Host "  - Native NVMe 활성화 건너뜀 (Orchestrate 모드: 실험적 기능 기본 비활성화)" -ForegroundColor Yellow
+        Write-Host "  - Native NVMe 활성화 건너뜀 (Orchestrate 모드: 실험적 기능 미선택)" -ForegroundColor Yellow
     } else {
         Write-Host "  - Native NVMe 활성화 건너뜀 (사용자 선택)" -ForegroundColor Yellow
     }
