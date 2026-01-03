@@ -138,29 +138,11 @@ $windowsOldPath = "$env:SystemDrive\Windows.old"
 if (Test-Path $windowsOldPath) {
     # 소유권 가져오기 및 삭제
     try {
-        # 디스크 정리 도구로 안전하게 삭제 (cleanmgr 사용)
-        # 레지스트리 설정으로 디스크 정리 옵션 활성화
-        $cleanupPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Previous Installations"
-        if (Test-Path $cleanupPath) {
-            Set-ItemProperty -Path $cleanupPath -Name "StateFlags0100" -Value 2 -Type DWord -ErrorAction SilentlyContinue
-        }
-
-        # Temporary Setup Files 정리 설정
-        $tempSetupPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Temporary Setup Files"
-        if (Test-Path $tempSetupPath) {
-            Set-ItemProperty -Path $tempSetupPath -Name "StateFlags0100" -Value 2 -Type DWord -ErrorAction SilentlyContinue
-        }
-
-        # 디스크 정리 실행
-        Start-Process -FilePath "cleanmgr.exe" -ArgumentList "/sagerun:100" -Wait -NoNewWindow -ErrorAction SilentlyContinue
-
-        # 직접 삭제 시도
-        if (Test-Path $windowsOldPath) {
-            # takeown과 icacls로 권한 변경 후 삭제
-            cmd /c "takeown /F `"$windowsOldPath`" /R /A /D Y" 2>$null
-            cmd /c "icacls `"$windowsOldPath`" /grant Administrators:F /T /Q" 2>$null
-            Remove-Item -Path $windowsOldPath -Recurse -Force -ErrorAction SilentlyContinue
-        }
+        # 직접 삭제 시도 (cleanmgr보다 빠르고 비대화형)
+        # takeown과 icacls로 권한 변경 후 삭제
+        cmd /c "takeown /F `"$windowsOldPath`" /R /A /D Y" 2>$null
+        cmd /c "icacls `"$windowsOldPath`" /grant Administrators:F /T /Q" 2>$null
+        Remove-Item -Path $windowsOldPath -Recurse -Force -Confirm:$false -ErrorAction SilentlyContinue
 
         if (!(Test-Path $windowsOldPath)) {
             Write-Host "  - Windows.old 폴더 삭제 완료" -ForegroundColor Green
