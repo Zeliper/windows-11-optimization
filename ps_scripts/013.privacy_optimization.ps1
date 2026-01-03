@@ -1,5 +1,5 @@
 # Windows 11 25H2 개인정보 보호 최적화 스크립트
-# 위치 서비스, 진단 피드백, 앱 권한, 백그라운드 앱, 동기화, 활동 기록, 광고 추적 비활성화
+# 위치 서비스, 진단 피드백, 앱 권한, 백그라운드 앱, 동기화, 활동 기록, 광고 추적, 파일 탐색기 개인정보 비활성화
 # 관리자 권한으로 실행 필요
 
 #Requires -RunAsAdministrator
@@ -364,6 +364,15 @@ $jumpListPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanc
 Set-ItemProperty -Path $jumpListPath -Name "JumpListItems" -Value 0 -Type DWord -ErrorAction SilentlyContinue
 Write-Host "  - 점프 목록 비활성화" -ForegroundColor Green
 
+# 파일 탐색기 개인 정보 보호 설정 (폴더 옵션)
+$explorerBasePath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer"
+Set-ItemProperty -Path $explorerBasePath -Name "ShowRecent" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+Write-Host "  - 최근에 사용한 파일 표시 비활성화" -ForegroundColor Green
+Set-ItemProperty -Path $explorerBasePath -Name "ShowFrequent" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+Write-Host "  - 자주 사용하는 폴더 표시 비활성화" -ForegroundColor Green
+Set-ItemProperty -Path $explorerBasePath -Name "ShowCloudFilesInQuickAccess" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+Write-Host "  - Office.com에서 파일 표시 비활성화" -ForegroundColor Green
+
 # 최근 파일 폴더 삭제
 $recentPath = "$env:APPDATA\Microsoft\Windows\Recent"
 if (Test-Path $recentPath) {
@@ -492,6 +501,7 @@ Write-Host "  - 앱 권한 제한 (카메라, 마이크, 연락처 등 20+ 항�
 Write-Host "  - 백그라운드 앱 전역 비활성화" -ForegroundColor White
 Write-Host "  - 동기화 설정 비활성화 (클라우드, 클립보드 등)" -ForegroundColor White
 Write-Host "  - 활동 기록 완전 삭제 및 추적 비활성화" -ForegroundColor White
+Write-Host "  - 파일 탐색기 개인 정보 보호 (최근 파일, 자주 사용 폴더, Office.com 파일)" -ForegroundColor White
 Write-Host "  - 광고 추적 강화 비활성화 (광고 ID, 맞춤 광고 등)" -ForegroundColor White
 Write-Host ""
 Write-Host "참고사항:" -ForegroundColor Yellow
