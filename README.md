@@ -373,6 +373,56 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 
 ---
 
+## 문서
+
+이 프로젝트의 상세한 문서는 `Docs` 폴더에 위치합니다:
+
+### [README.md](./Docs/README.md)
+프로젝트 개요 및 문서 목차
+
+### [SCRIPTS_OVERVIEW.md](./Docs/SCRIPTS_OVERVIEW.md)
+전체 스크립트 목록 및 각 스크립트의 상세 설명, 실행 순서 권장사항
+
+### [OPTIMIZATION_CATEGORIES.md](./Docs/OPTIMIZATION_CATEGORIES.md)
+최적화 기능을 카테고리별로 분류한 상세 정보 (전원 관리, 네트워크 최적화, 보안, UI/UX, 게임 최적화, 서버 최적화 등)
+
+### [SCRIPT_DEVELOPMENT_GUIDE.md](./Docs/SCRIPT_DEVELOPMENT_GUIDE.md)
+신규 스크립트 작성 및 기존 스크립트 수정 시 준수해야 할 가이드라인 (템플릿, 명명 규칙, 색상 규칙, 에러 처리 등)
+
+### [ORCHESTRATE_INTEGRATION.md](./Docs/ORCHESTRATE_INTEGRATION.md)
+000.orchestrate.ps1과 개별 스크립트의 연동 방법, ScriptItems 등록, 프리셋 설정, 충돌 관계 정의 등
+
+---
+
+## 개발자 가이드
+
+이 프로젝트에 기여하거나 스크립트를 확장하려는 개발자를 위한 가이드입니다:
+
+### 신규 스크립트 작성
+[SCRIPT_DEVELOPMENT_GUIDE.md](./Docs/SCRIPT_DEVELOPMENT_GUIDE.md)를 참조하여 다음 사항을 준수하세요:
+- 파일명 규칙: `[번호].[기능명].ps1`
+- 필수 헤더: UTF-8 인코딩, OrchestrateMode 확인, ProgressPreference 설정
+- 색상 및 출력 규칙에 따른 일관된 UI
+- 적절한 에러 처리 및 재부팅 처리
+
+### Orchestrate 연동
+[ORCHESTRATE_INTEGRATION.md](./Docs/ORCHESTRATE_INTEGRATION.md)를 참조하여:
+- ScriptItems 배열에 신규 스크립트 등록
+- 적절한 Group 선택 및 RequiresReboot 판단
+- 필요시 프리셋에 추가
+- ConflictGroups에서 충돌 관계 정의
+
+### 프로젝트 구조 이해
+[SCRIPTS_OVERVIEW.md](./Docs/SCRIPTS_OVERVIEW.md)와 [OPTIMIZATION_CATEGORIES.md](./Docs/OPTIMIZATION_CATEGORIES.md)를 읽어 전체 구조 및 기능을 파악하세요.
+
+### 기여 방식
+1. Fork 또는 Clone
+2. 신규 스크립트 또는 기존 스크립트 수정
+3. 개발 가이드 준수
+4. Pull Request 제출
+
+---
+
 ## 원클릭 통합 최적화 스크립트 (25H2)
 
 Windows 11 설치 후 한 번만 실행하면 되는 대화형 통합 최적화 스크립트입니다.

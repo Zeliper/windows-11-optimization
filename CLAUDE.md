@@ -4,6 +4,16 @@
 
 Windows 11 최적화를 위한 PowerShell 스크립트 모음입니다. 서버 및 로컬 네트워크 환경에서 사용할 수 있습니다.
 
+## 📚 Docs 폴더 참조
+
+프로젝트 문서화 자료는 `Docs/` 폴더에 있습니다:
+
+- **[OPTIMIZATION_CATEGORIES.md](./Docs/OPTIMIZATION_CATEGORIES.md)** - 최적화 카테고리 분류 및 설명
+- **[ORCHESTRATE_INTEGRATION.md](./Docs/ORCHESTRATE_INTEGRATION.md)** - Orchestrate 통합 가이드 (스크립트 추가/수정 시 필수 참조)
+- **[SCRIPT_DEVELOPMENT_GUIDE.md](./Docs/SCRIPT_DEVELOPMENT_GUIDE.md)** - 스크립트 개발 가이드
+- **[SCRIPTS_OVERVIEW.md](./Docs/SCRIPTS_OVERVIEW.md)** - 전체 스크립트 개요
+- **[README.md](./Docs/README.md)** - Docs 폴더 설명
+
 ## 스크립트 작성 규칙
 
 ### 파일 명명 규칙
@@ -68,6 +78,34 @@ if (-not $global:OrchestrateMode) {
 - 경고/주의: `Red`
 - 일반 정보: `White`
 
+## ⚠️ 기능 수정 시 문서 업데이트 필수
+
+스크립트를 **추가하거나 수정할 때** 다음 문서들을 **반드시** 업데이트해야 합니다:
+
+### 필수 업데이트 문서
+1. **CLAUDE.md** (이 파일)
+   - "현재 스크립트 목록" 테이블 업데이트
+   - 새 스크립트 추가 시 번호, 파일명, 설명 추가
+
+2. **README.md**
+   - 사용자용 스크립트 설명 추가
+   - 실행 명령어 (`irm | iex`) 추가
+   - 기능 카테고리 및 설명 추가
+
+3. **000.orchestrate.ps1** (새 스크립트 추가 시)
+   - `$global:ScriptItems` 배열에 항목 추가
+   - 프리셋 업데이트 (필요 시)
+   - **자세한 절차는 아래 "000.orchestrate.ps1 연동 체크리스트" 참조**
+
+4. **Docs/SCRIPTS_OVERVIEW.md** (권장)
+   - 전체 스크립트 개요 문서 업데이트
+
+### 업데이트 체크리스트
+- [ ] CLAUDE.md 스크립트 목록 테이블 업데이트
+- [ ] README.md 스크립트 설명 추가
+- [ ] 000.orchestrate.ps1 업데이트 (새 스크립트인 경우)
+- [ ] Docs/SCRIPTS_OVERVIEW.md 업데이트 (선택)
+
 ## 자동 커밋 및 푸시
 
 스크립트 작업 완료 후 **반드시** 다음을 수행합니다:
@@ -88,11 +126,31 @@ if (-not $global:OrchestrateMode) {
    ```
 5. 원격 저장소에 푸시
 
-## 000.orchestrate.ps1 업데이트 방법
+## 🔧 000.orchestrate.ps1 연동 체크리스트
+
+새 스크립트를 추가하거나 기존 스크립트를 수정할 때 다음 절차를 따르세요.
+
+### ✅ 스크립트 추가/수정 전 확인 사항
+
+1. **스크립트가 OrchestrateMode를 지원하는가?**
+   - [ ] `$global:OrchestrateMode` 변수 확인 코드 포함
+   - [ ] OrchestrateMode 시 사용자 프롬프트 건너뛰기 구현
+   - [ ] OrchestrateMode 시 재부팅 프롬프트 건너뛰기 구현
+
+2. **스크립트 템플릿 규칙을 따르는가?**
+   - [ ] UTF-8 인코딩 설정 포함
+   - [ ] `#Requires -RunAsAdministrator` 포함
+   - [ ] 색상 규칙 준수 (Cyan/Yellow/Green/Red)
+
+3. **orchestrate.ps1 업데이트가 필요한가?**
+   - **새 스크립트 추가 시**: **예 (필수)**
+   - 기존 스크립트 수정 시: 대부분 아니오 (파일명 변경 시 필요)
+
+### 📋 000.orchestrate.ps1 업데이트 방법
 
 새 스크립트 추가 시 **반드시** `000.orchestrate.ps1`을 업데이트해야 합니다.
 
-### 1. ScriptItems 배열에 항목 추가
+#### 1. ScriptItems 배열에 항목 추가
 
 `$global:ScriptItems` 배열에 새 스크립트 항목을 추가합니다:
 
@@ -111,7 +169,7 @@ $global:ScriptItems = @(
 | RequiresReboot | 재부팅 필요 여부 (`$true`/`$false`) |
 | Group | 그룹 표시 (기본, 서버, 게임, 25H2 등) |
 
-### 2. 프리셋 업데이트 (필요 시)
+#### 2. 프리셋 업데이트 (필요 시)
 
 새 스크립트가 특정 프리셋에 포함되어야 하면 `$global:Presets`를 업데이트합니다:
 
@@ -124,13 +182,18 @@ $global:Presets = @{
 }
 ```
 
-### 3. RequiresReboot 기준
+#### 3. RequiresReboot 기준
 
 다음 경우 `RequiresReboot = $true`로 설정:
 - VBS/HVCI 설정 변경
 - 드라이버 서비스 비활성화
 - 시스템 서비스 시작 유형 변경
 - 커널 레벨 설정 변경
+
+#### 4. 통합 가이드 참조
+
+더 자세한 orchestrate.ps1 통합 절차는 다음 문서를 참조하세요:
+- **[Docs/ORCHESTRATE_INTEGRATION.md](./Docs/ORCHESTRATE_INTEGRATION.md)** - Orchestrate 통합 상세 가이드
 
 ---
 

@@ -1,0 +1,20 @@
+{
+  "version": "1.0",
+  "projectId": "357e41ad-5be9-480f-87c8-c00787dd76af",
+  "projectName": "windows-11-optimization",
+  "createdAt": "2026-01-03T04:49:45.4130642+09:00",
+  "settings": {
+    "defaultModel": "sonnet",
+    "maxConcurrent": 3,
+    "autoSaveEnabled": true,
+    "autoSaveIntervalSeconds": 30,
+    "ignorePatterns": [
+      ".git",
+      "node_modules",
+      "bin",
+      "obj",
+      ".vs",
+      ".idea"
+    ]
+  }
+}
