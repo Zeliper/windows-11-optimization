@@ -107,7 +107,7 @@ Write-Host "  - 임시 폴더 정리 완료 ($cleanedMB MB 확보)" -ForegroundC
 # 프리페치 캐시 정리
 $prefetchPath = "$env:WINDIR\Prefetch"
 if (Test-Path $prefetchPath) {
-    Remove-Item -Path "$prefetchPath\*" -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$prefetchPath\*" -Recurse -Force -Confirm:$false -ErrorAction SilentlyContinue
     Write-Host "  - 프리페치 캐시 정리 완료" -ForegroundColor Green
 }
 
