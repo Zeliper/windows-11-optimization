@@ -192,6 +192,128 @@ try {
     Write-Host "    - 로그온 예약 작업 등록 실패: $($_.Exception.Message)" -ForegroundColor Red
 }
 
+# 1-9. WinDefend 서비스 비활성화 (Antimalware Service Executable 완전 중지)
+Write-Host "  [1-9] WinDefend 서비스 비활성화 중..." -ForegroundColor Cyan
+Write-Host "    - 이 설정은 Tamper Protection이 꺼져 있어야 작동합니다" -ForegroundColor Yellow
+
+$winDefendPath = "HKLM:\SYSTEM\CurrentControlSet\Services\WinDefend"
+$securityHealthPath = "HKLM:\SYSTEM\CurrentControlSet\Services\SecurityHealthService"
+$wscsvcPath = "HKLM:\SYSTEM\CurrentControlSet\Services\wscsvc"
+
+# WinDefend 서비스 비활성화 (Start = 4)
+try {
+    # 현재 상태 확인
+    $currentStart = (Get-ItemProperty -Path $winDefendPath -Name "Start" -ErrorAction SilentlyContinue).Start
+    Write-Host "    - WinDefend 현재 Start 값: $currentStart (2=자동, 3=수동, 4=비활성화)" -ForegroundColor White
+
+    # 레지스트리로 비활성화 시도
+    Set-ItemProperty -Path $winDefendPath -Name "Start" -Value 4 -Type DWord -ErrorAction Stop
+    Write-Host "    - WinDefend 서비스 비활성화 (레지스트리)" -ForegroundColor Green
+} catch {
+    Write-Host "    - WinDefend 레지스트리 수정 실패 (Tamper Protection 활성화됨)" -ForegroundColor Red
+
+    # 대안: reg.exe 사용
+    try {
+        $regResult = reg.exe add "HKLM\SYSTEM\CurrentControlSet\Services\WinDefend" /v Start /t REG_DWORD /d 4 /f 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "    - WinDefend 서비스 비활성화 (reg.exe)" -ForegroundColor Green
+        } else {
+            Write-Host "    - reg.exe 실패: $regResult" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "    - reg.exe 실행 실패" -ForegroundColor Red
+    }
+}
+
+# SecurityHealthService 비활성화 (Windows 보안 센터)
+try {
+    Set-ItemProperty -Path $securityHealthPath -Name "Start" -Value 4 -Type DWord -ErrorAction SilentlyContinue
+    Write-Host "    - SecurityHealthService 비활성화" -ForegroundColor Green
+} catch {
+    Write-Host "    - SecurityHealthService 비활성화 실패" -ForegroundColor Yellow
+}
+
+# wscsvc (Security Center) 비활성화
+try {
+    Set-ItemProperty -Path $wscsvcPath -Name "Start" -Value 4 -Type DWord -ErrorAction SilentlyContinue
+    Write-Host "    - wscsvc (Security Center) 비활성화" -ForegroundColor Green
+} catch {
+    Write-Host "    - wscsvc 비활성화 실패" -ForegroundColor Yellow
+}
+
+# WinDefend 서비스 중지 시도
+Write-Host "    - WinDefend 서비스 중지 시도 중..." -ForegroundColor Cyan
+try {
+    $winDefendService = Get-Service -Name "WinDefend" -ErrorAction SilentlyContinue
+    if ($winDefendService -and $winDefendService.Status -eq "Running") {
+        Stop-Service -Name "WinDefend" -Force -ErrorAction Stop
+        Write-Host "    - WinDefend 서비스 중지 완료" -ForegroundColor Green
+    } else {
+        Write-Host "    - WinDefend 서비스가 이미 중지되었거나 없음" -ForegroundColor Green
+    }
+} catch {
+    Write-Host "    - WinDefend 서비스 중지 실패 (보호됨)" -ForegroundColor Yellow
+    # sc.exe로 시도
+    $scResult = sc.exe stop WinDefend 2>&1
+    Write-Host "    - sc.exe stop WinDefend: $scResult" -ForegroundColor White
+}
+
+# MsMpEng.exe 프로세스 종료 시도
+Write-Host "    - MsMpEng.exe (Antimalware Service Executable) 종료 시도..." -ForegroundColor Cyan
+try {
+    $msMpEng = Get-Process -Name "MsMpEng" -ErrorAction SilentlyContinue
+    if ($msMpEng) {
+        Stop-Process -Name "MsMpEng" -Force -ErrorAction Stop
+        Write-Host "    - MsMpEng.exe 종료 완료" -ForegroundColor Green
+    } else {
+        Write-Host "    - MsMpEng.exe가 실행 중이지 않음" -ForegroundColor Green
+    }
+} catch {
+    Write-Host "    - MsMpEng.exe 종료 실패 (시스템 보호 프로세스)" -ForegroundColor Yellow
+    # taskkill로 시도
+    $taskKillResult = taskkill /F /IM MsMpEng.exe 2>&1
+    Write-Host "    - taskkill 결과: $taskKillResult" -ForegroundColor White
+}
+
+# 1-10. Defender 드라이버 비활성화
+Write-Host "  [1-10] Defender 관련 드라이버 비활성화 중..." -ForegroundColor Cyan
+
+$defenderDrivers = @(
+    @{ Name = "WdFilter"; Desc = "Windows Defender Mini-Filter Driver" },
+    @{ Name = "WdNisDrv"; Desc = "Windows Defender Network Inspection Driver" },
+    @{ Name = "WdNisSvc"; Desc = "Windows Defender Network Inspection Service" },
+    @{ Name = "WdBoot"; Desc = "Windows Defender Boot Driver" }
+)
+
+foreach ($driver in $defenderDrivers) {
+    $driverPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$($driver.Name)"
+    try {
+        if (Test-Path $driverPath) {
+            Set-ItemProperty -Path $driverPath -Name "Start" -Value 4 -Type DWord -ErrorAction SilentlyContinue
+            Write-Host "    - $($driver.Name) ($($driver.Desc)) 비활성화" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "    - $($driver.Name) 비활성화 실패" -ForegroundColor Yellow
+    }
+}
+
+# 1-11. Windows Security 알림 비활성화
+Write-Host "  [1-11] Windows Security 알림 비활성화 중..." -ForegroundColor Cyan
+$notificationPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Notifications\Settings\Windows.SystemToast.SecurityAndMaintenance"
+if (!(Test-Path $notificationPath)) {
+    New-Item -Path $notificationPath -Force | Out-Null
+}
+Set-ItemProperty -Path $notificationPath -Name "Enabled" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+Write-Host "    - Windows Security 알림 비활성화 완료" -ForegroundColor Green
+
+# 시스템 트레이 보안 아이콘 숨기기
+$explorerPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender Security Center\Systray"
+if (!(Test-Path $explorerPath)) {
+    New-Item -Path $explorerPath -Force | Out-Null
+}
+Set-ItemProperty -Path $explorerPath -Name "HideSystray" -Value 1 -Type DWord -ErrorAction SilentlyContinue
+Write-Host "    - 시스템 트레이 보안 아이콘 숨기기" -ForegroundColor Green
+
 # 현재 상태 출력
 Write-Host ""
 Write-Host "  === Windows Defender 현재 상태 ===" -ForegroundColor Cyan
@@ -461,13 +583,19 @@ Write-Host ""
 Write-Host "적용된 설정:" -ForegroundColor Yellow
 Write-Host "  - Windows Defender 보호 기능 비활성화 시도" -ForegroundColor White
 Write-Host "    (실시간 보호, 개발자 드라이브 보호, 클라우드 보호, 샘플 전송)" -ForegroundColor White
+Write-Host "  - WinDefend 서비스 비활성화 (Antimalware Service Executable)" -ForegroundColor White
+Write-Host "  - Defender 드라이버 비활성화 (WdFilter, WdNisDrv, WdBoot)" -ForegroundColor White
 Write-Host "  - Windows 방화벽 해제" -ForegroundColor White
 Write-Host "  - OneDrive 완전 삭제" -ForegroundColor White
 Write-Host ""
 Write-Host "Defender가 여전히 활성화되어 있다면:" -ForegroundColor Yellow
 Write-Host "  1. Windows 보안 > 바이러스 및 위협 방지 > 설정 관리" -ForegroundColor White
 Write-Host "  2. Tamper Protection (변조 보호) 끄기" -ForegroundColor White
-Write-Host "  3. 스크립트 다시 실행" -ForegroundColor White
+Write-Host "  3. 재부팅 후 스크립트 다시 실행" -ForegroundColor White
+Write-Host ""
+Write-Host "RDP 연결 관련:" -ForegroundColor Yellow
+Write-Host "  - WinDefend 비활성화는 RDP에 영향을 주지 않습니다" -ForegroundColor White
+Write-Host "  - RDP는 TermService를 사용하며 Defender와 무관합니다" -ForegroundColor White
 Write-Host ""
 Write-Host "변경 사항을 완전히 적용하려면 재부팅이 필요합니다." -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Cyan
