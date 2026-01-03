@@ -29,6 +29,40 @@ Set-ExecutionPolicy RemoteSigned -Force
 start windowsdefender://threatsettings
 ```
 
+## 원클릭 통합 최적화 스크립트 (25H2)
+
+Windows 11 설치 후 한 번만 실행하면 되는 대화형 통합 최적화 스크립트입니다.
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/000.orchestrate.ps1 | iex
+```
+
+**주요 기능:**
+- 대화형 콘솔 메뉴로 원하는 항목 선택/해제 (체크박스 토글)
+- 프리셋 지원: 기본, 게임용, 서버용, 웹서버용
+- **병렬 실행**: 충돌하지 않는 스크립트는 동시 실행 (속도 향상)
+- 재부팅 필요 항목 자동 그룹화 (마지막에 한 번만 재부팅)
+- 25H2 AI 기능 완전 비활성화 포함
+
+**프리셋 구성:**
+
+| 프리셋 | 포함 항목 |
+|--------|----------|
+| 기본 | Update, 전원/네트워크, OneDrive, 작업표시줄, 블로트웨어, 소프트웨어, 공통최적화, AI비활성화 |
+| 게임 | 기본 + 게임용 최적화 (VBS/GPU) |
+| 서버 | Update, 전원/네트워크, OneDrive, 공통최적화, 게임서버 최적화 |
+| 웹서버 | Update, 전원/네트워크, OneDrive, 공통최적화, IIS 최적화 |
+
+**사용 방법:**
+1. 스크립트 실행 후 콘솔 메뉴 표시
+2. 숫자 키로 항목 선택/해제 또는 프리셋 선택 (B/G/S/W)
+3. [R] 키로 실행 시작
+4. 모든 최적화 완료 후 재부팅 안내
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/000.orchestrate.ps1)
+
 ## 윈도우즈 업데이트 수동 설정 및 UAC 프롬프트 비활성화 스크립트
 
 관리자 권한 PowerShell에서 실행:
@@ -631,38 +665,3 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 3. 개발 가이드 준수
 4. Pull Request 제출
 
----
-
-## 원클릭 통합 최적화 스크립트 (25H2)
-
-Windows 11 설치 후 한 번만 실행하면 되는 대화형 통합 최적화 스크립트입니다.
-
-관리자 권한 PowerShell에서 실행:
-
-```powershell
-irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/000.orchestrate.ps1 | iex
-```
-
-**주요 기능:**
-- 대화형 콘솔 메뉴로 원하는 항목 선택/해제 (체크박스 토글)
-- 프리셋 지원: 기본, 게임용, 서버용, 웹서버용
-- **병렬 실행**: 충돌하지 않는 스크립트는 동시 실행 (속도 향상)
-- 재부팅 필요 항목 자동 그룹화 (마지막에 한 번만 재부팅)
-- 25H2 AI 기능 완전 비활성화 포함
-
-**프리셋 구성:**
-
-| 프리셋 | 포함 항목 |
-|--------|----------|
-| 기본 | Update, 전원/네트워크, OneDrive, 작업표시줄, 블로트웨어, 소프트웨어, 공통최적화, AI비활성화 |
-| 게임 | 기본 + 게임용 최적화 (VBS/GPU) |
-| 서버 | Update, 전원/네트워크, OneDrive, 공통최적화, 게임서버 최적화 |
-| 웹서버 | Update, 전원/네트워크, OneDrive, 공통최적화, IIS 최적화 |
-
-**사용 방법:**
-1. 스크립트 실행 후 콘솔 메뉴 표시
-2. 숫자 키로 항목 선택/해제 또는 프리셋 선택 (B/G/S/W)
-3. [R] 키로 실행 시작
-4. 모든 최적화 완료 후 재부팅 안내
-
-[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/000.orchestrate.ps1)
