@@ -557,11 +557,6 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 - Last Access Time 시스템 관리 모드 (SSD 최적화)
 - 8dot3name 생성 비활성화 (DOS 호환성 제거)
 
-**페이지 파일 최적화:**
-- RAM 용량 기준 권장 크기 계산
-- 고정 크기 설정 (조각화 방지)
-- 종료 시 페이지 파일 삭제 비활성화
-
 **로그온 스크립트 지연 제거:**
 - 로그온 스크립트 비동기 실행
 - 시작 스크립트 지연 비활성화
@@ -614,6 +609,153 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 > 모든 설정이 즉시 적용되었습니다.
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/016.accessibility_cleanup.ps1)
+
+## 마우스/입력 장치 최적화 스크립트
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/017.mouse_input_optimization.ps1 | iex
+```
+
+**마우스 가속도 비활성화:**
+- 마우스 가속 완전 비활성화 (MouseSpeed, MouseThreshold = 0)
+- 포인터 정확도 향상 옵션 해제
+- SmoothMouseXCurve/YCurve 선형 곡선 설정 (1:1 매핑)
+
+**키보드 반복 속도 최적화:**
+- KeyboardDelay: 0 (반복 지연 최소화)
+- KeyboardSpeed: 31 (최대 반복 속도)
+
+**입력 지연 최소화:**
+- MouseDataQueueSize: 100 (마우스 버퍼 확대)
+- KeyboardDataQueueSize: 100 (키보드 버퍼 확대)
+
+**게임용 입력 우선순위:**
+- MMCSS SystemResponsiveness: 0 (게임 우선순위 최대화)
+- FrameServerMode: 비활성화 (캡처 서비스 비활성화)
+- 타이머 해상도: 1ms (고정밀 입력)
+
+**터치패드 응답성 최적화 (노트북):**
+- PrecisionTouchPad 탐지 및 응답성 향상
+- 탭 지연 최소화, 팜 리젝션 활성화
+
+> 모든 설정이 즉시 적용됩니다. 일부 게임은 재시작이 필요할 수 있습니다.
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/017.mouse_input_optimization.ps1)
+
+## 메모리 최적화 스크립트
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/018.memory_optimization.ps1 | iex
+```
+
+**시스템 메모리 분석:**
+- 총 RAM, 사용 가능 RAM, 사용률 표시
+
+**페이지 파일 최적화 (RAM 용량별 자동 계산):**
+- RAM 8GB 이하: RAM의 1.5~3배
+- RAM 16GB: RAM의 1~2배
+- RAM 32GB+: 16~24GB 고정
+- 자동 관리 비활성화 후 고정 크기 설정
+
+**시스템 캐시 최적화:**
+- LargeSystemCache: RAM 16GB 이상 활성화 (대용량 파일 처리)
+- RAM 16GB 미만: 비활성화 (앱 성능 우선)
+
+**메모리 압축 설정:**
+- RAM 32GB+: 비활성화 (CPU 오버헤드 감소)
+- RAM 32GB 미만: 활성화 (메모리 효율)
+
+**I/O 페이지 잠금 최적화:**
+- RAM 32GB+: 1GB 잠금 허용
+- RAM 16GB+: 512MB 잠금 허용
+- RAM 8GB+: 256MB 잠금 허용
+
+**NDU 메모리 누수 해결:**
+- NDU (Network Data Usage) 서비스 비활성화
+- 알려진 메모리 누수 방지
+
+> 재부팅 후 모든 설정이 적용됩니다.
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/018.memory_optimization.ps1)
+
+## Windows Search 최적화 스크립트
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/019.search_optimization.ps1 | iex
+```
+
+**인덱싱 정책 최적화:**
+- 디스크 공간 5GB 미만 시 인덱싱 중단
+- 암호화된 파일 인덱싱 비활성화
+- Outlook 오프라인 파일 인덱싱 비활성화
+
+**클라우드 검색 및 검색 기록 비활성화:**
+- 장치 검색 기록 비활성화
+- Azure AD 클라우드 검색 비활성화
+- Microsoft 계정 클라우드 검색 비활성화
+- Safe Search 필터링 비활성화
+
+**백그라운드 인덱싱 활동 관리:**
+- 배터리 모드 인덱싱 비활성화
+- 시스템 부하 시 인덱싱 백오프 활성화
+- 이동식/네트워크 드라이브 인덱싱 비활성화
+
+**WSearch 서비스 최적화:**
+- 수동 시작 (권장): 검색 시에만 활성화
+- 자동 시작: 기본값 유지
+- 비활성화: 검색 기능 사용 안 함
+
+**추가 최적화:**
+- Bing/Cortana 웹 검색 비활성화
+- 검색 인덱스 재구축 옵션 (선택적)
+
+> 모든 설정이 즉시 적용됩니다.
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/019.search_optimization.ps1)
+
+## 레지스트리 미세 조정 스크립트
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/020.registry_tweaks.ps1 | iex
+```
+
+**메뉴 지연 제거:**
+- MenuShowDelay: 0ms (메뉴, 서브메뉴, 툴팁 즉시 표시)
+
+**앱 응답 대기 시간 최적화:**
+- HungAppTimeout: 2000ms (응답 대기 2초)
+- WaitToKillAppTimeout: 3000ms (앱 종료 대기 3초)
+- WaitToKillServiceTimeout: 3000ms (서비스 종료 대기 3초)
+
+**자동 앱 종료:**
+- AutoEndTasks: 활성화 (로그오프/종료 시 응답 없는 앱 자동 종료)
+
+**네트워크 공유 성능 향상:**
+- IRPStackSize: 20 (네트워크 공유 환경 최적화)
+- LanmanServer Size: 3 (최대 처리량)
+
+**긴 경로 지원:**
+- LongPathsEnabled: 활성화 (260자 경로 제한 해제, 최대 32,767자)
+- 개발자, Node.js, npm 환경에서 유용
+
+**추가 미세 조정:**
+- ForegroundLockTimeout: 0 (포커스 즉시 전환)
+- LowLevelHooksTimeout: 1000ms (저수준 훅 대기 시간 단축)
+- MouseHoverTime: 10ms (마우스 호버 반응 단축)
+- Win32PrioritySeparation: 38 (포그라운드 앱 우선순위)
+- SvcHostSplitThresholdInKB: RAM 기준 서비스 분리 최적화
+
+> 재부팅 후 모든 설정이 적용됩니다.
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/020.registry_tweaks.ps1)
 
 ---
 

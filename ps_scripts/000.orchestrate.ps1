@@ -36,14 +36,18 @@ $global:ScriptItems = @(
     @{ Id = 14; File = "014.storage_optimization.ps1";       Name = "Storage 자동 정리";                  RequiresReboot = $false; Group = "기본" }
     @{ Id = 15; File = "015.startup_optimization.ps1";       Name = "시작 프로그램 최적화";               RequiresReboot = $true;  Group = "기본" }
     @{ Id = 16; File = "016.accessibility_cleanup.ps1";      Name = "접근성 단축키 정리";                 RequiresReboot = $false; Group = "기본" }
+    @{ Id = 17; File = "017.mouse_input_optimization.ps1";  Name = "마우스/입력 장치 최적화";            RequiresReboot = $false; Group = "게임" }
+    @{ Id = 18; File = "018.memory_optimization.ps1";       Name = "메모리 최적화";                      RequiresReboot = $true;  Group = "기본" }
+    @{ Id = 19; File = "019.search_optimization.ps1";       Name = "Windows Search 최적화";              RequiresReboot = $false; Group = "기본" }
+    @{ Id = 20; File = "020.registry_tweaks.ps1";           Name = "레지스트리 미세 조정";               RequiresReboot = $true;  Group = "기본" }
 )
 
 # 프리셋 정의
 $global:Presets = @{
-    "기본"   = @(1, 2, 3, 4, 5, 6, 8, 12, 13, 14, 15, 16)       # 기본 최적화 + AI 비활성화
-    "게임"   = @(1, 2, 3, 4, 5, 6, 8, 9, 12, 13, 14, 15, 16)    # 게임용 PC
-    "서버"   = @(1, 2, 3, 8, 10)                                 # 게임 서버용
-    "웹서버" = @(1, 2, 3, 8, 11)                                 # 웹 서버용
+    "기본"   = @(1, 2, 3, 4, 5, 6, 8, 12, 13, 14, 15, 16, 18, 19, 20)       # 기본 최적화 + AI 비활성화
+    "게임"   = @(1, 2, 3, 4, 5, 6, 8, 9, 12, 13, 14, 15, 16, 17, 18, 20)    # 게임용 PC
+    "서버"   = @(1, 2, 3, 8, 10, 18, 20)                                     # 게임 서버용
+    "웹서버" = @(1, 2, 3, 8, 11, 18, 20)                                     # 웹 서버용
 }
 
 # 동시 실행 불가능한 스크립트 쌍 정의 (리소스 충돌)
@@ -229,7 +233,7 @@ function Get-UserSelection {
             }
             default {
                 $num = 0
-                if ([int]::TryParse($key, [ref]$num) -and $num -ge 1 -and $num -le 16) {
+                if ([int]::TryParse($key, [ref]$num) -and $num -ge 1 -and $num -le 20) {
                     if ($selected[$num]) {
                         $selected.Remove($num)
                     } else {
@@ -342,7 +346,7 @@ function Invoke-OptimizationScript {
 
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host "[$($item.Id)/16] $($item.Name) 실행 중..." -ForegroundColor Yellow
+    Write-Host "[$($item.Id)/$($global:ScriptItems.Count)] $($item.Name) 실행 중..." -ForegroundColor Yellow
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
 

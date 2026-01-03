@@ -237,3 +237,7 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 | 014 | storage_optimization.ps1 | Storage Sense 활성화, 자동 정리 설정 |
 | 015 | startup_optimization.ps1 | 부팅 시간 단축, 시작 프로그램 최적화 |
 | 016 | accessibility_cleanup.ps1 | 접근성 단축키 정리 (Windows 키 + U, Shift 5회 등) |
+| 017 | mouse_input_optimization.ps1 | 마우스/입력 장치 최적화 (가속 비활성화, 키보드 속도, 입력 지연) |
+| 018 | memory_optimization.ps1 | 메모리 최적화 (페이지 파일, LargeSystemCache, NDU 누수 해결) |
+| 019 | search_optimization.ps1 | Windows Search 최적화 (인덱싱, 클라우드 검색 비활성화) |
+| 020 | registry_tweaks.ps1 | 레지스트리 미세 조정 (MenuShowDelay, IRPStackSize, LongPaths) |

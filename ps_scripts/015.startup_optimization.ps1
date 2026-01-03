@@ -20,7 +20,7 @@ if ($null -eq $global:OrchestrateMode) {
 # Orchestrate 모드용 메타데이터
 $script:ScriptMetadata = @{
     Name = "시작 프로그램/부팅 최적화"
-    Description = "시작 프로그램 비활성화, 부팅 지연 최적화, 프리패치/슈퍼패치, NTFS 최적화, 페이지 파일 최적화"
+    Description = "시작 프로그램 비활성화, 부팅 지연 최적화, 프리패치/슈퍼패치, NTFS 최적화"
     RequiresReboot = $true
 }
 
@@ -28,7 +28,7 @@ Write-Host "=== Windows 11 25H2 시작 프로그램/부팅 최적화 스크립�
 Write-Host "시작 프로그램 비활성화, 부팅 지연 최적화, NTFS 최적화를 수행합니다." -ForegroundColor White
 Write-Host ""
 
-$totalSteps = 8
+$totalSteps = 7
 
 
 # [1/8] 불필요한 시작 프로그램 비활성화 목록 제공
@@ -278,81 +278,9 @@ try {
 }
 
 
-# [7/8] 페이지 파일 최적화
+# [7/7] 로그온 스크립트 지연 제거
 Write-Host ""
-Write-Host "[7/$totalSteps] 페이지 파일 최적화 중..." -ForegroundColor Yellow
-
-# 시스템 메모리 확인
-$totalRAM = [math]::Round((Get-CimInstance -ClassName Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 0)
-Write-Host "  - 시스템 RAM: $totalRAM GB" -ForegroundColor White
-
-# 페이지 파일 권장 크기 계산
-# RAM 8GB 이하: RAM의 1.5배
-# RAM 16GB 이상: RAM과 동일하거나 더 작게
-if ($totalRAM -le 8) {
-    $recommendedPageFileGB = [math]::Ceiling($totalRAM * 1.5)
-} elseif ($totalRAM -le 16) {
-    $recommendedPageFileGB = $totalRAM
-} else {
-    $recommendedPageFileGB = [math]::Min($totalRAM, 16)
-}
-
-$recommendedPageFileMB = $recommendedPageFileGB * 1024
-
-# 현재 페이지 파일 설정 확인
-$pageFile = Get-CimInstance -ClassName Win32_PageFileSetting -ErrorAction SilentlyContinue
-
-if ($pageFile) {
-    Write-Host "  - 현재 페이지 파일: $($pageFile.Name)" -ForegroundColor White
-    Write-Host "    초기 크기: $($pageFile.InitialSize) MB, 최대 크기: $($pageFile.MaximumSize) MB" -ForegroundColor Gray
-}
-
-# 페이지 파일 최적화 옵션
-$optimizePageFile = "N"
-if (-not $global:OrchestrateMode) {
-    Write-Host ""
-    Write-Host "  페이지 파일 권장 설정:" -ForegroundColor Yellow
-    Write-Host "    - 고정 크기: $recommendedPageFileMB MB (조각화 방지)" -ForegroundColor White
-    Write-Host "    - RAM $totalRAM GB 기준 권장 크기" -ForegroundColor Gray
-    $optimizePageFile = Read-Host "페이지 파일을 권장 설정으로 변경하시겠습니까? (Y/N, 기본값: N)"
-}
-
-if ($optimizePageFile -eq "Y" -or $optimizePageFile -eq "y") {
-    try {
-        # 자동 관리 비활성화
-        $compSystem = Get-CimInstance -ClassName Win32_ComputerSystem
-        $compSystem | Set-CimInstance -Property @{ AutomaticManagedPagefile = $false }
-        Write-Host "  - 페이지 파일 자동 관리 비활성화" -ForegroundColor Green
-
-        # 기존 페이지 파일 제거
-        Get-CimInstance -ClassName Win32_PageFileSetting | Remove-CimInstance -ErrorAction SilentlyContinue
-
-        # 새 페이지 파일 설정 (시스템 드라이브에 고정 크기)
-        $pageFilePath = "$env:SystemDrive\pagefile.sys"
-        New-CimInstance -ClassName Win32_PageFileSetting -Property @{
-            Name = $pageFilePath
-            InitialSize = $recommendedPageFileMB
-            MaximumSize = $recommendedPageFileMB
-        } -ErrorAction SilentlyContinue
-
-        Write-Host "  - 페이지 파일 설정: $recommendedPageFileMB MB (고정 크기)" -ForegroundColor Green
-        Write-Host "  - 재부팅 후 적용됩니다" -ForegroundColor Yellow
-    } catch {
-        Write-Host "  - 페이지 파일 설정 변경 실패: $_" -ForegroundColor Red
-    }
-} else {
-    Write-Host "  - 페이지 파일 설정 유지" -ForegroundColor Gray
-
-    # 페이지 파일 삭제 방지 설정
-    $memMgmtPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
-    Set-ItemProperty -Path $memMgmtPath -Name "ClearPageFileAtShutdown" -Value 0 -Type DWord -ErrorAction SilentlyContinue
-    Write-Host "  - 종료 시 페이지 파일 삭제 비활성화 (부팅 속도 향상)" -ForegroundColor Green
-}
-
-
-# [8/8] 로그온 스크립트 지연 제거
-Write-Host ""
-Write-Host "[8/$totalSteps] 로그온 스크립트 지연 제거 중..." -ForegroundColor Yellow
+Write-Host "[7/$totalSteps] 로그온 스크립트 지연 제거 중..." -ForegroundColor Yellow
 
 # 그룹 정책: 로그온 스크립트 지연 비활성화
 $gpoScriptsPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
@@ -400,7 +328,6 @@ Write-Host "  - 프리패치/슈퍼패치 SSD 최적화" -ForegroundColor White
 Write-Host "  - Windows Boot Manager 타임아웃 0초" -ForegroundColor White
 Write-Host "  - NTFS Last Access Time 시스템 관리 모드" -ForegroundColor White
 Write-Host "  - 8dot3name 생성 비활성화" -ForegroundColor White
-Write-Host "  - 페이지 파일 최적화" -ForegroundColor White
 Write-Host "  - 로그온 스크립트 지연 제거" -ForegroundColor White
 Write-Host ""
 Write-Host "재부팅 후 모든 설정이 적용됩니다." -ForegroundColor Yellow
