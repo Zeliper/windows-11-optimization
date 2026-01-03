@@ -22,31 +22,115 @@ Write-Host "주의: 이 스크립트는 서버/로컬 네트워크 환경용입�
 Write-Host ""
 
 
-# 1. Windows Defender 관련 안내
-Write-Host "[1/5] Windows Defender 안내" -ForegroundColor Yellow
+# 1. Windows Defender 보호 기능 비활성화
+Write-Host "[1/5] Windows Defender 보호 기능 비활성화" -ForegroundColor Yellow
+Write-Host ""
+
+# Tamper Protection 확인 및 안내
+Write-Host "  [1-1] Tamper Protection 상태 확인..." -ForegroundColor Cyan
+try {
+    $tamperProtection = (Get-MpComputerStatus -ErrorAction Stop).IsTamperProtected
+    if ($tamperProtection) {
+        Write-Host "    - Tamper Protection이 활성화되어 있습니다!" -ForegroundColor Red
+        Write-Host "    - 아래 설정이 적용되지 않을 수 있습니다." -ForegroundColor Red
+        Write-Host "    - 수동 해제 방법:" -ForegroundColor Yellow
+        Write-Host "      1. Windows 보안 앱 열기" -ForegroundColor White
+        Write-Host "      2. 바이러스 및 위협 방지 > 설정 관리" -ForegroundColor White
+        Write-Host "      3. 변조 보호 끄기" -ForegroundColor White
+        Write-Host ""
+    } else {
+        Write-Host "    - Tamper Protection이 비활성화되어 있습니다" -ForegroundColor Green
+    }
+} catch {
+    Write-Host "    - Defender 상태 확인 실패 (이미 비활성화됨)" -ForegroundColor Yellow
+}
+
+# 1-2. 실시간 보호 비활성화
+Write-Host "  [1-2] 실시간 보호 비활성화..." -ForegroundColor Cyan
+try {
+    Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction Stop
+    Write-Host "    - 실시간 보호 비활성화 완료" -ForegroundColor Green
+} catch {
+    Write-Host "    - 실시간 보호 비활성화 실패 (Tamper Protection 또는 권한 문제)" -ForegroundColor Red
+    # 레지스트리로 시도
+    $defenderPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection"
+    if (!(Test-Path $defenderPolicyPath)) {
+        New-Item -Path $defenderPolicyPath -Force | Out-Null
+    }
+    Set-ItemProperty -Path $defenderPolicyPath -Name "DisableRealtimeMonitoring" -Value 1 -Type DWord -ErrorAction SilentlyContinue
+    Write-Host "    - 레지스트리로 실시간 보호 정책 설정" -ForegroundColor Yellow
+}
+
+# 1-3. 개발자 드라이브 보호 비활성화
+Write-Host "  [1-3] 개발자 드라이브 보호 비활성화..." -ForegroundColor Cyan
+try {
+    # Windows 11 23H2+ 에서만 지원
+    $osVersion = [System.Environment]::OSVersion.Version
+    if ($osVersion.Build -ge 22631) {
+        Set-MpPreference -EnableDevDriveProtection $false -ErrorAction Stop
+        Write-Host "    - 개발자 드라이브 보호 비활성화 완료" -ForegroundColor Green
+    } else {
+        Write-Host "    - 개발자 드라이브 보호는 Windows 11 23H2+ 에서만 지원" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "    - 개발자 드라이브 보호 비활성화 실패" -ForegroundColor Red
+}
+
+# 1-4. 클라우드 전송 보호 비활성화
+Write-Host "  [1-4] 클라우드 전송 보호 비활성화..." -ForegroundColor Cyan
+try {
+    # MAPSReporting: 0=비활성화, 1=기본, 2=고급
+    Set-MpPreference -MAPSReporting 0 -ErrorAction Stop
+    Write-Host "    - 클라우드 전송 보호 (MAPS) 비활성화 완료" -ForegroundColor Green
+} catch {
+    Write-Host "    - 클라우드 전송 보호 비활성화 실패" -ForegroundColor Red
+    # 레지스트리로 시도
+    $spynetPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet"
+    if (!(Test-Path $spynetPath)) {
+        New-Item -Path $spynetPath -Force | Out-Null
+    }
+    Set-ItemProperty -Path $spynetPath -Name "SpynetReporting" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path $spynetPath -Name "SubmitSamplesConsent" -Value 2 -Type DWord -ErrorAction SilentlyContinue
+    Write-Host "    - 레지스트리로 클라우드 보호 정책 설정" -ForegroundColor Yellow
+}
+
+# 1-5. 자동 샘플 전송 비활성화
+Write-Host "  [1-5] 자동 샘플 전송 비활성화..." -ForegroundColor Cyan
+try {
+    # SubmitSamplesConsent: 0=항상 묻기, 1=안전한 샘플 자동 전송, 2=전송 안함, 3=모든 샘플 자동 전송
+    Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction Stop
+    Write-Host "    - 자동 샘플 전송 비활성화 완료" -ForegroundColor Green
+} catch {
+    Write-Host "    - 자동 샘플 전송 비활성화 실패" -ForegroundColor Red
+}
+
+# 1-6. 추가 Defender 정책 레지스트리 설정
+Write-Host "  [1-6] Defender 정책 레지스트리 설정..." -ForegroundColor Cyan
+$defenderPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender"
+if (!(Test-Path $defenderPolicyPath)) {
+    New-Item -Path $defenderPolicyPath -Force | Out-Null
+}
+# Defender 자체 비활성화 정책 (Tamper Protection 우회 불가, 참고용)
+Set-ItemProperty -Path $defenderPolicyPath -Name "DisableAntiSpyware" -Value 1 -Type DWord -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $defenderPolicyPath -Name "DisableAntiVirus" -Value 1 -Type DWord -ErrorAction SilentlyContinue
+Write-Host "    - Defender 비활성화 정책 레지스트리 설정 완료" -ForegroundColor Green
+
+# 현재 상태 출력
+Write-Host ""
+Write-Host "  === Windows Defender 현재 상태 ===" -ForegroundColor Cyan
+try {
+    $mpStatus = Get-MpComputerStatus -ErrorAction Stop
+    Write-Host "    - 실시간 보호: $(if($mpStatus.RealTimeProtectionEnabled){'활성화'}else{'비활성화'})" -ForegroundColor $(if($mpStatus.RealTimeProtectionEnabled){'Red'}else{'Green'})
+    Write-Host "    - 클라우드 보호: $(if($mpStatus.OnAccessProtectionEnabled){'활성화'}else{'비활성화'})" -ForegroundColor White
+    Write-Host "    - Tamper Protection: $(if($mpStatus.IsTamperProtected){'활성화'}else{'비활성화'})" -ForegroundColor $(if($mpStatus.IsTamperProtected){'Red'}else{'Green'})
+} catch {
+    Write-Host "    - Defender 상태를 확인할 수 없습니다" -ForegroundColor Yellow
+}
+
 Write-Host ""
 Write-Host "  ================================================" -ForegroundColor Cyan
-Write-Host "  Windows Defender 비활성화 권장 방법" -ForegroundColor Cyan
-Write-Host "  ================================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "  Defender를 직접 비활성화하면 다음 문제가 발생할 수 있습니다:" -ForegroundColor White
-Write-Host "    - Windows 업데이트 후 자동 재활성화" -ForegroundColor White
-Write-Host "    - Tamper Protection으로 인한 설정 무시" -ForegroundColor White
-Write-Host "    - 시스템 부팅 문제 (약 10% 발생)" -ForegroundColor White
-Write-Host ""
-Write-Host "  권장: 서드파티 백신을 설치하면 Defender가 자동으로" -ForegroundColor Green
-Write-Host "        비활성화되며, 보안도 유지됩니다." -ForegroundColor Green
-Write-Host ""
-Write-Host "  추천 무료 백신:" -ForegroundColor Yellow
-Write-Host "    - Avast Free Antivirus" -ForegroundColor White
-Write-Host "    - AVG AntiVirus FREE" -ForegroundColor White
-Write-Host "    - Bitdefender Antivirus Free" -ForegroundColor White
-Write-Host "    - Kaspersky Free" -ForegroundColor White
-Write-Host ""
-Write-Host "  설치 명령 (winget):" -ForegroundColor Yellow
-Write-Host "    winget install -e --id Avast.AvastFreeAntivirus" -ForegroundColor Gray
-Write-Host "    winget install -e --id AVG.AVGAntiVirusFREE" -ForegroundColor Gray
-Write-Host ""
+Write-Host "  참고: Tamper Protection이 켜져 있으면 일부 설정이" -ForegroundColor Yellow
+Write-Host "        Windows 보안 앱에서 수동으로 해제해야 합니다." -ForegroundColor Yellow
 Write-Host "  ================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -298,12 +382,15 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "모든 설정이 완료되었습니다!" -ForegroundColor Green
 Write-Host ""
 Write-Host "적용된 설정:" -ForegroundColor Yellow
+Write-Host "  - Windows Defender 보호 기능 비활성화 시도" -ForegroundColor White
+Write-Host "    (실시간 보호, 개발자 드라이브 보호, 클라우드 보호, 샘플 전송)" -ForegroundColor White
 Write-Host "  - Windows 방화벽 해제" -ForegroundColor White
 Write-Host "  - OneDrive 완전 삭제" -ForegroundColor White
 Write-Host ""
-Write-Host "Defender 비활성화가 필요하면:" -ForegroundColor Yellow
-Write-Host "  서드파티 백신을 설치하세요 (자동으로 Defender 비활성화됨)" -ForegroundColor White
-Write-Host "  예: winget install -e --id Avast.AvastFreeAntivirus" -ForegroundColor Gray
+Write-Host "Defender가 여전히 활성화되어 있다면:" -ForegroundColor Yellow
+Write-Host "  1. Windows 보안 > 바이러스 및 위협 방지 > 설정 관리" -ForegroundColor White
+Write-Host "  2. Tamper Protection (변조 보호) 끄기" -ForegroundColor White
+Write-Host "  3. 스크립트 다시 실행" -ForegroundColor White
 Write-Host ""
 Write-Host "변경 사항을 완전히 적용하려면 재부팅이 필요합니다." -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Cyan

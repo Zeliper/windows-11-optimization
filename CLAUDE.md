@@ -224,7 +224,7 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 | 000 | orchestrate.ps1 | **통합 원클릭 스크립트** (대화형 메뉴, 프리셋, 재부팅 관리) |
 | 001 | disable_update.ps1 | Windows Update 수동 설정, UAC 프롬프트 비활성화 |
 | 002 | power_network.ps1 | 전원 관리, 네트워크 최적화, 텔레메트리 비활성화 |
-| 003 | defender_onedrive_firewall.ps1 | OneDrive 삭제, 방화벽 해제, Defender 안내 |
+| 003 | defender_onedrive_firewall.ps1 | Defender 보호 기능 비활성화, OneDrive 삭제, 방화벽 해제 |
 | 004 | taskbar.ps1 | 작업 표시줄 정리, 컨텍스트 메뉴 복원 |
 | 005 | bloatware.ps1 | 블로트웨어 앱 및 기능 제거 |
 | 006 | software_install.ps1 | 필수 소프트웨어 자동 설치 (Notepad++, Chrome, 7-Zip, ShareX, Honeyview, PotPlayer) |
