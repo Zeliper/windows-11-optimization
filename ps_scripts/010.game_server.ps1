@@ -325,7 +325,11 @@ if ($nvmeChoice -eq "Y" -or $nvmeChoice -eq "y") {
         Write-Host "  - 현재 빌드: $buildNumber (필요: 26100+)" -ForegroundColor Yellow
     }
 } else {
-    Write-Host "  - Native NVMe 활성화 건너뜀" -ForegroundColor Yellow
+    if ($global:OrchestrateMode) {
+        Write-Host "  - Native NVMe 활성화 건너뜀 (Orchestrate 모드: 실험적 기능 기본 비활성화)" -ForegroundColor Yellow
+    } else {
+        Write-Host "  - Native NVMe 활성화 건너뜀 (사용자 선택)" -ForegroundColor Yellow
+    }
 }
 
 

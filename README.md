@@ -154,13 +154,12 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/006.software_install.ps1 | iex
 ```
 
-**설치 대상 (20단계):**
+**설치 대상 (18단계):**
 - Notepad++ (최신 버전 자동 감지)
 - Google Chrome (Enterprise 64비트)
 - 7-Zip (64비트)
 - ShareX (최신 버전, 업로드 기능 비활성화, 트레이 시작)
 - ImageGlass (이미지 뷰어, 미니멀 모드 자동 설정)
-- MSEdgeRedirect (시작 메뉴/위젯 검색 → Chrome 리다이렉트)
 
 **파일 연결 (SetUserFTA 사용):**
 - Notepad++: txt, ini, cfg, conf, config, json, xml, yaml, md, log 등 16개 확장자
