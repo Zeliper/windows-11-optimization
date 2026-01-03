@@ -419,8 +419,30 @@ try {
     Write-Host "  - 이미지 연결 실패: $_" -ForegroundColor Red
 }
 
-# [17/20] MSEdgeRedirect 다운로드
-Write-Host "[17/20] MSEdgeRedirect 다운로드 중..." -ForegroundColor Yellow
+# [17/20] Chrome 기본 브라우저 설정 (SetUserFTA 사용) - MSEdgeRedirect 설치 전 필수
+Write-Host "[17/20] Chrome 기본 브라우저 설정 중..." -ForegroundColor Yellow
+try {
+    $chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
+    if ((Test-Path $chromePath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
+        # SetUserFTA로 Chrome을 기본 브라우저로 설정
+        $browserAssocs = @(".html", ".htm", ".xhtml", "http", "https")
+        foreach ($assoc in $browserAssocs) {
+            Start-Process -FilePath $setUserFtaPath -ArgumentList "$assoc ChromeHTML" -Wait -NoNewWindow -ErrorAction SilentlyContinue
+        }
+        # PDF도 Chrome으로 열기
+        Start-Process -FilePath $setUserFtaPath -ArgumentList ".pdf ChromeHTML" -Wait -NoNewWindow -ErrorAction SilentlyContinue
+        Write-Host "  - 기본 브라우저 설정 완료 (html, htm, http, https, pdf)" -ForegroundColor Green
+    } elseif (!(Test-Path $chromePath)) {
+        Write-Host "  - 건너뜀 (Chrome 설치 경로 없음)" -ForegroundColor Red
+    } else {
+        Write-Host "  - 건너뜀 (SetUserFTA 없음)" -ForegroundColor Red
+    }
+} catch {
+    Write-Host "  - 기본 브라우저 설정 실패: $_" -ForegroundColor Red
+}
+
+# [18/20] MSEdgeRedirect 다운로드
+Write-Host "[18/20] MSEdgeRedirect 다운로드 중..." -ForegroundColor Yellow
 try {
     $msEdgeRedirectRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/rcmaehl/MSEdgeRedirect/releases/latest"
     $msEdgeRedirectAsset = $msEdgeRedirectRelease.assets | Where-Object { $_.name -match "MSEdgeRedirect\.exe$" } | Select-Object -First 1
@@ -434,8 +456,8 @@ try {
     $failCount++
 }
 
-# [18/20] MSEdgeRedirect 설치 (시작 메뉴 검색 → Chrome 리다이렉트)
-Write-Host "[18/20] MSEdgeRedirect 설치 중 (Edge 강제 링크 → Chrome)..." -ForegroundColor Yellow
+# [19/20] MSEdgeRedirect 설치 (시작 메뉴 검색 → Chrome 리다이렉트)
+Write-Host "[19/20] MSEdgeRedirect 설치 중 (Edge 강제 링크 → Chrome)..." -ForegroundColor Yellow
 if ($msEdgeRedirectInstaller -and (Test-Path $msEdgeRedirectInstaller)) {
     try {
         $installPath = "$env:LOCALAPPDATA\MSEdgeRedirect"
@@ -495,28 +517,6 @@ UseProxy=0
     }
 } else {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
-}
-
-# [19/20] Chrome 기본 브라우저 설정 (SetUserFTA 사용)
-Write-Host "[19/20] Chrome 기본 브라우저 설정 중..." -ForegroundColor Yellow
-try {
-    $chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
-    if ((Test-Path $chromePath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
-        # SetUserFTA로 Chrome을 기본 브라우저로 설정
-        $browserAssocs = @(".html", ".htm", ".xhtml", "http", "https")
-        foreach ($assoc in $browserAssocs) {
-            Start-Process -FilePath $setUserFtaPath -ArgumentList "$assoc ChromeHTML" -Wait -NoNewWindow -ErrorAction SilentlyContinue
-        }
-        # PDF도 Chrome으로 열기
-        Start-Process -FilePath $setUserFtaPath -ArgumentList ".pdf ChromeHTML" -Wait -NoNewWindow -ErrorAction SilentlyContinue
-        Write-Host "  - 기본 브라우저 설정 완료 (html, htm, http, https, pdf)" -ForegroundColor Green
-    } elseif (!(Test-Path $chromePath)) {
-        Write-Host "  - 건너뜀 (Chrome 설치 경로 없음)" -ForegroundColor Red
-    } else {
-        Write-Host "  - 건너뜀 (SetUserFTA 없음)" -ForegroundColor Red
-    }
-} catch {
-    Write-Host "  - 기본 브라우저 설정 실패: $_" -ForegroundColor Red
 }
 
 # [20/20] Windows 배경화면 기본 설정 (Spotlight 제거)
