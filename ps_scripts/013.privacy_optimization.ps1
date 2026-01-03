@@ -354,24 +354,33 @@ if (Test-Path $activityHistoryPath) {
 }
 
 # 최근 사용 파일 기록 비활성화
-$explorerPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-Set-ItemProperty -Path $explorerPath -Name "Start_TrackDocs" -Value 0 -Type DWord -ErrorAction SilentlyContinue
-Set-ItemProperty -Path $explorerPath -Name "Start_TrackProgs" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+$explorerAdvPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+if (!(Test-Path $explorerAdvPath)) {
+    New-Item -Path $explorerAdvPath -Force | Out-Null
+}
+Set-ItemProperty -Path $explorerAdvPath -Name "Start_TrackDocs" -Value 0 -Type DWord -Force
+Set-ItemProperty -Path $explorerAdvPath -Name "Start_TrackProgs" -Value 0 -Type DWord -Force
 Write-Host "  - 최근 사용 파일/프로그램 추적 비활성화" -ForegroundColor Green
 
 # 점프 목록 비활성화
-$jumpListPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-Set-ItemProperty -Path $jumpListPath -Name "JumpListItems" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $explorerAdvPath -Name "JumpListItems" -Value 0 -Type DWord -Force
 Write-Host "  - 점프 목록 비활성화" -ForegroundColor Green
 
 # 파일 탐색기 개인 정보 보호 설정 (폴더 옵션)
 $explorerBasePath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer"
-Set-ItemProperty -Path $explorerBasePath -Name "ShowRecent" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+if (!(Test-Path $explorerBasePath)) {
+    New-Item -Path $explorerBasePath -Force | Out-Null
+}
+Set-ItemProperty -Path $explorerBasePath -Name "ShowRecent" -Value 0 -Type DWord -Force
 Write-Host "  - 최근에 사용한 파일 표시 비활성화" -ForegroundColor Green
-Set-ItemProperty -Path $explorerBasePath -Name "ShowFrequent" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $explorerBasePath -Name "ShowFrequent" -Value 0 -Type DWord -Force
 Write-Host "  - 자주 사용하는 폴더 표시 비활성화" -ForegroundColor Green
-Set-ItemProperty -Path $explorerBasePath -Name "ShowCloudFilesInQuickAccess" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $explorerBasePath -Name "ShowCloudFilesInQuickAccess" -Value 0 -Type DWord -Force
 Write-Host "  - Office.com에서 파일 표시 비활성화" -ForegroundColor Green
+
+# 파일 탐색기 홈에서 "권장" 섹션 비활성화 (Windows 11)
+Set-ItemProperty -Path $explorerAdvPath -Name "Start_IrisRecommendations" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+Write-Host "  - 파일 탐색기 홈 권장 섹션 비활성화" -ForegroundColor Green
 
 # 최근 파일 폴더 삭제
 $recentPath = "$env:APPDATA\Microsoft\Windows\Recent"
@@ -508,7 +517,17 @@ Write-Host "참고사항:" -ForegroundColor Yellow
 Write-Host "  - 일부 앱에서 위치, 카메라, 마이크 기능이 작동하지 않을 수 있습니다." -ForegroundColor Gray
 Write-Host "  - 필요 시 설정 > 개인 정보에서 개별 권한을 다시 활성화할 수 있습니다." -ForegroundColor Gray
 Write-Host ""
-Write-Host "재부팅 후 모든 설정이 적용됩니다." -ForegroundColor Yellow
+Write-Host "파일 탐색기 설정 반영을 위해 탐색기를 재시작합니다..." -ForegroundColor Yellow
+Write-Host ""
+
+# 파일 탐색기 재시작 (설정 즉시 반영)
+Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+Start-Process explorer
+Write-Host "  - 파일 탐색기 재시작 완료" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "재부팅 후 모든 설정이 완전히 적용됩니다." -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
