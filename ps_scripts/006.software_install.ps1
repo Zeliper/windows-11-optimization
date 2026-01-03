@@ -214,7 +214,7 @@ try {
 # [11/20] Honeyview 설치 (winget)
 Write-Host "[11/20] Honeyview 설치 중 (winget)..." -ForegroundColor Yellow
 try {
-    $wingetResult = winget install Bandisoft.Honeyview --silent --accept-package-agreements --accept-source-agreements 2>&1
+    $wingetResult = winget install Bandisoft.Honeyview --source winget --silent --accept-package-agreements --accept-source-agreements 2>&1
     if ($LASTEXITCODE -eq 0 -or $wingetResult -match "already installed") {
         Write-Host "  - 설치 완료" -ForegroundColor Green
         $successCount++
