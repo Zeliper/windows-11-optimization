@@ -154,26 +154,19 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/006.software_install.ps1 | iex
 ```
 
-**설치 대상 (22단계):**
+**설치 대상 (20단계):**
 - Notepad++ (최신 버전 자동 감지)
 - Google Chrome (Enterprise 64비트)
 - 7-Zip (64비트)
 - ShareX (최신 버전, 업로드 기능 비활성화, 트레이 시작)
-- ImageGlass (이미지 뷰어, 미니멀 모드 자동 설정)
+- Honeyview (이미지 뷰어, 반디소프트 - winget 설치)
 - PotPlayer (동영상 플레이어, 깔끔한 재생 화면 설정)
 
-**파일 연결 (SetUserFTA 사용):**
+**파일 연결 (SetUserFTA 병렬 실행):**
 - Notepad++: txt, ini, cfg, conf, config, json, xml, yaml, md, log 등 16개 확장자
-- ImageGlass: jpg, png, gif, bmp, webp, heic, avif, raw, psd 등 24개 이미지 확장자
+- Honeyview: jpg, png, gif, bmp, webp, heic, avif, raw, psd 등 24개 이미지 확장자
 - PotPlayer: mp4, mkv, avi, mov, wmv, flv, webm, ts 등 14개 동영상 확장자
 - Chrome: html, htm, http, https (기본 브라우저)
-
-**ImageGlass 자동 설정:**
-- 미니멀 모드 (툴바/갤러리 숨김)
-- Mica 배경 (Windows 11 투명 효과)
-- 단축키: Enter=전체화면, Ctrl+W=닫기, F=화면맞춤
-- 삭제 단축키(D, Delete) 비활성화 (실수 방지)
-- 초기 설정 대화상자 건너뛰기
 
 **ShareX 설정:**
 - 업로드 기능 비활성화
