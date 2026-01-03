@@ -757,6 +757,80 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/020.registry_tweaks.ps1)
 
+## NTFS/SSD 최적화 스크립트
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/021.ntfs_ssd_optimization.ps1 | iex
+```
+
+**NTFS 파일 시스템 최적화:**
+- 8.3 파일명 생성 비활성화 (DOS 호환 파일명, SSD I/O 감소)
+- Last Access Time 업데이트 비활성화 (파일 읽기 시 쓰기 방지)
+- TRIM 상태 확인 및 최적화
+
+**Native NVMe 드라이버 활성화 (25H2):**
+- Windows Server 2025에서 도입된 Native NVMe 드라이버 활성화
+- 최대 85% IOPS 향상 가능 (랜덤 읽기/쓰기)
+- Microsoft 기본 NVMe 드라이버 사용 시에만 적용
+- Samsung, WD 등 제조사 드라이버 사용 시 효과 없음
+
+**SSD 드라이브 최적화:**
+- SSD 드라이브 자동 감지
+- NVMe 컨트롤러 드라이버 상태 확인
+- SSD Defrag 예약 작업 최적화
+
+> 재부팅 후 Device Manager에서 'Storage disks' 카테고리 확인
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/021.ntfs_ssd_optimization.ps1)
+
+## 고급 게임 최적화 스크립트
+
+관리자 권한 PowerShell에서 실행:
+
+```powershell
+irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/022.advanced_gaming_optimization.ps1 | iex
+```
+
+**Power Throttling 비활성화:**
+- CPU Power Throttling 완전 비활성화 (성능 제한 해제)
+- 에너지 추정 기능 비활성화
+
+**시스템 타이머 최적화:**
+- useplatformtick: 플랫폼 클록 소스 사용 (고해상도 타이머)
+- disabledynamictick: 동적 틱 비활성화 (일관된 타이밍)
+- SystemResponsiveness: 0 (100% 포그라운드 우선)
+
+**오디오 지연 최소화:**
+- DisableProtectedAudioDG: DRM 오디오 보호 비활성화
+- 오디오 작업 우선순위 High 설정
+
+**네트워크 어댑터 고급 최적화:**
+- Interrupt Moderation 비활성화 (낮은 레이턴시)
+- Flow Control 비활성화
+- Energy Efficient Ethernet 비활성화
+
+**Edge 백그라운드 실행 완전 차단:**
+- BackgroundModeEnabled: 0 (백그라운드 실행 비활성화)
+- StartupBoostEnabled: 0 (시작 부스트 비활성화)
+- AllowPrelaunch: 0 (사전 로드 비활성화)
+- Edge 업데이트 비활성화
+- Edge 시작 프로그램에서 제거
+
+**25H2 Start Menu 최적화:**
+- Start_IrisRecommendations: 0 (추천 항목 비활성화)
+- Start_AccountNotifications: 0 (계정 알림 비활성화)
+
+**Chrome 성능 최적화:**
+- Chrome 백그라운드 실행 비활성화
+- 하드웨어 가속 활성화
+- 메모리 절약 모드 활성화
+
+> 재부팅 후 모든 설정이 적용됩니다.
+
+[스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/022.advanced_gaming_optimization.ps1)
+
 ---
 
 ## 문서

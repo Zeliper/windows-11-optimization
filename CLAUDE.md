@@ -241,3 +241,5 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 | 018 | memory_optimization.ps1 | 메모리 최적화 (페이지 파일, LargeSystemCache, NDU 누수 해결) |
 | 019 | search_optimization.ps1 | Windows Search 최적화 (인덱싱, 클라우드 검색 비활성화) |
 | 020 | registry_tweaks.ps1 | 레지스트리 미세 조정 (MenuShowDelay, IRPStackSize, LongPaths) |
+| 021 | ntfs_ssd_optimization.ps1 | NTFS/SSD 최적화 (8.3 파일명, Last Access Time, Native NVMe 드라이버) |
+| 022 | advanced_gaming_optimization.ps1 | 고급 게임 최적화 (Power Throttling, 타이머, 오디오, Edge 백그라운드 차단) |

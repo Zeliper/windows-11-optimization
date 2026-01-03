@@ -40,14 +40,16 @@ $global:ScriptItems = @(
     @{ Id = 18; File = "018.memory_optimization.ps1";       Name = "메모리 최적화";                      RequiresReboot = $true;  Group = "기본" }
     @{ Id = 19; File = "019.search_optimization.ps1";       Name = "Windows Search 최적화";              RequiresReboot = $false; Group = "기본" }
     @{ Id = 20; File = "020.registry_tweaks.ps1";           Name = "레지스트리 미세 조정";               RequiresReboot = $true;  Group = "기본" }
+    @{ Id = 21; File = "021.ntfs_ssd_optimization.ps1";    Name = "NTFS/SSD 최적화";                   RequiresReboot = $true;  Group = "기본" }
+    @{ Id = 22; File = "022.advanced_gaming_optimization.ps1"; Name = "고급 게임 최적화";              RequiresReboot = $true;  Group = "게임" }
 )
 
 # 프리셋 정의
 $global:Presets = @{
-    "기본"   = @(1, 2, 3, 4, 5, 6, 8, 12, 13, 14, 15, 16, 18, 19, 20)       # 기본 최적화 + AI 비활성화
-    "게임"   = @(1, 2, 3, 4, 5, 6, 8, 9, 12, 13, 14, 15, 16, 17, 18, 20)    # 게임용 PC
-    "서버"   = @(1, 2, 3, 8, 10, 18, 20)                                     # 게임 서버용
-    "웹서버" = @(1, 2, 3, 8, 11, 18, 20)                                     # 웹 서버용
+    "기본"   = @(1, 2, 3, 4, 5, 6, 8, 12, 13, 14, 15, 16, 18, 19, 20, 21)              # 기본 최적화 + AI 비활성화 + NTFS/SSD
+    "게임"   = @(1, 2, 3, 4, 5, 6, 8, 9, 12, 13, 14, 15, 16, 17, 18, 20, 21, 22)       # 게임용 PC + 고급 게임 최적화
+    "서버"   = @(1, 2, 3, 8, 10, 18, 20, 21)                                            # 게임 서버용 + NTFS/SSD
+    "웹서버" = @(1, 2, 3, 8, 11, 18, 20, 21)                                            # 웹 서버용 + NTFS/SSD
 }
 
 # 동시 실행 불가능한 스크립트 쌍 정의 (리소스 충돌)
