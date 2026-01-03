@@ -74,7 +74,15 @@ if ($chromeInstaller -and (Test-Path $chromeInstaller)) {
     try {
         Start-Process msiexec -ArgumentList "/i `"$chromeInstaller`" /qn /norestart" -Wait -NoNewWindow
         Remove-Item $chromeInstaller -Force -ErrorAction SilentlyContinue
-        Write-Host "  - 설치 완료" -ForegroundColor Green
+
+        # Chrome 기본 브라우저 확인 팝업 비활성화
+        $chromePolicyPath = "HKLM:\SOFTWARE\Policies\Google\Chrome"
+        if (-not (Test-Path $chromePolicyPath)) {
+            New-Item -Path $chromePolicyPath -Force | Out-Null
+        }
+        Set-ItemProperty -Path $chromePolicyPath -Name "DefaultBrowserSettingEnabled" -Value 0 -Type DWord -Force
+
+        Write-Host "  - 설치 완료 (기본 브라우저 확인 비활성화)" -ForegroundColor Green
         $successCount++
     } catch {
         Write-Host "  - 설치 실패: $_" -ForegroundColor Red
@@ -339,27 +347,16 @@ try {
             ".sql", ".csv", ".tsv", ".sh"
         )
 
-        # Notepad++ ProgId 찾기 (레지스트리에서 검색)
-        $progId = $null
-        $nppProgIds = @("Notepad++_file", "Applications\notepad++.exe")
-        foreach ($testId in $nppProgIds) {
-            $regPath = "HKCR:\$testId"
-            if (-not (Test-Path "HKCR:")) {
-                New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue | Out-Null
-            }
-            if (Test-Path $regPath) {
-                $progId = $testId
-                break
-            }
-        }
+        # ProgId를 HKCU\SOFTWARE\Classes에 등록 (사용자별 설정)
+        $progId = "Notepad++_file"
+        $hkcuClassesPath = "HKCU:\SOFTWARE\Classes\$progId"
 
-        if (-not $progId) {
-            # ProgId가 없으면 직접 등록
-            $progId = "Notepad++_file"
-            New-Item -Path "HKCR:\$progId" -Force -ErrorAction SilentlyContinue | Out-Null
-            New-Item -Path "HKCR:\$progId\shell\open\command" -Force -ErrorAction SilentlyContinue | Out-Null
-            Set-ItemProperty -Path "HKCR:\$progId\shell\open\command" -Name "(Default)" -Value "`"$nppPath`" `"%1`"" -Force -ErrorAction SilentlyContinue
+        if (-not (Test-Path $hkcuClassesPath)) {
+            New-Item -Path $hkcuClassesPath -Force | Out-Null
+            New-Item -Path "$hkcuClassesPath\shell\open\command" -Force | Out-Null
         }
+        Set-ItemProperty -Path $hkcuClassesPath -Name "(Default)" -Value "Notepad++ Document" -Force
+        Set-ItemProperty -Path "$hkcuClassesPath\shell\open\command" -Name "(Default)" -Value "`"$nppPath`" `"%1`"" -Force
 
         # SetUserFTA로 파일 연결 설정
         $setCount = 0
@@ -390,25 +387,22 @@ try {
             ".psd", ".xcf", ".jfif", ".jpe", ".dib", ".wdp", ".jxr"
         )
 
-        # HKCR 드라이브 생성
-        if (-not (Test-Path "HKCR:")) {
-            New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue | Out-Null
-        }
-
-        # ImageGlass ProgId 등록 (확장자별로 등록)
+        # ImageGlass ProgId 등록 (HKCU\SOFTWARE\Classes 사용)
         $progIdBase = "ImageGlass.AssocFile"
         $setCount = 0
 
         foreach ($ext in $imageExtensions) {
             $extName = $ext.TrimStart(".")
             $progId = "$progIdBase.$extName"
+            $hkcuClassesPath = "HKCU:\SOFTWARE\Classes\$progId"
 
-            # ProgId 등록 (없으면 생성)
-            if (-not (Test-Path "HKCR:\$progId")) {
-                New-Item -Path "HKCR:\$progId" -Force -ErrorAction SilentlyContinue | Out-Null
-                New-Item -Path "HKCR:\$progId\shell\open\command" -Force -ErrorAction SilentlyContinue | Out-Null
-                Set-ItemProperty -Path "HKCR:\$progId\shell\open\command" -Name "(Default)" -Value "`"$imageGlassPath`" `"%1`"" -Force -ErrorAction SilentlyContinue
+            # ProgId 등록 (HKCU에 생성)
+            if (-not (Test-Path $hkcuClassesPath)) {
+                New-Item -Path $hkcuClassesPath -Force | Out-Null
+                New-Item -Path "$hkcuClassesPath\shell\open\command" -Force | Out-Null
             }
+            Set-ItemProperty -Path $hkcuClassesPath -Name "(Default)" -Value "ImageGlass $extName" -Force
+            Set-ItemProperty -Path "$hkcuClassesPath\shell\open\command" -Name "(Default)" -Value "`"$imageGlassPath`" `"%1`"" -Force
 
             # SetUserFTA로 연결
             $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -Wait -NoNewWindow -PassThru -ErrorAction SilentlyContinue
