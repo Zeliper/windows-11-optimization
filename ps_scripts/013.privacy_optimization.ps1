@@ -366,41 +366,61 @@ Write-Host "  - 최근 사용 파일/프로그램 추적 비활성화" -Foregrou
 Set-ItemProperty -Path $explorerAdvPath -Name "JumpListItems" -Value 0 -Type DWord -Force
 Write-Host "  - 점프 목록 비활성화" -ForegroundColor Green
 
-# 파일 탐색기 개인 정보 보호 설정 (폴더 옵션)
+# 파일 탐색기 개인 정보 보호 설정 (폴더 옵션) - 강화 버전
+
+# 1. 탐색기 먼저 종료 (파일 잠금 해제 및 설정 즉시 반영)
+Write-Host "  - 파일 탐색기 종료 중..." -ForegroundColor Yellow
+Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+
+# 2. 그룹 정책 레지스트리 추가 (강제 적용)
+$policyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer"
+if (!(Test-Path $policyPath)) {
+    New-Item -Path $policyPath -Force | Out-Null
+}
+Set-ItemProperty -Path $policyPath -Name "NoRecentDocsHistory" -Value 1 -Type DWord -Force
+Set-ItemProperty -Path $policyPath -Name "NoRecentDocsMenu" -Value 1 -Type DWord -Force
+Write-Host "  - 그룹 정책: 최근 문서 기록 비활성화" -ForegroundColor Green
+
+# 3. 사용자 레지스트리 설정
 $explorerBasePath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer"
 if (!(Test-Path $explorerBasePath)) {
     New-Item -Path $explorerBasePath -Force | Out-Null
 }
 Set-ItemProperty -Path $explorerBasePath -Name "ShowRecent" -Value 0 -Type DWord -Force
-Write-Host "  - 최근에 사용한 파일 표시 비활성화" -ForegroundColor Green
 Set-ItemProperty -Path $explorerBasePath -Name "ShowFrequent" -Value 0 -Type DWord -Force
-Write-Host "  - 자주 사용하는 폴더 표시 비활성화" -ForegroundColor Green
 Set-ItemProperty -Path $explorerBasePath -Name "ShowCloudFilesInQuickAccess" -Value 0 -Type DWord -Force
-Write-Host "  - Office.com에서 파일 표시 비활성화" -ForegroundColor Green
+Write-Host "  - 최근 파일/자주 사용 폴더/Office.com 파일 표시 비활성화" -ForegroundColor Green
 
-# 파일 탐색기 홈에서 "권장" 섹션 비활성화 (Windows 11)
+# 4. Windows 11 24H2+ 추가 레지스트리 (시작 메뉴 연동)
+$startPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Start"
+if (!(Test-Path $startPath)) {
+    New-Item -Path $startPath -Force | Out-Null
+}
+Set-ItemProperty -Path $startPath -Name "ShowRecentList" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+Write-Host "  - Windows 11 시작 메뉴 최근 목록 비활성화" -ForegroundColor Green
+
+# 5. 파일 탐색기 홈에서 "권장" 섹션 비활성화 (Windows 11)
 Set-ItemProperty -Path $explorerAdvPath -Name "Start_IrisRecommendations" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
 Write-Host "  - 파일 탐색기 홈 권장 섹션 비활성화" -ForegroundColor Green
 
-# 최근 파일 폴더 삭제
-$recentPath = "$env:APPDATA\Microsoft\Windows\Recent"
-if (Test-Path $recentPath) {
-    Remove-Item -Path "$recentPath\*" -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Host "  - 최근 파일 기록 삭제" -ForegroundColor Green
+# 6. 히스토리 파일 완전 삭제 (탐색기 종료 상태에서)
+$recentPaths = @(
+    "$env:APPDATA\Microsoft\Windows\Recent",
+    "$env:APPDATA\Microsoft\Windows\Recent\AutomaticDestinations",
+    "$env:APPDATA\Microsoft\Windows\Recent\CustomDestinations"
+)
+foreach ($path in $recentPaths) {
+    if (Test-Path $path) {
+        Get-ChildItem -Path $path -File -Force | Remove-Item -Force -ErrorAction SilentlyContinue
+    }
 }
+Write-Host "  - 최근 파일 히스토리 삭제 완료" -ForegroundColor Green
 
-# 자동 목적지 삭제
-$autoDestPath = "$env:APPDATA\Microsoft\Windows\Recent\AutomaticDestinations"
-if (Test-Path $autoDestPath) {
-    Remove-Item -Path "$autoDestPath\*" -Force -ErrorAction SilentlyContinue
-    Write-Host "  - 자동 점프 목록 데이터 삭제" -ForegroundColor Green
-}
-
-$customDestPath = "$env:APPDATA\Microsoft\Windows\Recent\CustomDestinations"
-if (Test-Path $customDestPath) {
-    Remove-Item -Path "$customDestPath\*" -Force -ErrorAction SilentlyContinue
-    Write-Host "  - 사용자 점프 목록 데이터 삭제" -ForegroundColor Green
-}
+# 7. 탐색기 재시작
+Start-Sleep -Seconds 1
+Start-Process explorer
+Write-Host "  - 파일 탐색기 재시작 완료" -ForegroundColor Green
 
 
 # [7/7] 광고 추적 비활성화 강화
@@ -516,16 +536,6 @@ Write-Host ""
 Write-Host "참고사항:" -ForegroundColor Yellow
 Write-Host "  - 일부 앱에서 위치, 카메라, 마이크 기능이 작동하지 않을 수 있습니다." -ForegroundColor Gray
 Write-Host "  - 필요 시 설정 > 개인 정보에서 개별 권한을 다시 활성화할 수 있습니다." -ForegroundColor Gray
-Write-Host ""
-Write-Host "파일 탐색기 설정 반영을 위해 탐색기를 재시작합니다..." -ForegroundColor Yellow
-Write-Host ""
-
-# 파일 탐색기 재시작 (설정 즉시 반영)
-Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 2
-Start-Process explorer
-Write-Host "  - 파일 탐색기 재시작 완료" -ForegroundColor Green
-
 Write-Host ""
 Write-Host "재부팅 후 모든 설정이 완전히 적용됩니다." -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Cyan

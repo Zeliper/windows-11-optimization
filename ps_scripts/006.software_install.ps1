@@ -153,7 +153,9 @@ if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
             New-Item -Path $shareXConfigDir -ItemType Directory -Force | Out-Null
         }
         $config = @{
-            "DisableUploadActions" = $true
+            "DisableUpload" = $true
+            "ShowUploadWarning" = $false
+            "ShowMultiUploadWarning" = $false
             "ShowAfterUploadForm" = $false
         }
         $config | ConvertTo-Json | Set-Content -Path $shareXConfigPath -Encoding UTF8 -Force
@@ -264,35 +266,29 @@ try {
         New-Item -Path $potPlayerConfigDir -ItemType Directory -Force | Out-Null
     }
 
-    # INI 파일 생성 - 설정 저장 모드 활성화, 단축키, OSD 설정
+    # INI 파일 생성 - 주석 없이 작성 (PotPlayer 파싱 호환성)
     $iniContent = @"
 [Settings]
-; 설정을 INI 파일에 저장
 CheckAutoUpdate=0
 SkinUseOsc=1
-; OSD 최소화
 ShowOSDOnPlayStart=0
 ShowOSDOnSeek=0
 ShowOSDMessage=0
-; 컨트롤 바 자동 숨김
 AutoHideControl=1
 AutoHideControlTime=1000
-; 타이틀 바 숨김 (전체화면 아닐 때)
 ShowTitleBar=0
 
 [MainShortCutList]
-; Ctrl+W (W=87, Ctrl modifier=2) -> Exit (10002)
 0=87,2,10002,0
-; Enter (13) -> Fullscreen toggle (10010)
 1=13,0,10010,0
-; Space (32) -> Play/Pause (10014)
 2=32,0,10014,0
-; Escape (27) -> Exit fullscreen or close (10015)
 3=27,0,10015,0
 "@
 
     $iniPath = "$potPlayerConfigDir\PotPlayerMini64.ini"
-    $iniContent | Set-Content -Path $iniPath -Encoding UTF8 -Force
+    # BOM 없는 UTF8로 저장 (PotPlayer 호환성)
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($iniPath, $iniContent, $utf8NoBom)
     Write-Host "  - 설정 적용 완료 (단축키: Ctrl+W=종료, Enter=전체화면)" -ForegroundColor Green
     Write-Host "  - OSD 최소화, 컨트롤 바 자동 숨김 설정됨" -ForegroundColor Green
 } catch {
@@ -423,18 +419,32 @@ try {
         # Honeyview ProgId 등록 (HKCU\SOFTWARE\Classes 사용)
         $progIdBase = "Honeyview.AssocFile"
 
-        # 1단계: 모든 ProgId 레지스트리 등록 (먼저 완료)
+        # 1단계: 모든 ProgId 레지스트리 등록 및 확장자 키 설정
         foreach ($ext in $imageExtensions) {
             $extName = $ext.TrimStart(".")
             $progId = "$progIdBase.$extName"
             $hkcuClassesPath = "HKCU:\SOFTWARE\Classes\$progId"
 
+            # ProgId 등록
             if (-not (Test-Path $hkcuClassesPath)) {
                 New-Item -Path $hkcuClassesPath -Force | Out-Null
                 New-Item -Path "$hkcuClassesPath\shell\open\command" -Force | Out-Null
             }
             Set-ItemProperty -Path $hkcuClassesPath -Name "(Default)" -Value "Honeyview $extName" -Force
             Set-ItemProperty -Path "$hkcuClassesPath\shell\open\command" -Name "(Default)" -Value "`"$honeyviewPath`" `"%1`"" -Force
+
+            # DefaultIcon 추가
+            if (-not (Test-Path "$hkcuClassesPath\DefaultIcon")) {
+                New-Item -Path "$hkcuClassesPath\DefaultIcon" -Force | Out-Null
+            }
+            Set-ItemProperty -Path "$hkcuClassesPath\DefaultIcon" -Name "(Default)" -Value "`"$honeyviewPath`",0" -Force
+
+            # 확장자 키에 직접 ProgId 설정 (SetUserFTA 실패 시 대비)
+            $extKeyPath = "HKCU:\SOFTWARE\Classes\$ext"
+            if (-not (Test-Path $extKeyPath)) {
+                New-Item -Path $extKeyPath -Force | Out-Null
+            }
+            Set-ItemProperty -Path $extKeyPath -Name "(Default)" -Value $progId -Force
         }
 
         # 2단계: SetUserFTA 병렬 실행
@@ -472,18 +482,32 @@ try {
         # PotPlayer ProgId 등록 (HKCU\SOFTWARE\Classes 사용)
         $progIdBase = "PotPlayer.AssocFile"
 
-        # 1단계: 모든 ProgId 레지스트리 등록 (먼저 완료)
+        # 1단계: 모든 ProgId 레지스트리 등록 및 확장자 키 설정
         foreach ($ext in $videoExtensions) {
             $extName = $ext.TrimStart(".")
             $progId = "$progIdBase.$extName"
             $hkcuClassesPath = "HKCU:\SOFTWARE\Classes\$progId"
 
+            # ProgId 등록
             if (-not (Test-Path $hkcuClassesPath)) {
                 New-Item -Path $hkcuClassesPath -Force | Out-Null
                 New-Item -Path "$hkcuClassesPath\shell\open\command" -Force | Out-Null
             }
             Set-ItemProperty -Path $hkcuClassesPath -Name "(Default)" -Value "PotPlayer $extName" -Force
             Set-ItemProperty -Path "$hkcuClassesPath\shell\open\command" -Name "(Default)" -Value "`"$potPlayerPath`" `"%1`"" -Force
+
+            # DefaultIcon 추가
+            if (-not (Test-Path "$hkcuClassesPath\DefaultIcon")) {
+                New-Item -Path "$hkcuClassesPath\DefaultIcon" -Force | Out-Null
+            }
+            Set-ItemProperty -Path "$hkcuClassesPath\DefaultIcon" -Name "(Default)" -Value "`"$potPlayerPath`",0" -Force
+
+            # 확장자 키에 직접 ProgId 설정 (SetUserFTA 실패 시 대비)
+            $extKeyPath = "HKCU:\SOFTWARE\Classes\$ext"
+            if (-not (Test-Path $extKeyPath)) {
+                New-Item -Path $extKeyPath -Force | Out-Null
+            }
+            Set-ItemProperty -Path $extKeyPath -Name "(Default)" -Value $progId -Force
         }
 
         # 2단계: SetUserFTA 병렬 실행
