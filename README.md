@@ -881,3 +881,13 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 3. 개발 가이드 준수
 4. Pull Request 제출
 
+---
+
+## Third-Party Licenses
+
+이 프로젝트에 포함된 서드파티 소프트웨어의 라이선스 정보입니다:
+
+| 소프트웨어 | 저작권자 | 용도 | 라이선스 |
+|-----------|---------|------|---------|
+| [SetUserFTA](https://setuserfta.com) | Christoph Kolbicz / Kolbicz IT | 파일 연결 설정 | [라이선스 보기](./LICENSES/SetUserFTA.md) |
+

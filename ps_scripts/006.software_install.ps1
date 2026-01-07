@@ -307,55 +307,22 @@ ShowTitleBar=0
 }
 
 # [15/20] SetUserFTA 다운로드 (파일 연결 도구)
+# SetUserFTA by Christoph Kolbicz - Personal Edition (비상업적/테스트 목적)
+# 라이선스: https://github.com/Zeliper/windows-11-optimization/blob/main/LICENSES/SetUserFTA.md
 Write-Host "[15/20] SetUserFTA 다운로드 중..." -ForegroundColor Yellow
 $setUserFtaPath = Join-Path $tempDir "SetUserFTA.exe"
-$downloaded = $false
+$setUserFtaUrl = "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Utils/SetUserFTA.exe"
 
-# 다운로드 URL 목록 (GitHub raw URL 우선 - 리다이렉트 문제 해결)
-$setUserFtaUrls = @(
-    @{ Url = "https://raw.githubusercontent.com/mrmattipants/Adobe_Reader_And_Adobe_Acrobat_Pro_File_Type_Associations/main/SetUserFTA/SetUserFTA.exe"; IsZip = $false; SkipCert = $false },
-    @{ Url = "https://github.com/farag2/Sophia-Script-for-Windows/raw/master/Sophia%20Script/Bin/SetUserFTA/x64/SetUserFTA.exe"; IsZip = $false; SkipCert = $false },
-    @{ Url = "https://kolbi.cz/SetUserFTA.zip"; IsZip = $true; SkipCert = $true }
-)
-
-foreach ($source in $setUserFtaUrls) {
-    if ($downloaded) { break }
-    try {
-        # SSL 인증서 검증 우회 (kolbi.cz 등 인증서 문제 있는 소스용)
-        if ($source.SkipCert) {
-            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
-        }
-
-        if ($source.IsZip) {
-            # ZIP 파일 다운로드 후 압축 해제
-            $zipPath = Join-Path $tempDir "SetUserFTA.zip"
-            Invoke-WebRequest -Uri $source.Url -OutFile $zipPath -UseBasicParsing -TimeoutSec 30
-            Expand-Archive -Path $zipPath -DestinationPath $tempDir -Force
-            if (Test-Path $setUserFtaPath) {
-                $downloaded = $true
-                Write-Host "  - 다운로드 완료 (kolbi.cz)" -ForegroundColor Green
-            }
-            Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
-        } else {
-            # EXE 직접 다운로드
-            Invoke-WebRequest -Uri $source.Url -OutFile $setUserFtaPath -UseBasicParsing -TimeoutSec 30
-            if (Test-Path $setUserFtaPath) {
-                $downloaded = $true
-                $sourceName = if ($source.Url -match "farag2") { "Sophia Script" } else { "GitHub" }
-                Write-Host "  - 다운로드 완료 ($sourceName)" -ForegroundColor Green
-            }
-        }
-
-        # SSL 콜백 복원
-        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $null
-    } catch {
-        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $null
-        Write-Host "  - $($source.Url -replace '^https?://([^/]+).*', '$1') 실패, 다음 소스 시도..." -ForegroundColor Yellow
+try {
+    Invoke-WebRequest -Uri $setUserFtaUrl -OutFile $setUserFtaPath -UseBasicParsing -TimeoutSec 30
+    if (Test-Path $setUserFtaPath) {
+        Write-Host "  - 다운로드 완료" -ForegroundColor Green
+    } else {
+        Write-Host "  - 다운로드 실패" -ForegroundColor Red
+        $setUserFtaPath = $null
     }
-}
-
-if (-not $downloaded) {
-    Write-Host "  - 모든 소스에서 다운로드 실패" -ForegroundColor Red
+} catch {
+    Write-Host "  - 다운로드 실패: $_" -ForegroundColor Red
     Write-Host "  - 파일 연결 설정을 건너뜁니다 (수동 설정 필요)" -ForegroundColor Yellow
     $setUserFtaPath = $null
 }
