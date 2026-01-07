@@ -311,15 +311,21 @@ Write-Host "[15/20] SetUserFTA 다운로드 중..." -ForegroundColor Yellow
 $setUserFtaPath = Join-Path $tempDir "SetUserFTA.exe"
 $downloaded = $false
 
-# 다운로드 URL 목록 (GitHub 우선 - kolbi.cz 불안정)
+# 다운로드 URL 목록 (GitHub raw URL 우선 - 리다이렉트 문제 해결)
 $setUserFtaUrls = @(
-    @{ Url = "https://github.com/mrmattipants/Adobe_Reader_And_Adobe_Acrobat_Pro_File_Type_Associations/raw/main/SetUserFTA/SetUserFTA.exe"; IsZip = $false },
-    @{ Url = "https://kolbi.cz/SetUserFTA.zip"; IsZip = $true }
+    @{ Url = "https://raw.githubusercontent.com/mrmattipants/Adobe_Reader_And_Adobe_Acrobat_Pro_File_Type_Associations/main/SetUserFTA/SetUserFTA.exe"; IsZip = $false; SkipCert = $false },
+    @{ Url = "https://github.com/farag2/Sophia-Script-for-Windows/raw/master/Sophia%20Script/Bin/SetUserFTA/x64/SetUserFTA.exe"; IsZip = $false; SkipCert = $false },
+    @{ Url = "https://kolbi.cz/SetUserFTA.zip"; IsZip = $true; SkipCert = $true }
 )
 
 foreach ($source in $setUserFtaUrls) {
     if ($downloaded) { break }
     try {
+        # SSL 인증서 검증 우회 (kolbi.cz 등 인증서 문제 있는 소스용)
+        if ($source.SkipCert) {
+            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+        }
+
         if ($source.IsZip) {
             # ZIP 파일 다운로드 후 압축 해제
             $zipPath = Join-Path $tempDir "SetUserFTA.zip"
@@ -335,16 +341,22 @@ foreach ($source in $setUserFtaUrls) {
             Invoke-WebRequest -Uri $source.Url -OutFile $setUserFtaPath -UseBasicParsing -TimeoutSec 30
             if (Test-Path $setUserFtaPath) {
                 $downloaded = $true
-                Write-Host "  - 다운로드 완료 (GitHub)" -ForegroundColor Green
+                $sourceName = if ($source.Url -match "farag2") { "Sophia Script" } else { "GitHub" }
+                Write-Host "  - 다운로드 완료 ($sourceName)" -ForegroundColor Green
             }
         }
+
+        # SSL 콜백 복원
+        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $null
     } catch {
-        Write-Host "  - $($source.Url) 실패, 다음 소스 시도..." -ForegroundColor Yellow
+        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $null
+        Write-Host "  - $($source.Url -replace '^https?://([^/]+).*', '$1') 실패, 다음 소스 시도..." -ForegroundColor Yellow
     }
 }
 
 if (-not $downloaded) {
     Write-Host "  - 모든 소스에서 다운로드 실패" -ForegroundColor Red
+    Write-Host "  - 파일 연결 설정을 건너뜁니다 (수동 설정 필요)" -ForegroundColor Yellow
     $setUserFtaPath = $null
 }
 
@@ -474,8 +486,8 @@ try {
     Write-Host "  - 이미지 연결 실패: $_" -ForegroundColor Red
 }
 
-# [18/20] PotPlayer 동영상 파일 연결 (SetUserFTA 사용, PotPlayer 자체 ProgId 활용)
-Write-Host "[18/20] PotPlayer 동영상 파일 연결 설정 중..." -ForegroundColor Yellow
+# [18/20] PotPlayer 동영상/오디오 파일 연결 (SetUserFTA 사용, PotPlayer 자체 ProgId 활용)
+Write-Host "[18/20] PotPlayer 동영상/오디오 파일 연결 설정 중..." -ForegroundColor Yellow
 try {
     $potPlayerPath = "${env:ProgramFiles}\DAUM\PotPlayer\PotPlayerMini64.exe"
     if ((Test-Path $potPlayerPath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
@@ -485,27 +497,38 @@ try {
             ".m4v", ".mpg", ".mpeg", ".ts", ".3gp", ".m2ts", ".vob"
         )
 
+        # 오디오 확장자 목록
+        $audioExtensions = @(
+            ".mp3", ".flac", ".wav", ".aac", ".ogg", ".wma", ".m4a",
+            ".opus", ".aiff", ".ape", ".alac", ".dsd", ".dsf", ".dff"
+        )
+
+        # 전체 미디어 확장자
+        $mediaExtensions = $videoExtensions + $audioExtensions
+
         # PotPlayer 자체 Applications ProgId 사용 (설치 시 자동 등록됨)
         # 이렇게 하면 "팟플레이어 (64비트)" 하나만 표시됨
         $potPlayerProgId = "Applications\PotPlayerMini64.exe"
 
         # SetUserFTA 병렬 실행
         $jobs = @()
-        foreach ($ext in $videoExtensions) {
+        foreach ($ext in $mediaExtensions) {
             $jobs += Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $potPlayerProgId" -NoNewWindow -PassThru -ErrorAction SilentlyContinue
         }
 
         # 모든 작업 완료 대기
         $jobs | Wait-Process -Timeout 60 -ErrorAction SilentlyContinue
         $setCount = ($jobs | Where-Object { $_.ExitCode -eq 0 }).Count
-        Write-Host "  - 동영상 연결 완료: $setCount/$($videoExtensions.Count)개 확장자" -ForegroundColor Green
+        Write-Host "  - 동영상 연결 완료: $($videoExtensions.Count)개 확장자" -ForegroundColor Green
+        Write-Host "  - 오디오 연결 완료: $($audioExtensions.Count)개 확장자" -ForegroundColor Green
+        Write-Host "  - 총 미디어 연결: $setCount/$($mediaExtensions.Count)개" -ForegroundColor Green
     } elseif (!(Test-Path $potPlayerPath)) {
         Write-Host "  - 건너뜀 (PotPlayer 설치 경로 없음)" -ForegroundColor Red
     } else {
         Write-Host "  - 건너뜀 (SetUserFTA 없음)" -ForegroundColor Red
     }
 } catch {
-    Write-Host "  - 동영상 연결 실패: $_" -ForegroundColor Red
+    Write-Host "  - 미디어 연결 실패: $_" -ForegroundColor Red
 }
 
 # [19/20] Chrome 기본 브라우저 설정 (SetUserFTA 사용)
