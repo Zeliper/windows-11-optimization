@@ -146,19 +146,43 @@ if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
         Write-Host "  - 설치 완료" -ForegroundColor Green
         $successCount++
 
-        # 업로드 비활성화 설정 (JSON 설정 파일)
+        # ShareX를 한 번 실행하여 기본 설정 파일 생성 후 종료
+        $shareXExe = "${env:ProgramFiles}\ShareX\ShareX.exe"
+        if (Test-Path $shareXExe) {
+            Write-Host "  - ShareX 초기화 중 (기본 설정 파일 생성)..." -ForegroundColor Yellow
+            $shareXProc = Start-Process -FilePath $shareXExe -ArgumentList "-silent" -PassThru
+            Start-Sleep -Seconds 3
+            # ShareX 프로세스 종료
+            Stop-Process -Name "ShareX" -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 1
+        }
+
+        # 업로드 비활성화 설정 (JSON 설정 파일 수정)
         $shareXConfigDir = "$env:APPDATA\ShareX"
         $shareXConfigPath = "$shareXConfigDir\ApplicationConfig.json"
         if (!(Test-Path $shareXConfigDir)) {
             New-Item -Path $shareXConfigDir -ItemType Directory -Force | Out-Null
         }
-        $config = @{
-            "DisableUpload" = $true
-            "ShowUploadWarning" = $false
-            "ShowMultiUploadWarning" = $false
-            "ShowAfterUploadForm" = $false
+
+        # 기존 설정 파일이 있으면 읽어서 수정, 없으면 새로 생성
+        if (Test-Path $shareXConfigPath) {
+            try {
+                $config = Get-Content -Path $shareXConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            } catch {
+                $config = [PSCustomObject]@{}
+            }
+        } else {
+            $config = [PSCustomObject]@{}
         }
-        $config | ConvertTo-Json | Set-Content -Path $shareXConfigPath -Encoding UTF8 -Force
+
+        # 업로드 관련 설정 수정
+        $config | Add-Member -NotePropertyName "DisableUpload" -NotePropertyValue $true -Force
+        $config | Add-Member -NotePropertyName "ShowUploadWarning" -NotePropertyValue $false -Force
+        $config | Add-Member -NotePropertyName "ShowMultiUploadWarning" -NotePropertyValue $false -Force
+        $config | Add-Member -NotePropertyName "ShowAfterUploadForm" -NotePropertyValue $false -Force
+        $config | Add-Member -NotePropertyName "ShowLargeFileSizeWarning" -NotePropertyValue 0 -Force
+
+        $config | ConvertTo-Json -Depth 10 | Set-Content -Path $shareXConfigPath -Encoding UTF8 -Force
         Write-Host "  - 업로드 기능 비활성화 설정 완료" -ForegroundColor Green
     } catch {
         Write-Host "  - 설치 실패: $_" -ForegroundColor Red
