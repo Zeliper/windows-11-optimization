@@ -406,15 +406,32 @@ try {
             ".psd", ".xcf", ".jfif", ".jpe", ".dib", ".wdp", ".jxr"
         )
 
-        # 그림판을 이미지 연결 프로그램 목록에서 제거 (선택 창 방지)
+        # Honeyview ProgId 직접 등록 (winget 설치 시 자동 등록 안 될 수 있음)
+        $honeyviewProgId = "Applications\Honeyview.exe"
+        $progIdPath = "HKCU:\SOFTWARE\Classes\$honeyviewProgId"
+        if (-not (Test-Path $progIdPath)) {
+            New-Item -Path "$progIdPath\shell\open\command" -Force | Out-Null
+        }
+        Set-ItemProperty -Path $progIdPath -Name "(Default)" -Value "Honeyview" -Force
+        Set-ItemProperty -Path "$progIdPath\shell\open\command" -Name "(Default)" -Value "`"$honeyviewPath`" `"%1`"" -Force
+        Write-Host "  - Honeyview ProgId 등록됨" -ForegroundColor Green
+
+        # 그림판/사진 앱을 이미지 연결 프로그램 목록에서 제거 (선택 창 방지)
+        $competingProgIds = @(
+            "Applications\mspaint.exe",
+            "PBrush",
+            "AppX43ber05bs42rk24gszv5x6nx8fxs9ke",  # Photos
+            "AppXk0g4vb8gvt7b93tg50ybcy892pge6jmt" # Photos
+        )
         foreach ($ext in $imageExtensions) {
             $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
 
-            # OpenWithProgids에서 mspaint 제거
+            # OpenWithProgids에서 경쟁 앱 제거
             $openWithProgids = "$fileExtPath\OpenWithProgids"
             if (Test-Path $openWithProgids) {
-                Remove-ItemProperty -Path $openWithProgids -Name "Applications\mspaint.exe" -ErrorAction SilentlyContinue
-                Remove-ItemProperty -Path $openWithProgids -Name "PBrush" -ErrorAction SilentlyContinue
+                foreach ($progId in $competingProgIds) {
+                    Remove-ItemProperty -Path $openWithProgids -Name $progId -ErrorAction SilentlyContinue
+                }
             }
 
             # OpenWithList에서 mspaint 제거
@@ -422,17 +439,13 @@ try {
             if (Test-Path $openWithList) {
                 $props = Get-ItemProperty -Path $openWithList -ErrorAction SilentlyContinue
                 foreach ($prop in $props.PSObject.Properties) {
-                    if ($prop.Value -like "*mspaint*") {
+                    if ($prop.Value -like "*mspaint*" -or $prop.Value -like "*Photos*") {
                         Remove-ItemProperty -Path $openWithList -Name $prop.Name -ErrorAction SilentlyContinue
                     }
                 }
             }
         }
-        Write-Host "  - 그림판 연결 프로그램 제거됨" -ForegroundColor Green
-
-        # Honeyview 자체 Applications ProgId 사용 (설치 시 자동 등록됨)
-        # 이렇게 하면 "Honeyview" 하나만 표시됨
-        $honeyviewProgId = "Applications\Honeyview.exe"
+        Write-Host "  - 그림판/사진 앱 연결 제거됨" -ForegroundColor Green
 
         # SetUserFTA 병렬 실행
         $jobs = @()
@@ -473,9 +486,15 @@ try {
         # 전체 미디어 확장자
         $mediaExtensions = $videoExtensions + $audioExtensions
 
-        # PotPlayer 자체 Applications ProgId 사용 (설치 시 자동 등록됨)
-        # 이렇게 하면 "팟플레이어 (64비트)" 하나만 표시됨
+        # PotPlayer ProgId 직접 등록 (설치 직후 자동 등록 안 될 수 있음)
         $potPlayerProgId = "Applications\PotPlayerMini64.exe"
+        $progIdPath = "HKCU:\SOFTWARE\Classes\$potPlayerProgId"
+        if (-not (Test-Path $progIdPath)) {
+            New-Item -Path "$progIdPath\shell\open\command" -Force | Out-Null
+        }
+        Set-ItemProperty -Path $progIdPath -Name "(Default)" -Value "PotPlayer 64 bit" -Force
+        Set-ItemProperty -Path "$progIdPath\shell\open\command" -Name "(Default)" -Value "`"$potPlayerPath`" `"%1`"" -Force
+        Write-Host "  - PotPlayer ProgId 등록됨" -ForegroundColor Green
 
         # SetUserFTA 병렬 실행
         $jobs = @()
