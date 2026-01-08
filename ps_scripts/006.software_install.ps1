@@ -440,36 +440,55 @@ try {
         Set-ItemProperty -Path "$progIdPath\shell\open\command" -Name "(Default)" -Value "`"$honeyviewPath`" `"%1`"" -Force
         Write-Host "  - Honeyview ProgId 등록됨" -ForegroundColor Green
 
-        # 그림판/사진 앱을 이미지 연결 프로그램 목록에서 제거 (선택 창 방지)
-        $competingProgIds = @(
-            "Applications\mspaint.exe",
-            "PBrush",
-            "AppX43ber05bs42rk24gszv5x6nx8fxs9ke",  # Photos
-            "AppXk0g4vb8gvt7b93tg50ybcy892pge6jmt" # Photos
-        )
+        # OpenWithProgids 정리: 우리 ProgId만 남기고 경쟁 앱 제거
         foreach ($ext in $imageExtensions) {
             $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
-
-            # OpenWithProgids에서 경쟁 앱 제거
             $openWithProgids = "$fileExtPath\OpenWithProgids"
-            if (Test-Path $openWithProgids) {
-                foreach ($progId in $competingProgIds) {
-                    Remove-ItemProperty -Path $openWithProgids -Name $progId -ErrorAction SilentlyContinue
-                }
+
+            # OpenWithProgids 키가 없으면 생성
+            if (-not (Test-Path $openWithProgids)) {
+                New-Item -Path $openWithProgids -Force | Out-Null
             }
 
-            # OpenWithList에서 mspaint 제거
-            $openWithList = "$fileExtPath\OpenWithList"
-            if (Test-Path $openWithList) {
-                $props = Get-ItemProperty -Path $openWithList -ErrorAction SilentlyContinue
-                foreach ($prop in $props.PSObject.Properties) {
-                    if ($prop.Value -like "*mspaint*" -or $prop.Value -like "*Photos*") {
-                        Remove-ItemProperty -Path $openWithList -Name $prop.Name -ErrorAction SilentlyContinue
+            # 기존 모든 ProgId 제거 (경쟁 앱 완전 제거)
+            $existingProps = Get-ItemProperty -Path $openWithProgids -ErrorAction SilentlyContinue
+            if ($existingProps) {
+                foreach ($prop in $existingProps.PSObject.Properties) {
+                    if ($prop.Name -notlike "PS*") {  # PowerShell 내부 속성 제외
+                        Remove-ItemProperty -Path $openWithProgids -Name $prop.Name -ErrorAction SilentlyContinue
                     }
                 }
             }
+
+            # 우리 ProgId만 추가
+            New-ItemProperty -Path $openWithProgids -Name $honeyviewProgId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
+
+            # OpenWithList도 정리
+            $openWithList = "$fileExtPath\OpenWithList"
+            if (Test-Path $openWithList) {
+                Remove-Item -Path $openWithList -Recurse -Force -ErrorAction SilentlyContinue
+            }
+
+            # UserChoice 키 삭제 (SetUserFTA가 새로 생성하도록)
+            $userChoice = "$fileExtPath\UserChoice"
+            if (Test-Path $userChoice) {
+                # UserChoice는 보호되어 있어서 권한 변경 필요
+                try {
+                    $acl = Get-Acl -Path $userChoice
+                    $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
+                        [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
+                        "FullControl",
+                        "Allow"
+                    )
+                    $acl.SetAccessRule($rule)
+                    Set-Acl -Path $userChoice -AclObject $acl -ErrorAction SilentlyContinue
+                    Remove-Item -Path $userChoice -Recurse -Force -ErrorAction SilentlyContinue
+                } catch {
+                    # 권한 변경 실패해도 계속 진행
+                }
+            }
         }
-        Write-Host "  - 그림판/사진 앱 연결 제거됨" -ForegroundColor Green
+        Write-Host "  - 경쟁 앱 연결 제거 및 OpenWithProgids 정리됨" -ForegroundColor Green
 
         # SetUserFTA 병렬 실행
         $jobs = @()
