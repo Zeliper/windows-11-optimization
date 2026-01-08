@@ -4,7 +4,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.0.2"
+$scriptVersion = "1.0.3"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -149,72 +149,19 @@ if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
         Write-Host "  - 설치 완료" -ForegroundColor Green
         $successCount++
 
-        # ShareX를 silent 모드로 실행하여 설정 파일 초기화
-        $shareXExe = "${env:ProgramFiles}\ShareX\ShareX.exe"
+        # ShareX 설정 파일 다운로드 및 복사
         $shareXConfigDir = "$env:APPDATA\ShareX"
         $shareXConfigPath = "$shareXConfigDir\ApplicationConfig.json"
+        $shareXConfigUrl = "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Configs/ShareX/ApplicationConfig.json"
 
-        if (Test-Path $shareXExe) {
-            # silent 모드로 실행 (트레이로 바로 들어감)
-            Start-Process -FilePath $shareXExe -ArgumentList "-silent" -WindowStyle Hidden
-            Write-Host "  - ShareX 초기화 중..." -ForegroundColor Yellow
-
-            # 설정 파일 생성 대기
-            $maxWait = 10
-            $waited = 0
-            while ((-not (Test-Path $shareXConfigPath)) -and ($waited -lt $maxWait)) {
-                Start-Sleep -Seconds 1
-                $waited++
-            }
-
-            # ShareX 프로세스 종료
-            Start-Sleep -Seconds 2
-            Stop-Process -Name "ShareX" -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 1
+        # 설정 디렉토리 생성
+        if (!(Test-Path $shareXConfigDir)) {
+            New-Item -Path $shareXConfigDir -ItemType Directory -Force | Out-Null
         }
 
-        # 설정 파일이 생성되었으면 수정, 아니면 새로 생성
-        if (Test-Path $shareXConfigPath) {
-            # 기존 설정 파일 읽기 및 수정
-            $configContent = Get-Content $shareXConfigPath -Raw -Encoding UTF8
-            $config = $configContent | ConvertFrom-Json
-
-            # 업로드 관련 설정 수정
-            $config | Add-Member -NotePropertyName "DisableUpload" -NotePropertyValue $true -Force
-            $config | Add-Member -NotePropertyName "ShowUploadWarning" -NotePropertyValue $false -Force
-            $config | Add-Member -NotePropertyName "ShowMultiUploadWarning" -NotePropertyValue $false -Force
-            $config | Add-Member -NotePropertyName "ShowAfterUploadForm" -NotePropertyValue $false -Force
-            $config | Add-Member -NotePropertyName "ShowLargeFileSizeWarning" -NotePropertyValue 0 -Force
-            $config | Add-Member -NotePropertyName "ShowFirstTimeUploadWarning" -NotePropertyValue $false -Force
-            $config | Add-Member -NotePropertyName "AutoCheckUpdate" -NotePropertyValue $false -Force
-
-            $config | ConvertTo-Json -Depth 10 | Set-Content -Path $shareXConfigPath -Encoding UTF8 -Force
-            Write-Host "  - 업로드 기능 비활성화 설정 완료 (기존 설정 수정)" -ForegroundColor Green
-        } else {
-            # 설정 파일이 없으면 디렉토리 생성 후 새로 생성
-            if (!(Test-Path $shareXConfigDir)) {
-                New-Item -Path $shareXConfigDir -ItemType Directory -Force | Out-Null
-            }
-
-            $config = @{
-                "IsFirstRun" = $false
-                "IsExportUpgrade" = $true
-                "DisableUpload" = $true
-                "ShowUploadWarning" = $false
-                "ShowMultiUploadWarning" = $false
-                "ShowAfterUploadForm" = $false
-                "ShowLargeFileSizeWarning" = 0
-                "ShowFirstTimeUploadWarning" = $false
-                "AutoCheckUpdate" = $false
-                "SilentRun" = $true
-                "TrayIconProgressEnabled" = $true
-                "TaskbarProgressEnabled" = $true
-                "RememberMainFormSize" = $true
-            }
-
-            $config | ConvertTo-Json -Depth 10 | Set-Content -Path $shareXConfigPath -Encoding UTF8 -Force
-            Write-Host "  - 업로드 기능 비활성화 설정 완료 (새 설정 생성)" -ForegroundColor Green
-        }
+        # 설정 파일 다운로드
+        Invoke-WebRequest -Uri $shareXConfigUrl -OutFile $shareXConfigPath -UseBasicParsing
+        Write-Host "  - 설정 파일 적용 완료 (업로드 비활성화)" -ForegroundColor Green
     } catch {
         Write-Host "  - 설치 실패: $_" -ForegroundColor Red
         $failCount++
@@ -297,8 +244,13 @@ try {
     Set-ItemProperty -Path $honeyviewRegPath -Name "bLockTitlebarNormal" -Value 0 -Type DWord -Force
     # bLockControlbar=0: 컨트롤바 고정 해제 (자동 숨김)
     Set-ItemProperty -Path $honeyviewRegPath -Name "bLockControlbar" -Value 0 -Type DWord -Force
+    # Enter 키로 전체화면 전환 (사용자 정의 단축키)
+    Set-ItemProperty -Path $honeyviewRegPath -Name "CustomKey_Enable_00" -Value 1 -Type DWord -Force
+    Set-ItemProperty -Path $honeyviewRegPath -Name "CustomKey_Key_00" -Value 0x0d -Type DWord -Force  # 0x0d = Enter
+    Set-ItemProperty -Path $honeyviewRegPath -Name "CustomKey_Cmd_00" -Value "CMD_FULLSCREEN" -Type String -Force
     Write-Host "  - 작은 이미지 늘리기 활성화" -ForegroundColor Green
     Write-Host "  - 제목 표시줄/컨트롤바 자동 숨김 설정" -ForegroundColor Green
+    Write-Host "  - Enter 키 = 전체화면 단축키 설정" -ForegroundColor Green
 } catch {
     Write-Host "  - 설정 적용 실패: $_" -ForegroundColor Red
 }
@@ -349,6 +301,15 @@ try {
     Set-ItemProperty -Path $potRegPath -Name "UseIni" -Value 1 -Type DWord -Force
     Set-ItemProperty -Path $potRegPath -Name "CheckAutoUpdate" -Value 0 -Type DWord -Force
     Write-Host "  - 레지스트리: INI 모드 활성화" -ForegroundColor Green
+
+    # 재생목록/방송목록 창 숨김 설정
+    $potPositionsPath = "HKCU:\Software\DAUM\PotPlayer64\Positions"
+    if (-not (Test-Path $potPositionsPath)) {
+        New-Item -Path $potPositionsPath -Force | Out-Null
+    }
+    Set-ItemProperty -Path $potPositionsPath -Name "PlayListWindowVisible" -Value 0 -Type DWord -Force
+    Set-ItemProperty -Path $potPositionsPath -Name "BroadcastListWindowVisible" -Value 0 -Type DWord -Force
+    Write-Host "  - 재생목록/방송목록 창 숨김 설정" -ForegroundColor Green
 
     # INI 파일 생성 - 주석 없이 작성 (PotPlayer 파싱 호환성)
     $iniContent = @"
