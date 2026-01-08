@@ -4,7 +4,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.0.3"
+$scriptVersion = "1.0.5"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -149,8 +149,8 @@ if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
         Write-Host "  - 설치 완료" -ForegroundColor Green
         $successCount++
 
-        # ShareX 설정 파일 다운로드 및 복사
-        $shareXConfigDir = "$env:APPDATA\ShareX"
+        # ShareX 설정 파일 다운로드 및 복사 (Documents 폴더에 저장)
+        $shareXConfigDir = "$env:USERPROFILE\Documents\ShareX"
         $shareXConfigPath = "$shareXConfigDir\ApplicationConfig.json"
         $shareXConfigUrl = "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Configs/ShareX/ApplicationConfig.json"
 
@@ -311,31 +311,12 @@ try {
     Set-ItemProperty -Path $potPositionsPath -Name "BroadcastListWindowVisible" -Value 0 -Type DWord -Force
     Write-Host "  - 재생목록/방송목록 창 숨김 설정" -ForegroundColor Green
 
-    # INI 파일 생성 - 주석 없이 작성 (PotPlayer 파싱 호환성)
-    $iniContent = @"
-[Settings]
-UseIni=1
-CheckAutoUpdate=0
-SkinUseOsc=1
-ShowOSDOnPlayStart=0
-ShowOSDOnSeek=0
-ShowOSDMessage=0
-AutoHideControl=1
-AutoHideControlTime=1000
-ShowTitleBar=0
-
-[MainShortCutList]
-0=87,2,10002,0
-1=13,0,10010,0
-2=32,0,10014,0
-3=27,0,10015,0
-"@
-
+    # INI 파일 다운로드 (외부 설정 파일 사용)
     $iniPath = "$potPlayerConfigDir\PotPlayerMini64.ini"
-    # BOM 없는 UTF8로 저장 (PotPlayer 호환성)
-    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-    [System.IO.File]::WriteAllText($iniPath, $iniContent, $utf8NoBom)
-    Write-Host "  - 설정 적용 완료 (단축키: Ctrl+W=종료, Enter=전체화면)" -ForegroundColor Green
+    $potPlayerConfigUrl = "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Configs/PotPlayer/PotPlayerMini64.ini"
+    Invoke-WebRequest -Uri $potPlayerConfigUrl -OutFile $iniPath -UseBasicParsing
+    Write-Host "  - 설정 파일 다운로드 완료" -ForegroundColor Green
+    Write-Host "  - 단축키: Ctrl+W=종료, Enter=전체화면, Space=재생/일시정지, Esc=종료" -ForegroundColor Green
     Write-Host "  - OSD 최소화, 컨트롤 바 자동 숨김 설정됨" -ForegroundColor Green
 } catch {
     Write-Host "  - 설정 적용 실패: $_" -ForegroundColor Red
@@ -632,8 +613,8 @@ try {
                 }
             }
 
-            # .html, .htm 확장자에서 Edge 제거
-            foreach ($ext in @(".html", ".htm")) {
+            # .html, .htm, .url 확장자에서 Edge 제거
+            foreach ($ext in @(".html", ".htm", ".url")) {
                 $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
                 $openWithProgids = "$fileExtPath\OpenWithProgids"
                 if (Test-Path $openWithProgids) {
@@ -654,17 +635,49 @@ try {
             Write-Host "  - Edge 연결 프로그램 제거됨" -ForegroundColor Green
 
             # SetUserFTA로 Chrome을 기본 브라우저로 설정
-            $browserAssocs = @(".html", ".htm", "http", "https")
-            $browserSuccessCount = 0
-            foreach ($assoc in $browserAssocs) {
-                $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$assoc ChromeHTML" -Wait -NoNewWindow -PassThru -ErrorAction SilentlyContinue
-                if ($result.ExitCode -eq 0) { $browserSuccessCount++ }
+            # 파일 확장자 (.html, .htm, .url)
+            $fileAssocs = @(".html", ".htm", ".url")
+            $fileSuccessCount = 0
+            foreach ($ext in $fileAssocs) {
+                $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext ChromeHTML" -Wait -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+                if ($result.ExitCode -eq 0) { $fileSuccessCount++ }
             }
+            Write-Host "  - 파일 연결 완료: $fileSuccessCount/$($fileAssocs.Count)개 (.html, .htm, .url)" -ForegroundColor Green
 
-            if ($browserSuccessCount -eq $browserAssocs.Count) {
-                Write-Host "  - 기본 브라우저 설정 완료 ($browserSuccessCount/$($browserAssocs.Count))" -ForegroundColor Green
+            # URL 프로토콜 (http, https) - SetUserFTA 프로토콜 모드 사용
+            $protocolAssocs = @("http", "https")
+            $protocolSuccessCount = 0
+            foreach ($protocol in $protocolAssocs) {
+                # UserChoice 키 삭제 시도 (SetUserFTA가 새로 생성하도록)
+                $userChoicePath = "HKCU:\SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\$protocol\UserChoice"
+                if (Test-Path $userChoicePath) {
+                    try {
+                        $acl = Get-Acl -Path $userChoicePath -ErrorAction SilentlyContinue
+                        if ($acl) {
+                            $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
+                                [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
+                                "FullControl",
+                                "Allow"
+                            )
+                            $acl.SetAccessRule($rule)
+                            Set-Acl -Path $userChoicePath -AclObject $acl -ErrorAction SilentlyContinue
+                            Remove-Item -Path $userChoicePath -Recurse -Force -ErrorAction SilentlyContinue
+                        }
+                    } catch {
+                        # 권한 변경 실패해도 계속 진행
+                    }
+                }
+                $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$protocol ChromeHTML" -Wait -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+                if ($result.ExitCode -eq 0) { $protocolSuccessCount++ }
+            }
+            Write-Host "  - 프로토콜 연결 완료: $protocolSuccessCount/$($protocolAssocs.Count)개 (http, https)" -ForegroundColor Green
+
+            $totalSuccess = $fileSuccessCount + $protocolSuccessCount
+            $totalAssocs = $fileAssocs.Count + $protocolAssocs.Count
+            if ($totalSuccess -eq $totalAssocs) {
+                Write-Host "  - 기본 브라우저 설정 완료 ($totalSuccess/$totalAssocs)" -ForegroundColor Green
             } else {
-                Write-Host "  - 일부 설정 실패 ($browserSuccessCount/$($browserAssocs.Count))" -ForegroundColor Yellow
+                Write-Host "  - 일부 설정 실패 ($totalSuccess/$totalAssocs)" -ForegroundColor Yellow
                 Write-Host "  - 수동 설정 필요: 설정 > 앱 > 기본 앱 > Google Chrome" -ForegroundColor Cyan
                 Start-Process "ms-settings:defaultapps" -ErrorAction SilentlyContinue
             }
