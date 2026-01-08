@@ -4,7 +4,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.0.9"
+$scriptVersion = "1.0.10"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -27,35 +27,29 @@ $tempDir = $env:TEMP
 $successCount = 0
 $failCount = 0
 
-# [1/22] Notepad++ 다운로드
-Write-Host "[1/22] Notepad++ 다운로드 중..." -ForegroundColor Yellow
+# [1/22] Notepad++ 설치 (winget - GitHub API rate limit 회피)
+Write-Host "[1/22] Notepad++ 설치 중 (winget)..." -ForegroundColor Yellow
 try {
-    $nppRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/notepad-plus-plus/notepad-plus-plus/releases/latest"
-    $nppAsset = $nppRelease.assets | Where-Object { $_.name -match "npp.*Installer\.x64\.exe$" } | Select-Object -First 1
-    $nppUrl = $nppAsset.browser_download_url
-    $nppInstaller = Join-Path $tempDir "npp_installer.exe"
-    Invoke-WebRequest -Uri $nppUrl -OutFile $nppInstaller -UseBasicParsing
-    Write-Host "  - 다운로드 완료: $($nppAsset.name)" -ForegroundColor Green
+    $wingetResult = winget install Notepad++.Notepad++ --source winget --silent --accept-package-agreements --accept-source-agreements 2>&1
+    if ($LASTEXITCODE -eq 0 -or $wingetResult -match "already installed") {
+        Write-Host "  - 설치 완료" -ForegroundColor Green
+        $successCount++
+    } else {
+        Write-Host "  - 설치 실패: $wingetResult" -ForegroundColor Red
+        $failCount++
+    }
 } catch {
-    Write-Host "  - 다운로드 실패: $_" -ForegroundColor Red
-    $nppInstaller = $null
+    Write-Host "  - 설치 실패: $_" -ForegroundColor Red
     $failCount++
 }
 
-# [2/22] Notepad++ 설치
-Write-Host "[2/22] Notepad++ 설치 중..." -ForegroundColor Yellow
-if ($nppInstaller -and (Test-Path $nppInstaller)) {
-    try {
-        Start-Process -FilePath $nppInstaller -ArgumentList "/S" -Wait -NoNewWindow
-        Remove-Item $nppInstaller -Force -ErrorAction SilentlyContinue
-        Write-Host "  - 설치 완료" -ForegroundColor Green
-        $successCount++
-    } catch {
-        Write-Host "  - 설치 실패: $_" -ForegroundColor Red
-        $failCount++
-    }
+# [2/22] (예약됨 - 단계 번호 유지)
+Write-Host "[2/22] Notepad++ 설치 확인..." -ForegroundColor Yellow
+$nppPath = "${env:ProgramFiles}\Notepad++\notepad++.exe"
+if (Test-Path $nppPath) {
+    Write-Host "  - Notepad++ 설치 확인됨" -ForegroundColor Green
 } else {
-    Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
+    Write-Host "  - Notepad++ 경로 없음 (설치 지연 가능)" -ForegroundColor Yellow
 }
 
 # [3/22] Chrome 다운로드
@@ -124,50 +118,40 @@ if ($sevenZipInstaller -and (Test-Path $sevenZipInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [7/22] ShareX 다운로드
-Write-Host "[7/22] ShareX 다운로드 중..." -ForegroundColor Yellow
+# [7/22] ShareX 설치 (winget - GitHub API rate limit 회피)
+Write-Host "[7/22] ShareX 설치 중 (winget)..." -ForegroundColor Yellow
 try {
-    $shareXRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/ShareX/ShareX/releases/latest"
-    $shareXAsset = $shareXRelease.assets | Where-Object { $_.name -match "ShareX-.*-setup\.exe$" } | Select-Object -First 1
-    $shareXUrl = $shareXAsset.browser_download_url
-    $shareXInstaller = Join-Path $tempDir "sharex_installer.exe"
-    Invoke-WebRequest -Uri $shareXUrl -OutFile $shareXInstaller -UseBasicParsing
-    Write-Host "  - 다운로드 완료: $($shareXAsset.name)" -ForegroundColor Green
+    $wingetResult = winget install ShareX.ShareX --source winget --silent --accept-package-agreements --accept-source-agreements 2>&1
+    if ($LASTEXITCODE -eq 0 -or $wingetResult -match "already installed") {
+        Write-Host "  - 설치 완료" -ForegroundColor Green
+        $successCount++
+    } else {
+        Write-Host "  - 설치 실패: $wingetResult" -ForegroundColor Red
+        $failCount++
+    }
 } catch {
-    Write-Host "  - 다운로드 실패: $_" -ForegroundColor Red
-    $shareXInstaller = $null
+    Write-Host "  - 설치 실패: $_" -ForegroundColor Red
     $failCount++
 }
 
-# [8/22] ShareX 설치 (업로드 기능 비활성화)
-Write-Host "[8/22] ShareX 설치 중 (업로드 기능 비활성화)..." -ForegroundColor Yellow
-if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
-    try {
-        # ShareX 설치 (NORUN으로 설치만)
-        Start-Process -FilePath $shareXInstaller -ArgumentList "/SP- /VERYSILENT /NORESTART /NORUN /SUPPRESSMSGBOXES" -Wait -NoNewWindow
-        Remove-Item $shareXInstaller -Force -ErrorAction SilentlyContinue
-        Write-Host "  - 설치 완료" -ForegroundColor Green
-        $successCount++
+# [8/22] ShareX 설정 파일 적용 (업로드 기능 비활성화)
+Write-Host "[8/22] ShareX 설정 파일 적용 중..." -ForegroundColor Yellow
+try {
+    # ShareX 설정 파일 다운로드 및 복사 (Documents 폴더에 저장)
+    $shareXConfigDir = "$env:USERPROFILE\Documents\ShareX"
+    $shareXConfigPath = "$shareXConfigDir\ApplicationConfig.json"
+    $shareXConfigUrl = "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Configs/ShareX/ApplicationConfig.json"
 
-        # ShareX 설정 파일 다운로드 및 복사 (Documents 폴더에 저장)
-        $shareXConfigDir = "$env:USERPROFILE\Documents\ShareX"
-        $shareXConfigPath = "$shareXConfigDir\ApplicationConfig.json"
-        $shareXConfigUrl = "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Configs/ShareX/ApplicationConfig.json"
-
-        # 설정 디렉토리 생성
-        if (!(Test-Path $shareXConfigDir)) {
-            New-Item -Path $shareXConfigDir -ItemType Directory -Force | Out-Null
-        }
-
-        # 설정 파일 다운로드
-        Invoke-WebRequest -Uri $shareXConfigUrl -OutFile $shareXConfigPath -UseBasicParsing
-        Write-Host "  - 설정 파일 적용 완료 (업로드 비활성화)" -ForegroundColor Green
-    } catch {
-        Write-Host "  - 설치 실패: $_" -ForegroundColor Red
-        $failCount++
+    # 설정 디렉토리 생성
+    if (!(Test-Path $shareXConfigDir)) {
+        New-Item -Path $shareXConfigDir -ItemType Directory -Force | Out-Null
     }
-} else {
-    Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
+
+    # 설정 파일 다운로드
+    Invoke-WebRequest -Uri $shareXConfigUrl -OutFile $shareXConfigPath -UseBasicParsing
+    Write-Host "  - 설정 파일 적용 완료 (업로드 비활성화)" -ForegroundColor Green
+} catch {
+    Write-Host "  - 설정 파일 적용 실패: $_" -ForegroundColor Red
 }
 
 # [9/22] ShareX 컨텍스트 메뉴 제거
