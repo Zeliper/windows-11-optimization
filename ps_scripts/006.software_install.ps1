@@ -155,6 +155,8 @@ if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
 
         # 완전한 기본 설정 파일 생성 (ShareX가 덮어쓰지 않도록)
         $config = @{
+            "IsFirstRun" = $false
+            "IsExportUpgrade" = $true
             "DisableUpload" = $true
             "ShowUploadWarning" = $false
             "ShowMultiUploadWarning" = $false
@@ -397,7 +399,7 @@ try {
     Write-Host "  - 파일 연결 실패: $_" -ForegroundColor Red
 }
 
-# [17/20] Honeyview 이미지 파일 연결 설정 (SetUserFTA 병렬 실행)
+# [17/20] Honeyview 이미지 파일 연결 설정 (Honeyview.{ext} ProgId 사용)
 Write-Host "[17/20] Honeyview 이미지 파일 연결 설정 중..." -ForegroundColor Yellow
 try {
     # Windows 사진 앱 제거 (파일 연결 충돌 방지)
@@ -426,26 +428,19 @@ try {
 
     $honeyviewPath = "${env:ProgramFiles}\Honeyview\Honeyview.exe"
     if ((Test-Path $honeyviewPath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
-        # 이미지 확장자 목록
+        # 이미지 확장자 목록 (Honeyview가 지원하는 확장자 기준)
         $imageExtensions = @(
             ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".ico", ".webp",
-            ".tiff", ".tif", ".svg", ".heic", ".heif", ".avif",
-            ".raw", ".cr2", ".nef", ".arw", ".dng", ".orf", ".rw2",
-            ".psd", ".xcf", ".jfif", ".jpe", ".dib", ".wdp", ".jxr"
+            ".tiff", ".tif", ".heic", ".heif", ".avif",
+            ".cr2", ".nef", ".arw", ".dng", ".orf", ".rw2",
+            ".psd", ".jfif", ".jpe", ".wdp", ".jxr"
         )
 
-        # Honeyview ProgId 직접 등록 (winget 설치 시 자동 등록 안 될 수 있음)
-        $honeyviewProgId = "Applications\Honeyview.exe"
-        $progIdPath = "HKCU:\SOFTWARE\Classes\$honeyviewProgId"
-        if (-not (Test-Path $progIdPath)) {
-            New-Item -Path "$progIdPath\shell\open\command" -Force | Out-Null
-        }
-        Set-ItemProperty -Path $progIdPath -Name "(Default)" -Value "Honeyview" -Force
-        Set-ItemProperty -Path "$progIdPath\shell\open\command" -Name "(Default)" -Value "`"$honeyviewPath`" `"%1`"" -Force
-        Write-Host "  - Honeyview ProgId 등록됨" -ForegroundColor Green
-
-        # OpenWithProgids 정리: 우리 ProgId만 남기고 경쟁 앱 제거
+        # OpenWithProgids 정리: Honeyview.{ext} ProgId만 남기고 경쟁 앱 모두 제거
         foreach ($ext in $imageExtensions) {
+            $extWithoutDot = $ext.TrimStart(".")
+            $honeyviewProgId = "Honeyview.$extWithoutDot"
+
             $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
             $openWithProgids = "$fileExtPath\OpenWithProgids"
 
@@ -464,7 +459,7 @@ try {
                 }
             }
 
-            # 우리 ProgId만 추가
+            # Honeyview.{ext} ProgId만 추가 (Honeyview 설치 시 등록된 ProgId 사용)
             New-ItemProperty -Path $openWithProgids -Name $honeyviewProgId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
 
             # OpenWithList도 정리
@@ -476,7 +471,6 @@ try {
             # UserChoice 키 삭제 (SetUserFTA가 새로 생성하도록)
             $userChoice = "$fileExtPath\UserChoice"
             if (Test-Path $userChoice) {
-                # UserChoice는 보호되어 있어서 권한 변경 필요
                 try {
                     $acl = Get-Acl -Path $userChoice
                     $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
@@ -494,13 +488,15 @@ try {
         }
         Write-Host "  - 경쟁 앱 연결 제거 및 OpenWithProgids 정리됨" -ForegroundColor Green
 
-        # SetUserFTA 순차 실행 (병렬 실행 시 프로세스 종료 타이밍 문제 발생)
+        # SetUserFTA로 각 확장자에 Honeyview.{ext} ProgId 연결
         $setCount = 0
         foreach ($ext in $imageExtensions) {
+            $extWithoutDot = $ext.TrimStart(".")
+            $honeyviewProgId = "Honeyview.$extWithoutDot"
             $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $honeyviewProgId" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
             if ($result -and $result.ExitCode -eq 0) { $setCount++ }
         }
-        Write-Host "  - 이미지 연결 완료: $setCount/$($imageExtensions.Count)개 확장자" -ForegroundColor Green
+        Write-Host "  - 이미지 연결 완료: $setCount/$($imageExtensions.Count)개 확장자 (ProgId: Honeyview.{ext})" -ForegroundColor Green
     } elseif (!(Test-Path $honeyviewPath)) {
         Write-Host "  - 건너뜀 (Honeyview 설치 경로 없음)" -ForegroundColor Red
     } else {
