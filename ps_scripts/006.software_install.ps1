@@ -4,7 +4,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.0.8"
+$scriptVersion = "1.0.9"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -605,28 +605,57 @@ try {
         }
 
         if ($chromeProgId) {
-            # Edge를 연결 프로그램 목록에서 제거 (선택 창 방지)
-            $edgeProgIds = @("MSEdgeHTM", "MSEdgePDF", "MSEdgeMHT", "AppXq0fevzme2pys62n3e0fbqa7peapykr8v")
-
-            # http/https 프로토콜에서 Edge 제거
+            # http/https 프로토콜 OpenWithProgids 정리 (Honeyview 방식 - 경쟁 앱 완전 제거)
             foreach ($protocol in @("http", "https")) {
                 $urlAssocPath = "HKCU:\SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\$protocol"
                 $openWithProgids = "$urlAssocPath\OpenWithProgids"
-                if (Test-Path $openWithProgids) {
-                    foreach ($edgeId in $edgeProgIds) {
-                        Remove-ItemProperty -Path $openWithProgids -Name $edgeId -ErrorAction SilentlyContinue
-                    }
+
+                # OpenWithProgids 키가 없으면 생성
+                if (-not (Test-Path $openWithProgids)) {
+                    New-Item -Path $openWithProgids -Force | Out-Null
                 }
-                $openWithList = "$urlAssocPath\OpenWithList"
-                if (Test-Path $openWithList) {
-                    $props = Get-ItemProperty -Path $openWithList -ErrorAction SilentlyContinue
-                    foreach ($prop in $props.PSObject.Properties) {
-                        if ($prop.Value -like "*edge*" -or $prop.Value -like "*MSEdge*") {
-                            Remove-ItemProperty -Path $openWithList -Name $prop.Name -ErrorAction SilentlyContinue
+
+                # 기존 모든 ProgId 제거 (경쟁 앱 완전 제거)
+                $existingProps = Get-ItemProperty -Path $openWithProgids -ErrorAction SilentlyContinue
+                if ($existingProps) {
+                    foreach ($prop in $existingProps.PSObject.Properties) {
+                        if ($prop.Name -notlike "PS*") {
+                            Remove-ItemProperty -Path $openWithProgids -Name $prop.Name -ErrorAction SilentlyContinue
                         }
                     }
                 }
+
+                # ChromeHTML ProgId만 추가
+                New-ItemProperty -Path $openWithProgids -Name "ChromeHTML" -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
+
+                # OpenWithList도 정리
+                $openWithList = "$urlAssocPath\OpenWithList"
+                if (Test-Path $openWithList) {
+                    Remove-Item -Path $openWithList -Recurse -Force -ErrorAction SilentlyContinue
+                }
+
+                # UserChoice 키 삭제 (SetUserFTA가 새로 생성하도록)
+                $userChoice = "$urlAssocPath\UserChoice"
+                if (Test-Path $userChoice) {
+                    try {
+                        $acl = Get-Acl -Path $userChoice
+                        $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
+                            [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
+                            "FullControl",
+                            "Allow"
+                        )
+                        $acl.SetAccessRule($rule)
+                        Set-Acl -Path $userChoice -AclObject $acl -ErrorAction SilentlyContinue
+                        Remove-Item -Path $userChoice -Recurse -Force -ErrorAction SilentlyContinue
+                    } catch {
+                        # 권한 변경 실패해도 계속 진행
+                    }
+                }
             }
+            Write-Host "  - http/https OpenWithProgids 정리됨 (ChromeHTML만 유지)" -ForegroundColor Green
+
+            # Edge를 연결 프로그램 목록에서 제거 (선택 창 방지)
+            $edgeProgIds = @("MSEdgeHTM", "MSEdgePDF", "MSEdgeMHT", "AppXq0fevzme2pys62n3e0fbqa7peapykr8v")
 
             # .html, .htm 확장자에서 Edge 제거 (.url은 InternetShortcut으로 유지)
             foreach ($ext in @(".html", ".htm")) {
@@ -659,29 +688,10 @@ try {
             }
             Write-Host "  - 파일 연결 완료: $fileSuccessCount/$($fileAssocs.Count)개 (.html, .htm)" -ForegroundColor Green
 
-            # URL 프로토콜 (http, https) - SetUserFTA 프로토콜 모드 사용
+            # URL 프로토콜 (http, https) - SetUserFTA로 설정 (UserChoice는 위에서 이미 삭제됨)
             $protocolAssocs = @("http", "https")
             $protocolSuccessCount = 0
             foreach ($protocol in $protocolAssocs) {
-                # UserChoice 키 삭제 시도 (SetUserFTA가 새로 생성하도록)
-                $userChoicePath = "HKCU:\SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\$protocol\UserChoice"
-                if (Test-Path $userChoicePath) {
-                    try {
-                        $acl = Get-Acl -Path $userChoicePath -ErrorAction SilentlyContinue
-                        if ($acl) {
-                            $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
-                                [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
-                                "FullControl",
-                                "Allow"
-                            )
-                            $acl.SetAccessRule($rule)
-                            Set-Acl -Path $userChoicePath -AclObject $acl -ErrorAction SilentlyContinue
-                            Remove-Item -Path $userChoicePath -Recurse -Force -ErrorAction SilentlyContinue
-                        }
-                    } catch {
-                        # 권한 변경 실패해도 계속 진행
-                    }
-                }
                 $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$protocol ChromeHTML" -Wait -NoNewWindow -PassThru -ErrorAction SilentlyContinue
                 if ($result.ExitCode -eq 0) { $protocolSuccessCount++ }
             }
