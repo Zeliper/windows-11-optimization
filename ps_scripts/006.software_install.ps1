@@ -140,25 +140,35 @@ try {
 Write-Host "[8/20] ShareX 설치 중 (업로드 기능 비활성화)..." -ForegroundColor Yellow
 if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
     try {
-        # ShareX 설치 (NORUN 없이 - 설정 파일 초기화를 위해 실행 허용)
-        Start-Process -FilePath $shareXInstaller -ArgumentList "/SP- /VERYSILENT /NORESTART /SUPPRESSMSGBOXES" -Wait -NoNewWindow
+        # ShareX 설치 (NORUN으로 설치만)
+        Start-Process -FilePath $shareXInstaller -ArgumentList "/SP- /VERYSILENT /NORESTART /NORUN /SUPPRESSMSGBOXES" -Wait -NoNewWindow
         Remove-Item $shareXInstaller -Force -ErrorAction SilentlyContinue
         Write-Host "  - 설치 완료" -ForegroundColor Green
         $successCount++
 
-        # ShareX가 실행되어 설정 파일을 생성할 때까지 대기
+        # ShareX를 silent 모드로 실행하여 설정 파일 초기화
+        $shareXExe = "${env:ProgramFiles}\ShareX\ShareX.exe"
         $shareXConfigDir = "$env:APPDATA\ShareX"
         $shareXConfigPath = "$shareXConfigDir\ApplicationConfig.json"
-        $maxWait = 15  # 최대 15초 대기
-        $waited = 0
-        while ((-not (Test-Path $shareXConfigPath)) -and ($waited -lt $maxWait)) {
-            Start-Sleep -Seconds 1
-            $waited++
-        }
 
-        # ShareX 프로세스 종료
-        Stop-Process -Name "ShareX" -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 1
+        if (Test-Path $shareXExe) {
+            # silent 모드로 실행 (트레이로 바로 들어감)
+            Start-Process -FilePath $shareXExe -ArgumentList "-silent" -WindowStyle Hidden
+            Write-Host "  - ShareX 초기화 중..." -ForegroundColor Yellow
+
+            # 설정 파일 생성 대기
+            $maxWait = 10
+            $waited = 0
+            while ((-not (Test-Path $shareXConfigPath)) -and ($waited -lt $maxWait)) {
+                Start-Sleep -Seconds 1
+                $waited++
+            }
+
+            # ShareX 프로세스 종료
+            Start-Sleep -Seconds 2
+            Stop-Process -Name "ShareX" -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 1
+        }
 
         # 설정 파일이 생성되었으면 수정, 아니면 새로 생성
         if (Test-Path $shareXConfigPath) {
