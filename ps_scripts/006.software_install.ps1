@@ -140,38 +140,68 @@ try {
 Write-Host "[8/20] ShareX 설치 중 (업로드 기능 비활성화)..." -ForegroundColor Yellow
 if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
     try {
-        # ShareX 설치
-        Start-Process -FilePath $shareXInstaller -ArgumentList "/SP- /VERYSILENT /NORESTART /NORUN /SUPPRESSMSGBOXES" -Wait -NoNewWindow
+        # ShareX 설치 (NORUN 없이 - 설정 파일 초기화를 위해 실행 허용)
+        Start-Process -FilePath $shareXInstaller -ArgumentList "/SP- /VERYSILENT /NORESTART /SUPPRESSMSGBOXES" -Wait -NoNewWindow
         Remove-Item $shareXInstaller -Force -ErrorAction SilentlyContinue
         Write-Host "  - 설치 완료" -ForegroundColor Green
         $successCount++
 
-        # 업로드 비활성화 설정 (JSON 설정 파일 미리 생성 - ShareX 실행 전)
+        # ShareX가 실행되어 설정 파일을 생성할 때까지 대기
         $shareXConfigDir = "$env:APPDATA\ShareX"
         $shareXConfigPath = "$shareXConfigDir\ApplicationConfig.json"
-        if (!(Test-Path $shareXConfigDir)) {
-            New-Item -Path $shareXConfigDir -ItemType Directory -Force | Out-Null
+        $maxWait = 15  # 최대 15초 대기
+        $waited = 0
+        while ((-not (Test-Path $shareXConfigPath)) -and ($waited -lt $maxWait)) {
+            Start-Sleep -Seconds 1
+            $waited++
         }
 
-        # 완전한 기본 설정 파일 생성 (ShareX가 덮어쓰지 않도록)
-        $config = @{
-            "IsFirstRun" = $false
-            "IsExportUpgrade" = $true
-            "DisableUpload" = $true
-            "ShowUploadWarning" = $false
-            "ShowMultiUploadWarning" = $false
-            "ShowAfterUploadForm" = $false
-            "ShowLargeFileSizeWarning" = 0
-            "ShowFirstTimeUploadWarning" = $false
-            "AutoCheckUpdate" = $false
-            "SilentRun" = $true
-            "TrayIconProgressEnabled" = $true
-            "TaskbarProgressEnabled" = $true
-            "RememberMainFormSize" = $true
-        }
+        # ShareX 프로세스 종료
+        Stop-Process -Name "ShareX" -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
 
-        $config | ConvertTo-Json -Depth 10 | Set-Content -Path $shareXConfigPath -Encoding UTF8 -Force
-        Write-Host "  - 업로드 기능 비활성화 설정 완료" -ForegroundColor Green
+        # 설정 파일이 생성되었으면 수정, 아니면 새로 생성
+        if (Test-Path $shareXConfigPath) {
+            # 기존 설정 파일 읽기 및 수정
+            $configContent = Get-Content $shareXConfigPath -Raw -Encoding UTF8
+            $config = $configContent | ConvertFrom-Json
+
+            # 업로드 관련 설정 수정
+            $config | Add-Member -NotePropertyName "DisableUpload" -NotePropertyValue $true -Force
+            $config | Add-Member -NotePropertyName "ShowUploadWarning" -NotePropertyValue $false -Force
+            $config | Add-Member -NotePropertyName "ShowMultiUploadWarning" -NotePropertyValue $false -Force
+            $config | Add-Member -NotePropertyName "ShowAfterUploadForm" -NotePropertyValue $false -Force
+            $config | Add-Member -NotePropertyName "ShowLargeFileSizeWarning" -NotePropertyValue 0 -Force
+            $config | Add-Member -NotePropertyName "ShowFirstTimeUploadWarning" -NotePropertyValue $false -Force
+            $config | Add-Member -NotePropertyName "AutoCheckUpdate" -NotePropertyValue $false -Force
+
+            $config | ConvertTo-Json -Depth 10 | Set-Content -Path $shareXConfigPath -Encoding UTF8 -Force
+            Write-Host "  - 업로드 기능 비활성화 설정 완료 (기존 설정 수정)" -ForegroundColor Green
+        } else {
+            # 설정 파일이 없으면 디렉토리 생성 후 새로 생성
+            if (!(Test-Path $shareXConfigDir)) {
+                New-Item -Path $shareXConfigDir -ItemType Directory -Force | Out-Null
+            }
+
+            $config = @{
+                "IsFirstRun" = $false
+                "IsExportUpgrade" = $true
+                "DisableUpload" = $true
+                "ShowUploadWarning" = $false
+                "ShowMultiUploadWarning" = $false
+                "ShowAfterUploadForm" = $false
+                "ShowLargeFileSizeWarning" = 0
+                "ShowFirstTimeUploadWarning" = $false
+                "AutoCheckUpdate" = $false
+                "SilentRun" = $true
+                "TrayIconProgressEnabled" = $true
+                "TaskbarProgressEnabled" = $true
+                "RememberMainFormSize" = $true
+            }
+
+            $config | ConvertTo-Json -Depth 10 | Set-Content -Path $shareXConfigPath -Encoding UTF8 -Force
+            Write-Host "  - 업로드 기능 비활성화 설정 완료 (새 설정 생성)" -ForegroundColor Green
+        }
     } catch {
         Write-Host "  - 설치 실패: $_" -ForegroundColor Red
         $failCount++

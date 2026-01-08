@@ -221,8 +221,12 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 
 스크립트 테스트는 **Hyper-V VM**에서 진행합니다:
 - **환경**: Windows 11 클린 설치 + Windows Update만 적용된 상태
-- **스냅샷**: 초기 상태 스냅샷 저장됨 (테스트 후 롤백 가능)
 - **주의**: Claude Code가 직접 VM에서 명령어를 실행할 수 없으므로, 필요한 명령어를 사용자에게 안내해야 함
+
+### 현재 스냅샷 (복원 시점)
+- **상태**: 000.orchestrate.ps1 실행 완료 + 재부팅 완료
+- **제외 항목**: 6번(소프트웨어 설치), 11번(웹서버 IIS)
+- **포함 항목**: 1~5, 8~10, 12~22번 스크립트 실행됨
 
 ---
 
