@@ -4,7 +4,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.0.1"
+$scriptVersion = "1.0.2"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -27,8 +27,8 @@ $tempDir = $env:TEMP
 $successCount = 0
 $failCount = 0
 
-# [1/20] Notepad++ 다운로드
-Write-Host "[1/20] Notepad++ 다운로드 중..." -ForegroundColor Yellow
+# [1/21] Notepad++ 다운로드
+Write-Host "[1/21] Notepad++ 다운로드 중..." -ForegroundColor Yellow
 try {
     $nppRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/notepad-plus-plus/notepad-plus-plus/releases/latest"
     $nppAsset = $nppRelease.assets | Where-Object { $_.name -match "npp.*Installer\.x64\.exe$" } | Select-Object -First 1
@@ -42,8 +42,8 @@ try {
     $failCount++
 }
 
-# [2/20] Notepad++ 설치
-Write-Host "[2/20] Notepad++ 설치 중..." -ForegroundColor Yellow
+# [2/21] Notepad++ 설치
+Write-Host "[2/21] Notepad++ 설치 중..." -ForegroundColor Yellow
 if ($nppInstaller -and (Test-Path $nppInstaller)) {
     try {
         Start-Process -FilePath $nppInstaller -ArgumentList "/S" -Wait -NoNewWindow
@@ -58,8 +58,8 @@ if ($nppInstaller -and (Test-Path $nppInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [3/20] Chrome 다운로드
-Write-Host "[3/20] Chrome 다운로드 중..." -ForegroundColor Yellow
+# [3/21] Chrome 다운로드
+Write-Host "[3/21] Chrome 다운로드 중..." -ForegroundColor Yellow
 try {
     $chromeUrl = "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi"
     $chromeInstaller = Join-Path $tempDir "chrome_installer.msi"
@@ -71,8 +71,8 @@ try {
     $failCount++
 }
 
-# [4/20] Chrome 설치
-Write-Host "[4/20] Chrome 설치 중..." -ForegroundColor Yellow
+# [4/21] Chrome 설치
+Write-Host "[4/21] Chrome 설치 중..." -ForegroundColor Yellow
 if ($chromeInstaller -and (Test-Path $chromeInstaller)) {
     try {
         Start-Process msiexec -ArgumentList "/i `"$chromeInstaller`" /qn /norestart" -Wait -NoNewWindow
@@ -95,8 +95,8 @@ if ($chromeInstaller -and (Test-Path $chromeInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [5/20] 7-Zip 다운로드
-Write-Host "[5/20] 7-Zip 다운로드 중..." -ForegroundColor Yellow
+# [5/21] 7-Zip 다운로드
+Write-Host "[5/21] 7-Zip 다운로드 중..." -ForegroundColor Yellow
 try {
     $sevenZipUrl = "https://www.7-zip.org/a/7z2408-x64.msi"
     $sevenZipInstaller = Join-Path $tempDir "7zip_installer.msi"
@@ -108,8 +108,8 @@ try {
     $failCount++
 }
 
-# [6/20] 7-Zip 설치
-Write-Host "[6/20] 7-Zip 설치 중..." -ForegroundColor Yellow
+# [6/21] 7-Zip 설치
+Write-Host "[6/21] 7-Zip 설치 중..." -ForegroundColor Yellow
 if ($sevenZipInstaller -and (Test-Path $sevenZipInstaller)) {
     try {
         Start-Process msiexec -ArgumentList "/i `"$sevenZipInstaller`" /qn" -Wait -NoNewWindow
@@ -124,8 +124,8 @@ if ($sevenZipInstaller -and (Test-Path $sevenZipInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [7/20] ShareX 다운로드
-Write-Host "[7/20] ShareX 다운로드 중..." -ForegroundColor Yellow
+# [7/21] ShareX 다운로드
+Write-Host "[7/21] ShareX 다운로드 중..." -ForegroundColor Yellow
 try {
     $shareXRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/ShareX/ShareX/releases/latest"
     $shareXAsset = $shareXRelease.assets | Where-Object { $_.name -match "ShareX-.*-setup\.exe$" } | Select-Object -First 1
@@ -139,8 +139,8 @@ try {
     $failCount++
 }
 
-# [8/20] ShareX 설치 (업로드 기능 비활성화)
-Write-Host "[8/20] ShareX 설치 중 (업로드 기능 비활성화)..." -ForegroundColor Yellow
+# [8/21] ShareX 설치 (업로드 기능 비활성화)
+Write-Host "[8/21] ShareX 설치 중 (업로드 기능 비활성화)..." -ForegroundColor Yellow
 if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
     try {
         # ShareX 설치 (NORUN으로 설치만)
@@ -223,8 +223,8 @@ if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [9/20] ShareX 컨텍스트 메뉴 제거
-Write-Host "[9/20] ShareX 컨텍스트 메뉴 제거 중..." -ForegroundColor Yellow
+# [9/21] ShareX 컨텍스트 메뉴 제거
+Write-Host "[9/21] ShareX 컨텍스트 메뉴 제거 중..." -ForegroundColor Yellow
 try {
     # ShareX 컨텍스트 메뉴 레지스트리 키 삭제 (모든 파일용)
     $contextMenuPaths = @(
@@ -252,8 +252,8 @@ try {
     Write-Host "  - 컨텍스트 메뉴 제거 실패: $_" -ForegroundColor Red
 }
 
-# [10/20] ShareX 시작 시 트레이 모드 설정
-Write-Host "[10/20] ShareX 시작 프로그램 등록 중..." -ForegroundColor Yellow
+# [10/21] ShareX 시작 시 트레이 모드 설정
+Write-Host "[10/21] ShareX 시작 프로그램 등록 중..." -ForegroundColor Yellow
 try {
     $shareXExe = "${env:ProgramFiles}\ShareX\ShareX.exe"
     if (Test-Path $shareXExe) {
@@ -268,8 +268,8 @@ try {
     Write-Host "  - 시작 프로그램 등록 실패: $_" -ForegroundColor Red
 }
 
-# [11/20] Honeyview 설치 (winget)
-Write-Host "[11/20] Honeyview 설치 중 (winget)..." -ForegroundColor Yellow
+# [11/21] Honeyview 설치 (winget)
+Write-Host "[11/21] Honeyview 설치 중 (winget)..." -ForegroundColor Yellow
 try {
     $wingetResult = winget install Bandisoft.Honeyview --source winget --silent --accept-package-agreements --accept-source-agreements 2>&1
     if ($LASTEXITCODE -eq 0 -or $wingetResult -match "already installed") {
@@ -284,8 +284,27 @@ try {
     $failCount++
 }
 
-# [12/20] PotPlayer 다운로드
-Write-Host "[12/20] PotPlayer 다운로드 중..." -ForegroundColor Yellow
+# [12/21] Honeyview 설정 적용 (작은 이미지 늘리기, 제목표시줄/컨트롤바 고정 해제)
+Write-Host "[12/21] Honeyview 설정 적용 중..." -ForegroundColor Yellow
+try {
+    $honeyviewRegPath = "HKCU:\Software\Honeyview"
+    if (-not (Test-Path $honeyviewRegPath)) {
+        New-Item -Path $honeyviewRegPath -Force | Out-Null
+    }
+    # bStretchWhenSmall=1: 작은 이미지를 창에 맞게 늘리기
+    Set-ItemProperty -Path $honeyviewRegPath -Name "bStretchWhenSmall" -Value 1 -Type DWord -Force
+    # bLockTitlebarNormal=0: 제목 표시줄 고정 해제 (자동 숨김)
+    Set-ItemProperty -Path $honeyviewRegPath -Name "bLockTitlebarNormal" -Value 0 -Type DWord -Force
+    # bLockControlbar=0: 컨트롤바 고정 해제 (자동 숨김)
+    Set-ItemProperty -Path $honeyviewRegPath -Name "bLockControlbar" -Value 0 -Type DWord -Force
+    Write-Host "  - 작은 이미지 늘리기 활성화" -ForegroundColor Green
+    Write-Host "  - 제목 표시줄/컨트롤바 자동 숨김 설정" -ForegroundColor Green
+} catch {
+    Write-Host "  - 설정 적용 실패: $_" -ForegroundColor Red
+}
+
+# [13/21] PotPlayer 다운로드
+Write-Host "[13/21] PotPlayer 다운로드 중..." -ForegroundColor Yellow
 try {
     $potPlayerUrl = "https://t1.kakaocdn.net/potplayer/PotPlayer/Version/Latest/PotPlayerSetup64.exe"
     $potPlayerInstaller = Join-Path $tempDir "PotPlayerSetup64.exe"
@@ -297,8 +316,8 @@ try {
     $failCount++
 }
 
-# [13/20] PotPlayer 설치
-Write-Host "[13/20] PotPlayer 설치 중..." -ForegroundColor Yellow
+# [14/21] PotPlayer 설치
+Write-Host "[14/21] PotPlayer 설치 중..." -ForegroundColor Yellow
 if ($potPlayerInstaller -and (Test-Path $potPlayerInstaller)) {
     try {
         Start-Process -FilePath $potPlayerInstaller -ArgumentList "/S" -Wait -NoNewWindow
@@ -313,8 +332,8 @@ if ($potPlayerInstaller -and (Test-Path $potPlayerInstaller)) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [14/20] PotPlayer 설정 적용
-Write-Host "[14/20] PotPlayer 설정 적용 중..." -ForegroundColor Yellow
+# [15/21] PotPlayer 설정 적용
+Write-Host "[15/21] PotPlayer 설정 적용 중..." -ForegroundColor Yellow
 try {
     $potPlayerConfigDir = "$env:APPDATA\PotPlayerMini64"
     if (!(Test-Path $potPlayerConfigDir)) {
@@ -361,10 +380,10 @@ ShowTitleBar=0
     Write-Host "  - 설정 적용 실패: $_" -ForegroundColor Red
 }
 
-# [15/20] SetUserFTA 다운로드 (파일 연결 도구)
+# [16/21] SetUserFTA 다운로드 (파일 연결 도구)
 # SetUserFTA by Christoph Kolbicz - Personal Edition (비상업적/테스트 목적)
 # 라이선스: https://github.com/Zeliper/windows-11-optimization/blob/main/LICENSES/SetUserFTA.md
-Write-Host "[15/20] SetUserFTA 다운로드 중..." -ForegroundColor Yellow
+Write-Host "[16/21] SetUserFTA 다운로드 중..." -ForegroundColor Yellow
 $setUserFtaPath = Join-Path $tempDir "SetUserFTA.exe"
 $setUserFtaUrl = "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Utils/SetUserFTA.exe"
 
@@ -382,8 +401,8 @@ try {
     $setUserFtaPath = $null
 }
 
-# [16/20] Notepad++ 파일 연결 설정 (SetUserFTA 병렬 실행)
-Write-Host "[16/20] Notepad++ 파일 연결 설정 중..." -ForegroundColor Yellow
+# [17/21] Notepad++ 파일 연결 설정 (SetUserFTA 병렬 실행)
+Write-Host "[17/21] Notepad++ 파일 연결 설정 중..." -ForegroundColor Yellow
 try {
     $nppPath = "${env:ProgramFiles}\Notepad++\notepad++.exe"
     if ((Test-Path $nppPath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
@@ -442,8 +461,8 @@ try {
     Write-Host "  - 파일 연결 실패: $_" -ForegroundColor Red
 }
 
-# [17/20] Honeyview 이미지 파일 연결 설정 (Honeyview.{ext} ProgId 사용)
-Write-Host "[17/20] Honeyview 이미지 파일 연결 설정 중..." -ForegroundColor Yellow
+# [18/21] Honeyview 이미지 파일 연결 설정 (Honeyview.{ext} ProgId 사용)
+Write-Host "[18/21] Honeyview 이미지 파일 연결 설정 중..." -ForegroundColor Yellow
 try {
     # Windows 사진 앱 제거 (파일 연결 충돌 방지)
     $photosApp = Get-AppxPackage -Name "Microsoft.Windows.Photos" -ErrorAction SilentlyContinue
@@ -549,8 +568,8 @@ try {
     Write-Host "  - 이미지 연결 실패: $_" -ForegroundColor Red
 }
 
-# [18/20] PotPlayer 동영상/오디오 파일 연결 (SetUserFTA 사용, PotPlayer 자체 ProgId 활용)
-Write-Host "[18/20] PotPlayer 동영상/오디오 파일 연결 설정 중..." -ForegroundColor Yellow
+# [19/21] PotPlayer 동영상/오디오 파일 연결 (SetUserFTA 사용, PotPlayer 자체 ProgId 활용)
+Write-Host "[19/21] PotPlayer 동영상/오디오 파일 연결 설정 중..." -ForegroundColor Yellow
 try {
     $potPlayerPath = "${env:ProgramFiles}\DAUM\PotPlayer\PotPlayerMini64.exe"
     if ((Test-Path $potPlayerPath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
@@ -617,8 +636,8 @@ try {
     Write-Host "  - 미디어 연결 실패: $_" -ForegroundColor Red
 }
 
-# [19/20] Chrome 기본 브라우저 설정 (SetUserFTA 사용)
-Write-Host "[19/20] Chrome 기본 브라우저 설정 중..." -ForegroundColor Yellow
+# [20/21] Chrome 기본 브라우저 설정 (SetUserFTA 사용)
+Write-Host "[20/21] Chrome 기본 브라우저 설정 중..." -ForegroundColor Yellow
 try {
     $chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
     if ((Test-Path $chromePath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
@@ -702,8 +721,8 @@ try {
     Write-Host "  - 기본 브라우저 설정 실패: $_" -ForegroundColor Red
 }
 
-# [20/20] Windows 배경화면 기본 설정 (Spotlight 제거)
-Write-Host "[20/20] Windows 배경화면 기본 설정 중..." -ForegroundColor Yellow
+# [21/21] Windows 배경화면 기본 설정 (Spotlight 제거)
+Write-Host "[21/21] Windows 배경화면 기본 설정 중..." -ForegroundColor Yellow
 try {
     # 기본 Windows 배경화면 경로
     $defaultWallpaper = "C:\Windows\Web\Wallpaper\Windows\img0.jpg"
