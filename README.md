@@ -190,13 +190,14 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts/006.software_install.ps1 | iex
 ```
 
-**설치 대상 (20단계):**
+**설치 대상 (22단계):**
 - Notepad++ (최신 버전 자동 감지)
 - Google Chrome (Enterprise 64비트)
 - 7-Zip (64비트)
 - ShareX (최신 버전, 업로드 기능 비활성화, 트레이 시작)
 - Honeyview (이미지 뷰어, 반디소프트 - winget 설치)
 - PotPlayer (동영상 플레이어, 깔끔한 재생 화면 설정)
+- Everything (빠른 파일 검색 - winget 설치)
 
 **파일 연결 (SetUserFTA 병렬 실행):**
 - Notepad++: txt, ini, cfg, conf, config, json, xml, yaml, md, log 등 16개 확장자
