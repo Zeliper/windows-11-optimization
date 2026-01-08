@@ -4,7 +4,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.0.10"
+$scriptVersion = "1.0.11"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -529,24 +529,20 @@ try {
         # 전체 미디어 확장자
         $mediaExtensions = $videoExtensions + $audioExtensions
 
-        # PotPlayer ProgId 직접 등록 (설치 직후 자동 등록 안 될 수 있음)
-        $potPlayerProgId = "Applications\PotPlayerMini64.exe"
-        $progIdPath = "HKCU:\SOFTWARE\Classes\$potPlayerProgId"
-        if (-not (Test-Path $progIdPath)) {
-            New-Item -Path "$progIdPath\shell\open\command" -Force | Out-Null
-        }
-        Set-ItemProperty -Path $progIdPath -Name "(Default)" -Value "PotPlayer 64 bit" -Force
-        Set-ItemProperty -Path "$progIdPath\shell\open\command" -Name "(Default)" -Value "`"$potPlayerPath`" `"%1`"" -Force
-        Write-Host "  - PotPlayer ProgId 등록됨" -ForegroundColor Green
-
-        # OpenWithProgids 정리 및 ProgId 추가
+        # OpenWithProgids 정리: PotPlayer64.{ext} ProgId만 남기고 경쟁 앱 모두 제거 (Honeyview 방식)
         foreach ($ext in $mediaExtensions) {
+            $extWithoutDot = $ext.TrimStart(".")
+            $potPlayerProgId = "PotPlayer64.$extWithoutDot"
+
             $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
             $openWithProgids = "$fileExtPath\OpenWithProgids"
+
+            # OpenWithProgids 키가 없으면 생성
             if (-not (Test-Path $openWithProgids)) {
                 New-Item -Path $openWithProgids -Force | Out-Null
             }
-            # 기존 ProgId 제거
+
+            # 기존 모든 ProgId 제거 (경쟁 앱 완전 제거)
             $existingProps = Get-ItemProperty -Path $openWithProgids -ErrorAction SilentlyContinue
             if ($existingProps) {
                 foreach ($prop in $existingProps.PSObject.Properties) {
@@ -555,18 +551,46 @@ try {
                     }
                 }
             }
-            # 우리 ProgId만 추가
-            New-ItemProperty -Path $openWithProgids -Name $potPlayerProgId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
-        }
 
-        # SetUserFTA 순차 실행
+            # PotPlayer64.{ext} ProgId만 추가 (PotPlayer 설치 시 등록된 ProgId 사용)
+            New-ItemProperty -Path $openWithProgids -Name $potPlayerProgId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
+
+            # OpenWithList도 정리
+            $openWithList = "$fileExtPath\OpenWithList"
+            if (Test-Path $openWithList) {
+                Remove-Item -Path $openWithList -Recurse -Force -ErrorAction SilentlyContinue
+            }
+
+            # UserChoice 키 삭제 (SetUserFTA가 새로 생성하도록)
+            $userChoice = "$fileExtPath\UserChoice"
+            if (Test-Path $userChoice) {
+                try {
+                    $acl = Get-Acl -Path $userChoice
+                    $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
+                        [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
+                        "FullControl",
+                        "Allow"
+                    )
+                    $acl.SetAccessRule($rule)
+                    Set-Acl -Path $userChoice -AclObject $acl -ErrorAction SilentlyContinue
+                    Remove-Item -Path $userChoice -Recurse -Force -ErrorAction SilentlyContinue
+                } catch {
+                    # 권한 변경 실패해도 계속 진행
+                }
+            }
+        }
+        Write-Host "  - 경쟁 앱 연결 제거 및 OpenWithProgids 정리됨" -ForegroundColor Green
+
+        # SetUserFTA로 각 확장자에 PotPlayer64.{ext} ProgId 연결
         $setCount = 0
         foreach ($ext in $mediaExtensions) {
+            $extWithoutDot = $ext.TrimStart(".")
+            $potPlayerProgId = "PotPlayer64.$extWithoutDot"
             $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $potPlayerProgId" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
             if ($result -and $result.ExitCode -eq 0) { $setCount++ }
         }
-        Write-Host "  - 동영상 연결 완료: $($videoExtensions.Count)개 확장자" -ForegroundColor Green
-        Write-Host "  - 오디오 연결 완료: $($audioExtensions.Count)개 확장자" -ForegroundColor Green
+        Write-Host "  - 동영상 연결 완료: $($videoExtensions.Count)개 확장자 (ProgId: PotPlayer64.{ext})" -ForegroundColor Green
+        Write-Host "  - 오디오 연결 완료: $($audioExtensions.Count)개 확장자 (ProgId: PotPlayer64.{ext})" -ForegroundColor Green
         Write-Host "  - 총 미디어 연결: $setCount/$($mediaExtensions.Count)개" -ForegroundColor Green
     } elseif (!(Test-Path $potPlayerPath)) {
         Write-Host "  - 건너뜀 (PotPlayer 설치 경로 없음)" -ForegroundColor Red

@@ -266,7 +266,7 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 | 003 | defender_onedrive_firewall.ps1 | v1.0.0 | Defender 보호 기능 비활성화, OneDrive 삭제, 방화벽 해제 |
 | 004 | taskbar.ps1 | v1.0.0 | 작업 표시줄 정리, 컨텍스트 메뉴 복원 |
 | 005 | bloatware.ps1 | v1.0.0 | 블로트웨어 앱 및 기능 제거 |
-| 006 | software_install.ps1 | v1.0.10 | 필수 소프트웨어 자동 설치 (Notepad++, Chrome, 7-Zip, ShareX, Honeyview, PotPlayer, Everything) |
+| 006 | software_install.ps1 | v1.0.11 | 필수 소프트웨어 자동 설치 (Notepad++, Chrome, 7-Zip, ShareX, Honeyview, PotPlayer, Everything) |
 | 008 | common_optimization.ps1 | v1.0.0 | 공통 최적화 (디스크 정리, DNS, 서비스, 부팅) |
 | 009 | gaming_optimization.ps1 | v1.0.0 | 게임용 PC 최적화 (VBS, GPU, 시각효과) |
 | 010 | game_server.ps1 | v1.0.0 | 게임 서버 최적화 (TCP/UDP, NVMe, QoS) |
