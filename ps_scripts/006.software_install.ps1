@@ -146,41 +146,27 @@ if ($shareXInstaller -and (Test-Path $shareXInstaller)) {
         Write-Host "  - 설치 완료" -ForegroundColor Green
         $successCount++
 
-        # ShareX를 한 번 실행하여 기본 설정 파일 생성 후 종료
-        $shareXExe = "${env:ProgramFiles}\ShareX\ShareX.exe"
-        if (Test-Path $shareXExe) {
-            Write-Host "  - ShareX 초기화 중 (기본 설정 파일 생성)..." -ForegroundColor Yellow
-            $shareXProc = Start-Process -FilePath $shareXExe -ArgumentList "-silent" -PassThru
-            Start-Sleep -Seconds 3
-            # ShareX 프로세스 종료
-            Stop-Process -Name "ShareX" -Force -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 1
-        }
-
-        # 업로드 비활성화 설정 (JSON 설정 파일 수정)
+        # 업로드 비활성화 설정 (JSON 설정 파일 미리 생성 - ShareX 실행 전)
         $shareXConfigDir = "$env:APPDATA\ShareX"
         $shareXConfigPath = "$shareXConfigDir\ApplicationConfig.json"
         if (!(Test-Path $shareXConfigDir)) {
             New-Item -Path $shareXConfigDir -ItemType Directory -Force | Out-Null
         }
 
-        # 기존 설정 파일이 있으면 읽어서 수정, 없으면 새로 생성
-        if (Test-Path $shareXConfigPath) {
-            try {
-                $config = Get-Content -Path $shareXConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
-            } catch {
-                $config = [PSCustomObject]@{}
-            }
-        } else {
-            $config = [PSCustomObject]@{}
+        # 완전한 기본 설정 파일 생성 (ShareX가 덮어쓰지 않도록)
+        $config = @{
+            "DisableUpload" = $true
+            "ShowUploadWarning" = $false
+            "ShowMultiUploadWarning" = $false
+            "ShowAfterUploadForm" = $false
+            "ShowLargeFileSizeWarning" = 0
+            "ShowFirstTimeUploadWarning" = $false
+            "AutoCheckUpdate" = $false
+            "SilentRun" = $true
+            "TrayIconProgressEnabled" = $true
+            "TaskbarProgressEnabled" = $true
+            "RememberMainFormSize" = $true
         }
-
-        # 업로드 관련 설정 수정
-        $config | Add-Member -NotePropertyName "DisableUpload" -NotePropertyValue $true -Force
-        $config | Add-Member -NotePropertyName "ShowUploadWarning" -NotePropertyValue $false -Force
-        $config | Add-Member -NotePropertyName "ShowMultiUploadWarning" -NotePropertyValue $false -Force
-        $config | Add-Member -NotePropertyName "ShowAfterUploadForm" -NotePropertyValue $false -Force
-        $config | Add-Member -NotePropertyName "ShowLargeFileSizeWarning" -NotePropertyValue 0 -Force
 
         $config | ConvertTo-Json -Depth 10 | Set-Content -Path $shareXConfigPath -Encoding UTF8 -Force
         Write-Host "  - 업로드 기능 비활성화 설정 완료" -ForegroundColor Green
@@ -375,14 +361,32 @@ try {
         Set-ItemProperty -Path $hkcuClassesPath -Name "(Default)" -Value "Notepad++ Document" -Force
         Set-ItemProperty -Path "$hkcuClassesPath\shell\open\command" -Name "(Default)" -Value "`"$nppPath`" `"%1`"" -Force
 
-        # SetUserFTA로 파일 연결 설정 (병렬 실행)
-        $jobs = @()
+        # OpenWithProgids 정리 및 ProgId 추가
         foreach ($ext in $extensions) {
-            $jobs += Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+            $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
+            $openWithProgids = "$fileExtPath\OpenWithProgids"
+            if (-not (Test-Path $openWithProgids)) {
+                New-Item -Path $openWithProgids -Force | Out-Null
+            }
+            # 기존 ProgId 제거
+            $existingProps = Get-ItemProperty -Path $openWithProgids -ErrorAction SilentlyContinue
+            if ($existingProps) {
+                foreach ($prop in $existingProps.PSObject.Properties) {
+                    if ($prop.Name -notlike "PS*") {
+                        Remove-ItemProperty -Path $openWithProgids -Name $prop.Name -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+            # 우리 ProgId만 추가
+            New-ItemProperty -Path $openWithProgids -Name $progId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
         }
-        # 모든 작업 완료 대기
-        $jobs | Wait-Process -Timeout 60 -ErrorAction SilentlyContinue
-        $setCount = ($jobs | Where-Object { $_.ExitCode -eq 0 }).Count
+
+        # SetUserFTA 순차 실행
+        $setCount = 0
+        foreach ($ext in $extensions) {
+            $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
+            if ($result -and $result.ExitCode -eq 0) { $setCount++ }
+        }
         Write-Host "  - 파일 연결 완료: $setCount/$($extensions.Count)개 확장자 (ProgId: $progId)" -ForegroundColor Green
     } elseif (!(Test-Path $nppPath)) {
         Write-Host "  - 건너뜀 (Notepad++ 설치 경로 없음)" -ForegroundColor Red
@@ -490,15 +494,12 @@ try {
         }
         Write-Host "  - 경쟁 앱 연결 제거 및 OpenWithProgids 정리됨" -ForegroundColor Green
 
-        # SetUserFTA 병렬 실행
-        $jobs = @()
+        # SetUserFTA 순차 실행 (병렬 실행 시 프로세스 종료 타이밍 문제 발생)
+        $setCount = 0
         foreach ($ext in $imageExtensions) {
-            $jobs += Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $honeyviewProgId" -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+            $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $honeyviewProgId" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
+            if ($result -and $result.ExitCode -eq 0) { $setCount++ }
         }
-
-        # 모든 작업 완료 대기
-        $jobs | Wait-Process -Timeout 60 -ErrorAction SilentlyContinue
-        $setCount = ($jobs | Where-Object { $_.ExitCode -eq 0 }).Count
         Write-Host "  - 이미지 연결 완료: $setCount/$($imageExtensions.Count)개 확장자" -ForegroundColor Green
     } elseif (!(Test-Path $honeyviewPath)) {
         Write-Host "  - 건너뜀 (Honeyview 설치 경로 없음)" -ForegroundColor Red
@@ -539,15 +540,32 @@ try {
         Set-ItemProperty -Path "$progIdPath\shell\open\command" -Name "(Default)" -Value "`"$potPlayerPath`" `"%1`"" -Force
         Write-Host "  - PotPlayer ProgId 등록됨" -ForegroundColor Green
 
-        # SetUserFTA 병렬 실행
-        $jobs = @()
+        # OpenWithProgids 정리 및 ProgId 추가
         foreach ($ext in $mediaExtensions) {
-            $jobs += Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $potPlayerProgId" -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+            $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
+            $openWithProgids = "$fileExtPath\OpenWithProgids"
+            if (-not (Test-Path $openWithProgids)) {
+                New-Item -Path $openWithProgids -Force | Out-Null
+            }
+            # 기존 ProgId 제거
+            $existingProps = Get-ItemProperty -Path $openWithProgids -ErrorAction SilentlyContinue
+            if ($existingProps) {
+                foreach ($prop in $existingProps.PSObject.Properties) {
+                    if ($prop.Name -notlike "PS*") {
+                        Remove-ItemProperty -Path $openWithProgids -Name $prop.Name -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+            # 우리 ProgId만 추가
+            New-ItemProperty -Path $openWithProgids -Name $potPlayerProgId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
         }
 
-        # 모든 작업 완료 대기
-        $jobs | Wait-Process -Timeout 60 -ErrorAction SilentlyContinue
-        $setCount = ($jobs | Where-Object { $_.ExitCode -eq 0 }).Count
+        # SetUserFTA 순차 실행
+        $setCount = 0
+        foreach ($ext in $mediaExtensions) {
+            $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $potPlayerProgId" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
+            if ($result -and $result.ExitCode -eq 0) { $setCount++ }
+        }
         Write-Host "  - 동영상 연결 완료: $($videoExtensions.Count)개 확장자" -ForegroundColor Green
         Write-Host "  - 오디오 연결 완료: $($audioExtensions.Count)개 확장자" -ForegroundColor Green
         Write-Host "  - 총 미디어 연결: $setCount/$($mediaExtensions.Count)개" -ForegroundColor Green
