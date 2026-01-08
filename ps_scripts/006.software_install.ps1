@@ -4,7 +4,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.0.7"
+$scriptVersion = "1.0.8"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -311,6 +311,20 @@ try {
     Set-ItemProperty -Path $potPositionsPath -Name "PlayListWindowVisible" -Value 0 -Type DWord -Force
     Set-ItemProperty -Path $potPositionsPath -Name "BroadcastListWindowVisible" -Value 0 -Type DWord -Force
     Write-Host "  - 채팅/재생목록/방송목록 창 숨김 설정" -ForegroundColor Green
+
+    # 단축키 설정 (F1~F5 북마크, Ctrl+W 종료)
+    $potShortCutPath = "HKCU:\Software\DAUM\PotPlayer64\MainShortCutList"
+    if (-not (Test-Path $potShortCutPath)) {
+        New-Item -Path $potShortCutPath -Force | Out-Null
+    }
+    Set-ItemProperty -Path $potShortCutPath -Name "0" -Value "112,6,10281,1" -Type String -Force
+    Set-ItemProperty -Path $potShortCutPath -Name "1" -Value "113,6,10282,1" -Type String -Force
+    Set-ItemProperty -Path $potShortCutPath -Name "2" -Value "114,6,10283,1" -Type String -Force
+    Set-ItemProperty -Path $potShortCutPath -Name "3" -Value "115,6,10284,1" -Type String -Force
+    Set-ItemProperty -Path $potShortCutPath -Name "4" -Value "116,6,10285,1" -Type String -Force
+    Set-ItemProperty -Path $potShortCutPath -Name "5" -Value "87,2,57665,0" -Type String -Force
+    Set-ItemProperty -Path $potShortCutPath -Name "6" -Value "" -Type String -Force
+    Write-Host "  - 단축키 설정 완료 (F1~F5 북마크, Ctrl+W 종료)" -ForegroundColor Green
 
     # INI 파일 다운로드 (외부 설정 파일 사용)
     $iniPath = "$potPlayerConfigDir\PotPlayerMini64.ini"
