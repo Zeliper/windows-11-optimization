@@ -17,7 +17,10 @@ if ($null -eq $global:OrchestrateMode) {
     $global:OrchestrateMode = $false
 }
 
-Write-Host "=== Windows 11 레지스트리 미세 조정 스크립트 ===" -ForegroundColor Cyan
+# 스크립트 버전
+$scriptVersion = "1.0.0"
+
+Write-Host "=== Windows 11 레지스트리 미세 조정 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host "메뉴 지연 제거, 앱 응답 시간 최적화, 네트워크 성능 향상 등을 수행합니다." -ForegroundColor White
 Write-Host ""
 

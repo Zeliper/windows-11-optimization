@@ -17,7 +17,10 @@ if ($null -eq $global:OrchestrateMode) {
     $global:OrchestrateMode = $false
 }
 
-Write-Host "=== Windows 11 NTFS/SSD 최적화 스크립트 ===" -ForegroundColor Cyan
+# 스크립트 버전
+$scriptVersion = "1.0.0"
+
+Write-Host "=== Windows 11 NTFS/SSD 최적화 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host "NTFS 파일 시스템 최적화, SSD 성능 향상, Native NVMe 드라이버 활성화를 수행합니다." -ForegroundColor White
 Write-Host ""
 

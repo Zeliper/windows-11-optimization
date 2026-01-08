@@ -4,6 +4,9 @@
 
 #Requires -RunAsAdministrator
 
+# 스크립트 버전
+$scriptVersion = "1.0.0"
+
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -17,7 +20,7 @@ if ($null -eq $global:OrchestrateMode) {
     $global:OrchestrateMode = $false
 }
 
-Write-Host "=== Windows 11 IIS 웹 서버 최적화 스크립트 ===" -ForegroundColor Cyan
+Write-Host "=== Windows 11 IIS 웹 서버 최적화 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host "IIS 설치, 성능 최적화, 보안 설정을 수행합니다." -ForegroundColor White
 Write-Host ""
 

@@ -4,6 +4,9 @@
 
 #Requires -RunAsAdministrator
 
+# 스크립트 버전
+$scriptVersion = "1.0.0"
+
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -17,7 +20,7 @@ if ($null -eq $global:OrchestrateMode) {
     $global:OrchestrateMode = $false
 }
 
-Write-Host "=== Windows 11 25H2 AI 기능 비활성화 스크립트 ===" -ForegroundColor Cyan
+Write-Host "=== Windows 11 25H2 AI 기능 비활성화 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host "Recall, Copilot, AI Actions 등 AI 관련 기능을 비활성화합니다." -ForegroundColor White
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Red

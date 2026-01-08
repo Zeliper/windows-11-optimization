@@ -1,29 +1,40 @@
-# 커밋 및 푸시
+# 프로젝트 커밋 명령어
 
-현재 변경사항을 커밋하고 원격 저장소에 푸시합니다.
+프로젝트 규칙에 맞게 변경사항을 커밋합니다.
 
-## 사용법
+## 커밋 메시지 (선택): $ARGUMENTS
+
+## 수행 작업
+
+### 1. 변경사항 확인
+- `git status`로 변경된 파일 확인
+- `git diff`로 변경 내용 확인
+- 최근 커밋 스타일 확인
+
+### 2. 커밋 메시지 작성 규칙
 ```
-/commit {커밋 메시지 (선택)}
+Add/Update/Fix 기능 설명 (영문)
+
+- 한글 설명 1
+- 한글 설명 2
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 ```
 
-## 작업 순서
+### 3. 커밋 유형
+- `Add` - 새 기능/스크립트 추가
+- `Update` - 기존 기능 개선
+- `Fix` - 버그 수정
+- `Remove` - 기능/파일 삭제
+- `Refactor` - 코드 리팩토링
 
-1. **git status 확인**: 변경된 파일 목록 확인
-2. **git diff 확인**: 변경 내용 확인
-3. **git add**: 모든 변경사항 스테이징
-4. **git commit**: 커밋 메시지 형식 준수
-   ```
-   {영문 제목}
+### 4. 실행
+- 모든 관련 파일 스테이징 (`git add`)
+- HEREDOC 형식으로 커밋 메시지 작성
+- `git push origin main`으로 푸시
 
-   - {한글 설명}
-
-   🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-   Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
-   ```
-5. **git push**: 원격 저장소에 푸시
-6. **결과 출력**: 커밋 해시 및 푸시 결과 표시
-
-## 입력
-$ARGUMENTS
+### 주의사항
+- 새 스크립트 추가 시 CLAUDE.md, README.md, orchestrate.ps1 함께 커밋
+- 민감한 정보 (.env 등) 커밋 금지

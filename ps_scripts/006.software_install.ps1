@@ -3,6 +3,9 @@
 
 #Requires -RunAsAdministrator
 
+# 스크립트 버전
+$scriptVersion = "1.0.1"
+
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -16,7 +19,7 @@ if ($null -eq $global:OrchestrateMode) {
 # 다운로드 속도 개선 (진행률 표시 비활성화)
 $ProgressPreference = 'SilentlyContinue'
 
-Write-Host "=== 필수 소프트웨어 자동 설치 ===" -ForegroundColor Cyan
+Write-Host "=== 필수 소프트웨어 자동 설치 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host "Notepad++, Chrome, 7-Zip, ShareX, Honeyview, PotPlayer를 자동으로 설치합니다." -ForegroundColor White
 Write-Host ""
 

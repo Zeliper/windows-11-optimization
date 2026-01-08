@@ -4,6 +4,9 @@
 
 #Requires -RunAsAdministrator
 
+# 스크립트 버전
+$scriptVersion = "1.0.0"
+
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -17,7 +20,7 @@ if ($null -eq $global:OrchestrateMode) {
     $global:OrchestrateMode = $false
 }
 
-Write-Host "=== Windows 11 25H2 게임용 PC 최적화 스크립트 ===" -ForegroundColor Cyan
+Write-Host "=== Windows 11 25H2 게임용 PC 최적화 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host "VBS 비활성화, GPU 최적화, 시각 효과 제거 등 게임 성능을 향상시킵니다." -ForegroundColor White
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Red

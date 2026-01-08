@@ -4,6 +4,9 @@
 
 #Requires -RunAsAdministrator
 
+# 스크립트 버전
+$scriptVersion = "1.0.0"
+
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -592,7 +595,7 @@ function Start-OptimizationProcess {
 # ===== 메인 실행 =====
 
 Write-Host ""
-Write-Host "=== Windows 11 25H2 원클릭 최적화 스크립트 ===" -ForegroundColor Cyan
+Write-Host "=== Windows 11 25H2 원클릭 최적화 스크립트 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host ""
 
 # 저장된 상태 확인 (재부팅 후 자동 재개)

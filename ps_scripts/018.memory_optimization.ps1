@@ -17,7 +17,10 @@ if ($null -eq $global:OrchestrateMode) {
     $global:OrchestrateMode = $false
 }
 
-Write-Host "=== Windows 11 메모리 최적화 스크립트 ===" -ForegroundColor Cyan
+# 스크립트 버전
+$scriptVersion = "1.0.0"
+
+Write-Host "=== Windows 11 메모리 최적화 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host "페이지 파일 최적화, 시스템 캐시, 메모리 압축, NDU 메모리 누수 해결을 수행합니다." -ForegroundColor White
 Write-Host ""
 

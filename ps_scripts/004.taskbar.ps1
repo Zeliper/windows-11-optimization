@@ -5,6 +5,9 @@
 
 #Requires -RunAsAdministrator
 
+# 스크립트 버전
+$scriptVersion = "1.0.0"
+
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -18,7 +21,7 @@ if ($null -eq $global:OrchestrateMode) {
     $global:OrchestrateMode = $false
 }
 
-Write-Host "=== Windows 11 작업 표시줄, 컨텍스트 메뉴 및 파일 탐색기 정리 스크립트 ===" -ForegroundColor Cyan
+Write-Host "=== Windows 11 작업 표시줄/컨텍스트 메뉴 정리 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host ""
 
 

@@ -4,6 +4,9 @@
 
 #Requires -RunAsAdministrator
 
+# 스크립트 버전
+$scriptVersion = "1.0.0"
+
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -17,7 +20,7 @@ if ($null -eq $global:OrchestrateMode) {
     $global:OrchestrateMode = $false
 }
 
-Write-Host "=== Windows 11 마우스/입력 장치 최적화 스크립트 ===" -ForegroundColor Cyan
+Write-Host "=== Windows 11 마우스/입력 장치 최적화 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host "마우스 가속 비활성화, 키보드 속도 최적화, 입력 지연 최소화를 수행합니다." -ForegroundColor White
 Write-Host "게이머 및 정밀 작업 사용자에게 권장됩니다." -ForegroundColor White
 Write-Host ""

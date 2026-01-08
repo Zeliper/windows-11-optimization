@@ -17,7 +17,10 @@ if ($null -eq $global:OrchestrateMode) {
     $global:OrchestrateMode = $false
 }
 
-Write-Host "=== Windows 11 고급 게임 최적화 스크립트 ===" -ForegroundColor Cyan
+# 스크립트 버전
+$scriptVersion = "1.0.0"
+
+Write-Host "=== Windows 11 고급 게임 최적화 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host "Power Throttling, 시스템 타이머, 오디오, Edge 백그라운드 차단 등을 수행합니다." -ForegroundColor White
 Write-Host ""
 

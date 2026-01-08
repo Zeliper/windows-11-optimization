@@ -4,6 +4,9 @@
 
 #Requires -RunAsAdministrator
 
+# 스크립트 버전
+$scriptVersion = "1.0.0"
+
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -24,7 +27,7 @@ $script:ScriptMetadata = @{
     RequiresReboot = $false
 }
 
-Write-Host "=== Windows 11 25H2 접근성 기능 정리 스크립트 ===" -ForegroundColor Cyan
+Write-Host "=== Windows 11 25H2 접근성 기능 정리 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host "불필요한 접근성 단축키 팝업 방지 및 자동 시작 기능을 비활성화합니다." -ForegroundColor White
 Write-Host ""
 

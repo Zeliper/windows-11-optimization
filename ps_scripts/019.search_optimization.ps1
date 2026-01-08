@@ -17,7 +17,10 @@ if ($null -eq $global:OrchestrateMode) {
     $global:OrchestrateMode = $false
 }
 
-Write-Host "=== Windows 11 Windows Search 최적화 스크립트 ===" -ForegroundColor Cyan
+# 스크립트 버전
+$scriptVersion = "1.0.0"
+
+Write-Host "=== Windows 11 Windows Search 최적화 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host "인덱싱 최적화, 클라우드 검색 비활성화, WSearch 서비스 설정을 수행합니다." -ForegroundColor White
 Write-Host ""
 
