@@ -4,7 +4,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.0.11"
+$scriptVersion = "1.0.12"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -661,6 +661,24 @@ try {
                 }
             }
             Write-Host "  - http/https OpenWithProgids 정리됨 (ChromeHTML만 유지)" -ForegroundColor Green
+
+            # Edge ProgId 삭제 (UserChoice 보호 우회 - SetUserFTA가 작동하도록)
+            # 주의: Edge를 사용하지 않는 경우에만 안전함
+            $edgeProgIdsToDelete = @("MSEdgeHTM", "MSEdgeMHT", "MSEdgePDF")
+            foreach ($progId in $edgeProgIdsToDelete) {
+                $progIdPath = "HKLM:\SOFTWARE\Classes\$progId"
+                if (Test-Path $progIdPath) {
+                    try {
+                        # reg.exe로 삭제 (PowerShell보다 권한 처리가 나음)
+                        $regResult = & reg delete "HKLM\SOFTWARE\Classes\$progId" /f 2>&1
+                        if ($LASTEXITCODE -eq 0) {
+                            Write-Host "  - $progId ProgId 삭제됨" -ForegroundColor Green
+                        }
+                    } catch {
+                        # 삭제 실패해도 계속 진행
+                    }
+                }
+            }
 
             # Edge를 연결 프로그램 목록에서 제거 (선택 창 방지)
             $edgeProgIds = @("MSEdgeHTM", "MSEdgePDF", "MSEdgeMHT", "AppXq0fevzme2pys62n3e0fbqa7peapykr8v")
