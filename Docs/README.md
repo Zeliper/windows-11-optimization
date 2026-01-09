@@ -10,6 +10,15 @@
 ### 2. [OPTIMIZATION_CATEGORIES.md](./OPTIMIZATION_CATEGORIES.md)
 최적화 카테고리별 기능 정리 - 각 최적화 카테고리에 해당하는 스크립트와 주요 기능을 매핑합니다.
 
+### 3. [ORCHESTRATE_INTEGRATION.md](./ORCHESTRATE_INTEGRATION.md)
+Orchestrate 통합 가이드 - 새 스크립트 추가 시 000.orchestrate.ps1과 연동하는 방법을 안내합니다.
+
+### 4. [SCRIPT_DEVELOPMENT_GUIDE.md](./SCRIPT_DEVELOPMENT_GUIDE.md)
+스크립트 개발 가이드 - 스크립트 작성 규칙, 템플릿, 버전 관리 방법을 설명합니다.
+
+### 5. [SCRIPT_EXTENSION_GUIDE.md](./SCRIPT_EXTENSION_GUIDE.md)
+스크립트 확장 가이드 - 기존 스크립트에 추가할 수 있는 기능과 각 기능이 시스템에 미치는 영향을 정리합니다.
+
 ## 프로젝트 개요
 
 Windows 11 25H2 최적화 스크립트 프로젝트는 Windows 11 시스템을 다양한 용도(일반 PC, 게임 PC, 서버 등)에 맞게 최적화하는 PowerShell 스크립트 모음입니다.
