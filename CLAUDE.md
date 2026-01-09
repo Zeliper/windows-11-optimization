@@ -260,11 +260,11 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 
 | 번호 | 파일명 | 버전 | 설명 |
 |------|--------|------|------|
-| 000 | orchestrate.ps1 | v1.1.1 | **통합 원클릭 스크립트** (대화형 메뉴, 프리셋, 재부팅 관리, **ForceOverride**, **Summary 로깅**, **ExperimentalOptions 병렬 전달**) |
+| 000 | orchestrate.ps1 | v1.1.3 | **통합 원클릭 스크립트** (대화형 메뉴, 프리셋, 재부팅 관리, **Summary 드라이브/RAM 실시간 조회**) |
 | 001 | disable_update.ps1 | v1.1.1 | Windows Update 수동 설정, UAC 프롬프트 비활성화 |
 | 002 | power_network.ps1 | v1.1.2 | 전원 관리, 네트워크 최적화, 텔레메트리 비활성화 (**균형 모드 fallback 추가**) |
 | 003 | defender_onedrive_firewall.ps1 | v1.1.1 | Defender 보호 기능 비활성화, OneDrive 삭제, 방화벽 해제 |
-| 004 | taskbar.ps1 | v1.1.2 | 작업 표시줄 정리, 컨텍스트 메뉴 복원 (**위젯 정책 권한 처리 개선**) |
+| 004 | taskbar.ps1 | v1.1.3 | 작업 표시줄 정리, 컨텍스트 메뉴 복원 (**TaskbarDa 예외 처리 강화**) |
 | 005 | bloatware.ps1 | v1.1.1 | 블로트웨어 앱 및 기능 제거 |
 | 006 | software_install.ps1 | v1.1.2 | 필수 소프트웨어 자동 설치 (**파일 연결 스킵 로직 추가**) |
 | 008 | common_optimization.ps1 | v1.1.1 | 공통 최적화 (디스크 정리, DNS, 서비스, 부팅) |
@@ -280,5 +280,5 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 | 018 | memory_optimization.ps1 | v1.1.1 | 메모리 최적화 (드라이브 감지, SysMain/Prefetch 자동화, 페이지 파일, 로깅) |
 | 019 | search_optimization.ps1 | v1.1.1 | Windows Search 최적화 (인덱싱, 클라우드 검색 비활성화, **Store 검색 제안 비활성화**) |
 | 020 | registry_tweaks.ps1 | v1.1.0 | 레지스트리 미세 조정 (MenuShowDelay, IRPStackSize, LongPaths) |
-| 021 | ntfs_ssd_optimization.ps1 | v1.1.0 | NTFS/SSD 최적화 (8.3 파일명, Last Access Time, Native NVMe 드라이버) |
-| 022 | advanced_gaming_optimization.ps1 | v1.1.1 | 고급 게임 최적화 (Game Bar/DVR, DWM, Power Throttling, GPU 우선순위, 로깅) |
+| 021 | ntfs_ssd_optimization.ps1 | v1.1.1 | NTFS/SSD 최적화 (8.3 파일명, Last Access Time, **Native NVMe 실험적 기능 조건부 실행**) |
+| 022 | advanced_gaming_optimization.ps1 | v1.1.2 | 고급 게임 최적화 (Game Bar/DVR, DWM, Power Throttling, **Game Mode 중복 제거**) |

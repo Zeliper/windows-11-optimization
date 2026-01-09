@@ -6,7 +6,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.2"
+$scriptVersion = "1.1.3"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -170,8 +170,15 @@ Set-RegistryIfDifferent -Path $advancedPath -Name "ShowTaskViewButton" -Value 0 
 Write-Host ""
 Write-Host "[3/9] 위젯 버튼 숨기기..." -ForegroundColor Yellow
 
-Set-RegistryIfDifferent -Path $advancedPath -Name "TaskbarDa" -Value 0 `
-    -StepName "위젯 버튼 숨김"
+# TaskbarDa 레지스트리 설정 (예외 처리 강화)
+try {
+    $taskbarDaResult = Set-RegistryIfDifferent -Path $advancedPath -Name "TaskbarDa" -Value 0 `
+        -StepName "위젯 버튼 숨김"
+} catch {
+    # TaskbarDa 키가 없거나 접근 불가 시 (일부 Windows 버전에서 발생)
+    Write-Host "  - 위젯 버튼 숨김 : 스킵 (TaskbarDa 키 없음 - 정책으로 처리)" -ForegroundColor Yellow
+    Write-OptLog -Message "위젯 버튼 숨김 : TaskbarDa 키 없음 - $($_.Exception.Message)" -Status "Skipped"
+}
 
 # 위젯 정책 비활성화 (HKLM 권한 문제 가능 - 별도 처리)
 $dshPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Dsh"

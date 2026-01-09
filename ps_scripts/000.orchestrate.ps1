@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.1"
+$scriptVersion = "1.1.3"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -237,30 +237,36 @@ $driveInfo
         }
     }
 
-    # 시스템 분기에 따른 자동 결정 사항
+    # 시스템 분기에 따른 자동 결정 사항 (실시간 조회)
+    $currentRamGB = [math]::Round((Get-CimInstance -ClassName Win32_OperatingSystem).TotalVisibleMemorySize / 1MB, 1)
+    $currentDisks = Get-PhysicalDisk -ErrorAction SilentlyContinue
+    $currentHasNVMe = ($currentDisks | Where-Object { $_.BusType -eq "NVMe" }).Count -gt 0
+    $currentHasSSD = ($currentDisks | Where-Object { $_.MediaType -eq "SSD" }).Count -gt 0
+    $currentHasHDD = ($currentDisks | Where-Object { $_.MediaType -eq "HDD" }).Count -gt 0
+
     $logContent += @"
 
 ================================================================================
 시스템 분기에 따른 자동 결정 사항
 ================================================================================
 [메모리 기반 분기]
-- RAM 용량: $($global:SystemProfile.RamGB) GB
+- RAM 용량: $currentRamGB GB
 - SysMain/Prefetch: $(
-    if ($global:SystemProfile.RamGB -ge 32) { "비활성화 (대용량 RAM으로 불필요)" }
-    elseif ($global:SystemProfile.RamGB -ge 16) { "SysMain 비활성화, Prefetch 부팅만" }
+    if ($currentRamGB -ge 32) { "비활성화 (대용량 RAM으로 불필요)" }
+    elseif ($currentRamGB -ge 16) { "SysMain 비활성화, Prefetch 부팅만" }
     else { "활성화 유지 (소용량 RAM)" }
 )
 - 페이지 파일: $(
-    if ($global:SystemProfile.RamGB -ge 32) { "8-16GB 권장" }
-    elseif ($global:SystemProfile.RamGB -ge 16) { "16-32GB 권장" }
+    if ($currentRamGB -ge 32) { "8-16GB 권장" }
+    elseif ($currentRamGB -ge 16) { "16-32GB 권장" }
     else { "RAM의 1.5-3배 권장" }
 )
-- Large System Cache: $(if ($global:SystemProfile.RamGB -ge 16) { "활성화 (RAM 16GB+)" } else { "비활성화" })
+- Large System Cache: $(if ($currentRamGB -ge 16) { "활성화 (RAM 16GB+)" } else { "비활성화" })
 
 [드라이브 기반 분기]
-- NVMe 드라이브: $(if ($global:SystemProfile.HasNVMe) { "감지됨 - Native NVMe 드라이버 활성화, SysMain 비활성화" } else { "미감지" })
-- SATA SSD: $(if ($global:SystemProfile.HasSSD -and -not $global:SystemProfile.HasNVMe) { "감지됨 - Last Access Time 비활성화, TRIM 활성화" } else { "미감지" })
-- HDD: $(if ($global:SystemProfile.HasHDD) { "감지됨 - Prefetch/Superfetch 유지, 디스크 조각모음 예약" } else { "미감지" })
+- NVMe 드라이브: $(if ($currentHasNVMe) { "감지됨 - Native NVMe 드라이버 활성화, SysMain 비활성화" } else { "미감지" })
+- SATA SSD: $(if ($currentHasSSD -and -not $currentHasNVMe) { "감지됨 - Last Access Time 비활성화, TRIM 활성화" } else { "미감지" })
+- HDD: $(if ($currentHasHDD) { "감지됨 - Prefetch/Superfetch 유지, 디스크 조각모음 예약" } else { "미감지" })
 
 [ForceOverride 설정]
 - 상태: $(if ($global:ForceOverride) { "활성화 - 모든 설정 강제 재적용" } else { "비활성화 - 이미 적용된 설정 스킵" })
@@ -389,7 +395,7 @@ $global:ConflictGroups = @(
 # 실험적 기능 정의 (스크립트별)
 $global:ExperimentalFeatures = @(
     @{
-        ScriptId = 10  # game_server.ps1
+        ScriptId = 21  # ntfs_ssd_optimization.ps1
         Name = "Native NVMe 지원"
         Description = "Windows 11 25H2 실험적 기능 - 최대 80% IOPS 향상"
         Warning = "일부 NVMe 드라이브에서 호환성 문제 가능"

@@ -18,7 +18,7 @@ if ($null -eq $global:OrchestrateMode) {
 }
 
 # 스크립트 버전
-$scriptVersion = "1.1.1"
+$scriptVersion = "1.1.2"
 $scriptName = "022.advanced_gaming_optimization.ps1"
 
 # ===== 로깅 시스템 =====
@@ -398,16 +398,15 @@ Set-RegistryIfDifferent -Path $chromePolicyPath -Name "HardwareAccelerationModeE
 Set-RegistryIfDifferent -Path $chromePolicyPath -Name "HighEfficiencyModeEnabled" -Value 1 -StepName $chromeStep -Description "Chrome HighEfficiencyModeEnabled"
 
 
-# [9/10] Game Bar/DVR 완전 비활성화
+# [9/10] Game Bar/DVR 완전 비활성화 (Game Mode는 009에서 관리)
 Write-Host ""
 Write-Host "[9/$totalSteps] Game Bar/DVR 완전 비활성화 중..." -ForegroundColor Yellow
 
 $gameBarStep = "Game Bar/DVR"
 
-# Game Bar 사용자 설정
+# Game Bar 사용자 설정 (Game Mode 제외 - 009.gaming_optimization.ps1에서 관리)
 $gameBarPath = "HKCU:\Software\Microsoft\GameBar"
-Set-RegistryIfDifferent -Path $gameBarPath -Name "AllowAutoGameMode" -Value 0 -StepName $gameBarStep -Description "AllowAutoGameMode"
-Set-RegistryIfDifferent -Path $gameBarPath -Name "AutoGameModeEnabled" -Value 0 -StepName $gameBarStep -Description "AutoGameModeEnabled"
+# AllowAutoGameMode, AutoGameModeEnabled는 009에서 활성화하므로 여기서 제외
 Set-RegistryIfDifferent -Path $gameBarPath -Name "ShowStartupPanel" -Value 0 -StepName $gameBarStep -Description "ShowStartupPanel"
 Set-RegistryIfDifferent -Path $gameBarPath -Name "GamePanelStartupTipIndex" -Value 3 -StepName $gameBarStep -Description "GamePanelStartupTipIndex"
 Set-RegistryIfDifferent -Path $gameBarPath -Name "UseNexusForGameBarEnabled" -Value 0 -StepName $gameBarStep -Description "UseNexusForGameBarEnabled"

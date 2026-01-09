@@ -22,8 +22,13 @@ if ($null -eq $global:ForceOverride) {
     $global:ForceOverride = $false
 }
 
+# ExperimentalOptions 확인 (Orchestrate 모드에서 전달됨)
+if ($null -eq $global:ExperimentalOptions) {
+    $global:ExperimentalOptions = @{}
+}
+
 # 스크립트 버전
-$scriptVersion = "1.1.0"
+$scriptVersion = "1.1.1"
 $scriptName = "021.ntfs_ssd_optimization.ps1"
 
 # ===== 로깅 시스템 =====
@@ -183,17 +188,47 @@ try {
     Write-OptLog -Step "TRIM 상태" -Status "실패" -Message "$_"
 }
 
-# [4/6] Native NVMe 드라이버 활성화 (Windows 11 25H2)
+# [4/6] Native NVMe 드라이버 활성화 (Windows 11 25H2) - 실험적 기능
 Write-Host ""
-Write-Host "[4/$totalSteps] Native NVMe 드라이버 활성화 중..." -ForegroundColor Yellow
+Write-Host "[4/$totalSteps] Native NVMe 드라이버 활성화 확인 중..." -ForegroundColor Yellow
 
-$featurePath = "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides"
+# 실험적 기능 활성화 여부 확인
+$enableNativeNVMe = $false
 
-Set-RegistryIfDifferent -Path $featurePath -Name "735209102" -Value 1 -Type DWord -StepName "Feature 735209102 (Native NVMe)"
-Set-RegistryIfDifferent -Path $featurePath -Name "156965516" -Value 1 -Type DWord -StepName "Feature 156965516 (Native NVMe 추가)"
+if ($global:OrchestrateMode) {
+    # Orchestrate 모드: ExperimentalOptions에서 사용자 선택 확인
+    if ($global:ExperimentalOptions -and $global:ExperimentalOptions["EnableNativeNVMe"] -eq $true) {
+        $enableNativeNVMe = $true
+        Write-Host "  - Native NVMe 활성화 (사용자 선택)" -ForegroundColor Green
+    } else {
+        Write-Host "  - Native NVMe 건너뜀 (실험적 기능 미선택)" -ForegroundColor Yellow
+        Write-OptLog -Step "Native NVMe" -Status "스킵됨" -Message "실험적 기능 미선택"
+    }
+} else {
+    # 단독 실행: 사용자에게 직접 질문
+    Write-Host ""
+    Write-Host "================================================" -ForegroundColor Yellow
+    Write-Host "경고: Native NVMe 지원은 실험적 기능입니다!" -ForegroundColor Red
+    Write-Host "================================================" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "장점: 최대 80% IOPS 향상, I/O 레이턴시 감소" -ForegroundColor Green
+    Write-Host "위험: 일부 NVMe 드라이브에서 호환성 문제 가능" -ForegroundColor Red
+    Write-Host ""
+    $choice = Read-Host "Native NVMe를 활성화하시겠습니까? (Y/N, 기본값: N)"
+    if ($choice -eq "Y" -or $choice -eq "y") {
+        $enableNativeNVMe = $true
+    }
+}
 
-Write-Host "  - 참고: Microsoft 기본 NVMe 드라이버 사용 시에만 적용됨" -ForegroundColor Yellow
-Write-Host "  - 참고: Samsung, WD 등 제조사 드라이버 사용 시 효과 없음" -ForegroundColor Yellow
+if ($enableNativeNVMe) {
+    $featurePath = "HKLM:\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides"
+
+    Set-RegistryIfDifferent -Path $featurePath -Name "735209102" -Value 1 -Type DWord -StepName "Feature 735209102 (Native NVMe)"
+    Set-RegistryIfDifferent -Path $featurePath -Name "156965516" -Value 1 -Type DWord -StepName "Feature 156965516 (Native NVMe 추가)"
+
+    Write-Host "  - 참고: Microsoft 기본 NVMe 드라이버 사용 시에만 적용됨" -ForegroundColor Yellow
+    Write-Host "  - 참고: Samsung, WD 등 제조사 드라이버 사용 시 효과 없음" -ForegroundColor Yellow
+}
 
 # [5/6] SSD 드라이브 감지 및 최적화
 Write-Host ""
