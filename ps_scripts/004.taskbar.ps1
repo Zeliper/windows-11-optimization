@@ -6,7 +6,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.0.0"
+$scriptVersion = "1.1.1"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -21,113 +21,228 @@ if ($null -eq $global:OrchestrateMode) {
     $global:OrchestrateMode = $false
 }
 
+# ForceOverride 모드 확인
+if ($null -eq $global:ForceOverride) {
+    $global:ForceOverride = $false
+}
+
+#region 공통 함수
+
+# 로그 파일 경로 설정
+$logFileName = "Windows11Optimizer_004_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+$logDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "windows11-optimization-logs"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+$global:LogFilePath = Join-Path $logDir $logFileName
+$global:LogEntries = [System.Collections.ArrayList]@()
+$global:AppliedCount = 0
+$global:SkippedCount = 0
+$global:FailedCount = 0
+
+function Write-OptLog {
+    param(
+        [string]$Message,
+        [ValidateSet("Applied", "Skipped", "Failed", "Info")]
+        [string]$Status = "Info"
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "[$timestamp] [$Status] $Message"
+    [void]$global:LogEntries.Add($logEntry)
+
+    switch ($Status) {
+        "Applied" { $global:AppliedCount++ }
+        "Skipped" { $global:SkippedCount++ }
+        "Failed" { $global:FailedCount++ }
+    }
+}
+
+function Save-OptLog {
+    if ($global:LogEntries.Count -gt 0) {
+        $global:LogEntries | Out-File -FilePath $global:LogFilePath -Encoding UTF8
+    }
+}
+
+function Set-RegistryIfDifferent {
+    param(
+        [string]$Path,
+        [string]$Name,
+        [object]$Value,
+        [string]$Type = "DWord",
+        [string]$StepName,
+        [string]$Description = ""
+    )
+
+    try {
+        # 경로가 없으면 생성
+        if (!(Test-Path $Path)) {
+            New-Item -Path $Path -Force | Out-Null
+        }
+
+        $currentValue = $null
+        try {
+            $currentValue = (Get-ItemProperty -Path $Path -Name $Name -ErrorAction Stop).$Name
+        } catch {
+            $currentValue = $null
+        }
+
+        # ForceOverride가 아니고 값이 같으면 스킵
+        if (-not $global:ForceOverride -and $currentValue -eq $Value) {
+            $displayDesc = if ($Description) { " - $Description" } else { "" }
+            Write-Host "  - $StepName : 이미 적용됨 (스킵)$displayDesc" -ForegroundColor Gray
+            Write-OptLog -Message "$StepName : 이미 적용됨 ($Name = $Value)" -Status "Skipped"
+            return $false
+        }
+
+        # 값 설정
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -ErrorAction Stop
+        $displayDesc = if ($Description) { " - $Description" } else { "" }
+        Write-Host "  - $StepName : 적용됨$displayDesc" -ForegroundColor Green
+        Write-OptLog -Message "$StepName : 적용됨 ($Name = $Value)" -Status "Applied"
+        return $true
+    } catch {
+        Write-Host "  - $StepName : 실패 - $($_.Exception.Message)" -ForegroundColor Red
+        Write-OptLog -Message "$StepName : 실패 - $($_.Exception.Message)" -Status "Failed"
+        return $false
+    }
+}
+
+function Remove-AppxPackageIfExists {
+    param(
+        [string]$PackageName,
+        [string]$StepName,
+        [switch]$RemoveProvisioned
+    )
+
+    $package = Get-AppxPackage -AllUsers -Name $PackageName -ErrorAction SilentlyContinue
+    if (-not $global:ForceOverride -and -not $package) {
+        Write-Host "  - $StepName : 이미 제거됨 (스킵)" -ForegroundColor Gray
+        Write-OptLog -Message "$StepName : 이미 제거됨" -Status "Skipped"
+        return $false
+    }
+
+    try {
+        # 현재 사용자에서 제거
+        Get-AppxPackage -Name $PackageName | Remove-AppxPackage -ErrorAction SilentlyContinue
+        # 모든 사용자에서 제거
+        Get-AppxPackage -AllUsers -Name $PackageName | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+
+        if ($RemoveProvisioned) {
+            # 프로비저닝된 패키지 제거
+            Get-AppxProvisionedPackage -Online | Where-Object { $_.PackageName -like "*$PackageName*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
+        }
+
+        Write-Host "  - $StepName : 제거 완료" -ForegroundColor Green
+        Write-OptLog -Message "$StepName : 제거됨" -Status "Applied"
+        return $true
+    } catch {
+        Write-Host "  - $StepName : 제거 실패 - $($_.Exception.Message)" -ForegroundColor Red
+        Write-OptLog -Message "$StepName : 실패 - $($_.Exception.Message)" -Status "Failed"
+        return $false
+    }
+}
+
+#endregion 공통 함수
+
 Write-Host "=== Windows 11 작업 표시줄/컨텍스트 메뉴 정리 v$scriptVersion ===" -ForegroundColor Cyan
+if ($global:ForceOverride) {
+    Write-Host "[ForceOverride 모드: 모든 설정 강제 재적용]" -ForegroundColor Magenta
+}
 Write-Host ""
 
+$advancedPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
 
 # 1. 검색 상자 숨기기
 Write-Host "[1/9] 검색 상자 숨기기..." -ForegroundColor Yellow
 
 $searchPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search"
-if (!(Test-Path $searchPath)) {
-    New-Item -Path $searchPath -Force | Out-Null
-}
-# 0 = 숨김, 1 = 아이콘만, 2 = 검색 상자
-Set-ItemProperty -Path $searchPath -Name "SearchboxTaskbarMode" -Value 0 -Type DWord
-Write-Host "  - 검색 상자 숨김 완료" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $searchPath -Name "SearchboxTaskbarMode" -Value 0 `
+    -StepName "검색 상자 숨김" -Description "0=숨김, 1=아이콘, 2=상자"
 
 
 # 2. 작업 보기 버튼 숨기기
 Write-Host ""
 Write-Host "[2/9] 작업 보기 버튼 숨기기..." -ForegroundColor Yellow
 
-$advancedPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-if (!(Test-Path $advancedPath)) {
-    New-Item -Path $advancedPath -Force | Out-Null
-}
-Set-ItemProperty -Path $advancedPath -Name "ShowTaskViewButton" -Value 0 -Type DWord
-Write-Host "  - 작업 보기 버튼 숨김 완료" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $advancedPath -Name "ShowTaskViewButton" -Value 0 `
+    -StepName "작업 보기 버튼 숨김"
 
 
 # 3. 위젯 버튼 숨기기
 Write-Host ""
 Write-Host "[3/9] 위젯 버튼 숨기기..." -ForegroundColor Yellow
 
-# TaskbarDa = 0 (위젯 숨김)
-try {
-    Set-ItemProperty -Path $advancedPath -Name "TaskbarDa" -Value 0 -Type DWord -ErrorAction Stop
-    Write-Host "  - 위젯 버튼 숨김 (사용자 설정)" -ForegroundColor Green
-} catch {
-    Write-Host "  - 위젯 버튼 숨김 실패 (정책으로 대체)" -ForegroundColor Yellow
-}
+Set-RegistryIfDifferent -Path $advancedPath -Name "TaskbarDa" -Value 0 `
+    -StepName "위젯 버튼 숨김"
 
-# 위젯 정책 비활성화 (Dsh = Dashboard)
+# 위젯 정책 비활성화
 $dshPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Dsh"
-if (!(Test-Path $dshPolicyPath)) {
-    New-Item -Path $dshPolicyPath -Force | Out-Null
-}
-Set-ItemProperty -Path $dshPolicyPath -Name "AllowNewsAndInterests" -Value 0 -Type DWord
-Write-Host "  - 위젯 정책 비활성화" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $dshPolicyPath -Name "AllowNewsAndInterests" -Value 0 `
+    -StepName "위젯 정책 비활성화"
 
-# Windows Web Experience Pack 제거 (위젯 완전 제거)
-$webExperience = Get-AppxPackage -AllUsers -Name "MicrosoftWindows.Client.WebExperience" -ErrorAction SilentlyContinue
-if ($webExperience) {
-    # 현재 사용자에서 제거
-    Get-AppxPackage -Name "MicrosoftWindows.Client.WebExperience" | Remove-AppxPackage -ErrorAction SilentlyContinue
-    # 모든 사용자에서 제거
-    Get-AppxPackage -AllUsers -Name "MicrosoftWindows.Client.WebExperience" | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
-    # 프로비저닝된 패키지 제거 (새 사용자에게 설치 방지)
-    Get-AppxProvisionedPackage -Online | Where-Object { $_.PackageName -like "*WebExperience*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
-    Write-Host "  - Windows Web Experience Pack 제거 완료" -ForegroundColor Green
-} else {
-    Write-Host "  - Windows Web Experience Pack 이미 제거됨" -ForegroundColor Yellow
-}
+# Windows Web Experience Pack 제거
+Remove-AppxPackageIfExists -PackageName "MicrosoftWindows.Client.WebExperience" `
+    -StepName "Windows Web Experience Pack" -RemoveProvisioned
 
 # 위젯 프로세스 종료
-Stop-Process -Name "Widgets" -Force -ErrorAction SilentlyContinue
-Stop-Process -Name "WidgetService" -Force -ErrorAction SilentlyContinue
-Write-Host "  - 위젯 프로세스 종료" -ForegroundColor Green
+$widgetsProcess = Get-Process -Name "Widgets" -ErrorAction SilentlyContinue
+$widgetServiceProcess = Get-Process -Name "WidgetService" -ErrorAction SilentlyContinue
+if ($widgetsProcess -or $widgetServiceProcess) {
+    Stop-Process -Name "Widgets" -Force -ErrorAction SilentlyContinue
+    Stop-Process -Name "WidgetService" -Force -ErrorAction SilentlyContinue
+    Write-Host "  - 위젯 프로세스 종료" -ForegroundColor Green
+    Write-OptLog -Message "위젯 프로세스 종료" -Status "Applied"
+} else {
+    Write-Host "  - 위젯 프로세스 없음 (스킵)" -ForegroundColor Gray
+    Write-OptLog -Message "위젯 프로세스: 없음" -Status "Skipped"
+}
 
 
 # 4. 채팅(Teams) 버튼 숨기기
 Write-Host ""
 Write-Host "[4/9] 채팅(Teams) 버튼 숨기기..." -ForegroundColor Yellow
 
-# TaskbarMn = 0 (채팅 숨김)
-Set-ItemProperty -Path $advancedPath -Name "TaskbarMn" -Value 0 -Type DWord
-Write-Host "  - 채팅 버튼 숨김 완료" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $advancedPath -Name "TaskbarMn" -Value 0 `
+    -StepName "채팅 버튼 숨김"
 
 
 # 5. 작업 표시줄 고정된 앱 모두 제거
 Write-Host ""
 Write-Host "[5/9] 작업 표시줄 고정된 앱 제거 중..." -ForegroundColor Yellow
 
-# 고정된 앱 바로가기 폴더
 $pinnedPath = "$env:APPDATA\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"
 
 if (Test-Path $pinnedPath) {
     $pinnedItems = Get-ChildItem -Path $pinnedPath -ErrorAction SilentlyContinue
     $count = ($pinnedItems | Measure-Object).Count
 
-    if ($count -gt 0) {
+    if (-not $global:ForceOverride -and $count -eq 0) {
+        Write-Host "  - 고정된 앱이 없습니다 (스킵)" -ForegroundColor Gray
+        Write-OptLog -Message "고정된 앱: 없음" -Status "Skipped"
+    } elseif ($count -gt 0) {
         Remove-Item -Path "$pinnedPath\*" -Force -Recurse -ErrorAction SilentlyContinue
         Write-Host "  - 고정된 앱 $count 개 제거 완료" -ForegroundColor Green
-    } else {
-        Write-Host "  - 고정된 앱이 없습니다" -ForegroundColor Yellow
+        Write-OptLog -Message "고정된 앱 $count 개 제거" -Status "Applied"
     }
 } else {
-    Write-Host "  - 고정된 앱 폴더를 찾을 수 없습니다" -ForegroundColor Yellow
+    Write-Host "  - 고정된 앱 폴더 없음 (스킵)" -ForegroundColor Gray
+    Write-OptLog -Message "고정된 앱 폴더: 없음" -Status "Skipped"
 }
 
 # 작업 표시줄 레지스트리 캐시 초기화
 $taskbandPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Taskband"
 if (Test-Path $taskbandPath) {
-    Remove-ItemProperty -Path $taskbandPath -Name "Favorites" -ErrorAction SilentlyContinue
-    Remove-ItemProperty -Path $taskbandPath -Name "FavoritesResolve" -ErrorAction SilentlyContinue
-    Remove-ItemProperty -Path $taskbandPath -Name "FavoritesVersion" -ErrorAction SilentlyContinue
-    Remove-ItemProperty -Path $taskbandPath -Name "FavoritesChanges" -ErrorAction SilentlyContinue
-    Remove-ItemProperty -Path $taskbandPath -Name "Pinned" -ErrorAction SilentlyContinue
-    Write-Host "  - 작업 표시줄 캐시 초기화 완료" -ForegroundColor Green
+    $favorites = Get-ItemProperty -Path $taskbandPath -Name "Favorites" -ErrorAction SilentlyContinue
+    if (-not $global:ForceOverride -and -not $favorites) {
+        Write-Host "  - 작업 표시줄 캐시 이미 초기화됨 (스킵)" -ForegroundColor Gray
+        Write-OptLog -Message "작업 표시줄 캐시: 이미 초기화됨" -Status "Skipped"
+    } else {
+        Remove-ItemProperty -Path $taskbandPath -Name "Favorites" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path $taskbandPath -Name "FavoritesResolve" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path $taskbandPath -Name "FavoritesVersion" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path $taskbandPath -Name "FavoritesChanges" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -Path $taskbandPath -Name "Pinned" -ErrorAction SilentlyContinue
+        Write-Host "  - 작업 표시줄 캐시 초기화 완료" -ForegroundColor Green
+        Write-OptLog -Message "작업 표시줄 캐시 초기화" -Status "Applied"
+    }
 }
 
 
@@ -136,84 +251,143 @@ Write-Host ""
 Write-Host "[6/9] Windows 10 스타일 컨텍스트 메뉴 복원 중..." -ForegroundColor Yellow
 
 $contextMenuPath = "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32"
-if (!(Test-Path $contextMenuPath)) {
-    New-Item -Path $contextMenuPath -Force | Out-Null
+
+# 이미 복원되었는지 확인
+$contextMenuRestored = $false
+if (Test-Path $contextMenuPath) {
+    $defaultValue = (Get-ItemProperty -Path $contextMenuPath -Name "(Default)" -ErrorAction SilentlyContinue)."(Default)"
+    if ($defaultValue -eq "") {
+        $contextMenuRestored = $true
+    }
 }
-# 기본값을 빈 문자열로 설정하면 Windows 10 스타일 컨텍스트 메뉴 활성화
-Set-ItemProperty -Path $contextMenuPath -Name "(Default)" -Value "" -Type String
-Write-Host "  - Windows 10 스타일 컨텍스트 메뉴 복원 완료" -ForegroundColor Green
+
+if (-not $global:ForceOverride -and $contextMenuRestored) {
+    Write-Host "  - Windows 10 컨텍스트 메뉴 이미 복원됨 (스킵)" -ForegroundColor Gray
+    Write-OptLog -Message "Windows 10 컨텍스트 메뉴: 이미 복원됨" -Status "Skipped"
+} else {
+    if (!(Test-Path $contextMenuPath)) {
+        New-Item -Path $contextMenuPath -Force | Out-Null
+    }
+    Set-ItemProperty -Path $contextMenuPath -Name "(Default)" -Value "" -Type String
+    Write-Host "  - Windows 10 스타일 컨텍스트 메뉴 복원 완료" -ForegroundColor Green
+    Write-OptLog -Message "Windows 10 컨텍스트 메뉴 복원" -Status "Applied"
+}
 
 
 # 7. 파일 탐색기 시작 위치를 "내 PC"로 변경
 Write-Host ""
 Write-Host "[7/9] 파일 탐색기 시작 위치를 '내 PC'로 변경..." -ForegroundColor Yellow
 
-# LaunchTo: 1 = 내 PC, 2 = 빠른 액세스, 3 = 다운로드
-Set-ItemProperty -Path $advancedPath -Name "LaunchTo" -Value 1 -Type DWord
-Write-Host "  - 파일 탐색기 시작 위치 '내 PC' 설정 완료" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $advancedPath -Name "LaunchTo" -Value 1 `
+    -StepName "파일 탐색기 시작 위치" -Description "1=내 PC"
 
 
 # 8. 파일 탐색기 개인정보 보호 설정 해제 및 기록 지우기
 Write-Host ""
 Write-Host "[8/9] 파일 탐색기 개인정보 보호 설정 해제..." -ForegroundColor Yellow
 
-# 최근에 사용한 파일을 빠른 액세스에 표시 안 함
-Set-ItemProperty -Path $advancedPath -Name "ShowRecent" -Value 0 -Type DWord
-Write-Host "  - 최근 사용한 파일 표시 해제" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $advancedPath -Name "ShowRecent" -Value 0 `
+    -StepName "최근 사용한 파일 표시 해제"
 
-# 자주 사용하는 폴더를 빠른 액세스에 표시 안 함
-Set-ItemProperty -Path $advancedPath -Name "ShowFrequent" -Value 0 -Type DWord
-Write-Host "  - 자주 사용하는 폴더 표시 해제" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $advancedPath -Name "ShowFrequent" -Value 0 `
+    -StepName "자주 사용하는 폴더 표시 해제"
 
-# Office.com의 파일 표시 안 함 (Windows 11)
-Set-ItemProperty -Path $advancedPath -Name "ShowCloudFilesInQuickAccess" -Value 0 -Type DWord -ErrorAction SilentlyContinue
-Write-Host "  - Office.com 파일 표시 해제" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $advancedPath -Name "ShowCloudFilesInQuickAccess" -Value 0 `
+    -StepName "Office.com 파일 표시 해제"
 
 # 파일 탐색기 기록 지우기
 $explorerBagMRU = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\OpenSavePidlMRU"
 if (Test-Path $explorerBagMRU) {
-    Remove-Item -Path $explorerBagMRU -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Host "  - 파일 열기/저장 기록 삭제" -ForegroundColor Green
+    if (-not $global:ForceOverride) {
+        $mruItems = Get-ChildItem -Path $explorerBagMRU -ErrorAction SilentlyContinue
+        if (-not $mruItems -or $mruItems.Count -eq 0) {
+            Write-Host "  - 파일 열기/저장 기록 없음 (스킵)" -ForegroundColor Gray
+            Write-OptLog -Message "파일 열기/저장 기록: 없음" -Status "Skipped"
+        } else {
+            Remove-Item -Path $explorerBagMRU -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "  - 파일 열기/저장 기록 삭제" -ForegroundColor Green
+            Write-OptLog -Message "파일 열기/저장 기록 삭제" -Status "Applied"
+        }
+    } else {
+        Remove-Item -Path $explorerBagMRU -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host "  - 파일 열기/저장 기록 삭제" -ForegroundColor Green
+        Write-OptLog -Message "파일 열기/저장 기록 삭제" -Status "Applied"
+    }
+} else {
+    Write-Host "  - 파일 열기/저장 기록 없음 (스킵)" -ForegroundColor Gray
+    Write-OptLog -Message "파일 열기/저장 기록: 없음" -Status "Skipped"
 }
 
 $recentDocs = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs"
 if (Test-Path $recentDocs) {
-    Remove-Item -Path $recentDocs -Recurse -Force -ErrorAction SilentlyContinue
-    New-Item -Path $recentDocs -Force | Out-Null
-    Write-Host "  - 최근 문서 기록 삭제" -ForegroundColor Green
+    $docItems = Get-ChildItem -Path $recentDocs -ErrorAction SilentlyContinue
+    if (-not $global:ForceOverride -and (-not $docItems -or $docItems.Count -eq 0)) {
+        Write-Host "  - 최근 문서 기록 없음 (스킵)" -ForegroundColor Gray
+        Write-OptLog -Message "최근 문서 기록: 없음" -Status "Skipped"
+    } else {
+        Remove-Item -Path $recentDocs -Recurse -Force -ErrorAction SilentlyContinue
+        New-Item -Path $recentDocs -Force | Out-Null
+        Write-Host "  - 최근 문서 기록 삭제" -ForegroundColor Green
+        Write-OptLog -Message "최근 문서 기록 삭제" -Status "Applied"
+    }
 }
 
 # 최근 항목 폴더 비우기
 $recentFolder = "$env:APPDATA\Microsoft\Windows\Recent"
 if (Test-Path $recentFolder) {
-    Remove-Item -Path "$recentFolder\*" -Force -Recurse -ErrorAction SilentlyContinue
-    Write-Host "  - 최근 항목 폴더 비우기 완료" -ForegroundColor Green
+    $recentItems = Get-ChildItem -Path $recentFolder -ErrorAction SilentlyContinue
+    if (-not $global:ForceOverride -and (-not $recentItems -or $recentItems.Count -eq 0)) {
+        Write-Host "  - 최근 항목 폴더 비어있음 (스킵)" -ForegroundColor Gray
+        Write-OptLog -Message "최근 항목 폴더: 비어있음" -Status "Skipped"
+    } else {
+        Remove-Item -Path "$recentFolder\*" -Force -Recurse -ErrorAction SilentlyContinue
+        Write-Host "  - 최근 항목 폴더 비우기 완료" -ForegroundColor Green
+        Write-OptLog -Message "최근 항목 폴더 비우기" -Status "Applied"
+    }
 }
 
-# 자동 재생 폴더 비우기
+# 점프 목록 폴더 비우기
 $automaticDestinations = "$env:APPDATA\Microsoft\Windows\Recent\AutomaticDestinations"
 $customDestinations = "$env:APPDATA\Microsoft\Windows\Recent\CustomDestinations"
+$jumpListCleared = $false
+
 if (Test-Path $automaticDestinations) {
-    Remove-Item -Path "$automaticDestinations\*" -Force -ErrorAction SilentlyContinue
+    $autoItems = Get-ChildItem -Path $automaticDestinations -ErrorAction SilentlyContinue
+    if ($autoItems -and $autoItems.Count -gt 0) {
+        Remove-Item -Path "$automaticDestinations\*" -Force -ErrorAction SilentlyContinue
+        $jumpListCleared = $true
+    }
 }
 if (Test-Path $customDestinations) {
-    Remove-Item -Path "$customDestinations\*" -Force -ErrorAction SilentlyContinue
+    $customItems = Get-ChildItem -Path $customDestinations -ErrorAction SilentlyContinue
+    if ($customItems -and $customItems.Count -gt 0) {
+        Remove-Item -Path "$customDestinations\*" -Force -ErrorAction SilentlyContinue
+        $jumpListCleared = $true
+    }
 }
-Write-Host "  - 점프 목록 기록 삭제 완료" -ForegroundColor Green
+
+if (-not $global:ForceOverride -and -not $jumpListCleared) {
+    Write-Host "  - 점프 목록 기록 없음 (스킵)" -ForegroundColor Gray
+    Write-OptLog -Message "점프 목록 기록: 없음" -Status "Skipped"
+} else {
+    Write-Host "  - 점프 목록 기록 삭제 완료" -ForegroundColor Green
+    Write-OptLog -Message "점프 목록 기록 삭제" -Status "Applied"
+}
 
 
 # 9. 파일 확장자명 표시
 Write-Host ""
 Write-Host "[9/9] 파일 확장자명 표시 설정..." -ForegroundColor Yellow
 
-# HideFileExt: 0 = 확장자 표시, 1 = 확장자 숨김
-Set-ItemProperty -Path $advancedPath -Name "HideFileExt" -Value 0 -Type DWord
-Write-Host "  - 파일 확장자명 표시 설정 완료" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $advancedPath -Name "HideFileExt" -Value 0 `
+    -StepName "파일 확장자명 표시" -Description "0=표시"
 
-# 숨김 파일 표시 (보너스)
-Set-ItemProperty -Path $advancedPath -Name "Hidden" -Value 1 -Type DWord
-Write-Host "  - 숨김 파일 표시 설정 완료" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $advancedPath -Name "Hidden" -Value 1 `
+    -StepName "숨김 파일 표시" -Description "1=표시"
 
+
+# 로그 저장
+Save-OptLog
 
 # Explorer 재시작하여 변경사항 적용
 Write-Host ""
@@ -227,6 +401,13 @@ Start-Process explorer
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "모든 설정이 완료되었습니다!" -ForegroundColor Green
+Write-Host ""
+Write-Host "Summary:" -ForegroundColor Yellow
+Write-Host "  - 적용됨: $($global:AppliedCount) 개" -ForegroundColor Green
+Write-Host "  - 스킵됨: $($global:SkippedCount) 개 (이미 최적 설정)" -ForegroundColor Gray
+Write-Host "  - 실패: $($global:FailedCount) 개" -ForegroundColor $(if($global:FailedCount -gt 0){"Red"}else{"Gray"})
+Write-Host ""
+Write-Host "로그 파일: $($global:LogFilePath)" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "적용된 설정:" -ForegroundColor Yellow
 Write-Host "  - 검색 상자 숨김" -ForegroundColor White

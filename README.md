@@ -45,6 +45,11 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 - **병렬 실행**: 충돌하지 않는 스크립트는 동시 실행 (속도 향상)
 - 재부팅 필요 항목 자동 그룹화 (마지막에 한 번만 재부팅)
 - 25H2 AI 기능 완전 비활성화 포함
+- **v1.1.0 신규 기능:**
+  - **스킵/Override 시스템**: 이미 적용된 설정은 자동 스킵, 필요 시 강제 재적용 가능
+  - **ForceOverride 토글**: [F] 키로 전체 강제 적용 모드 전환
+  - **시스템 정보 표시**: RAM 용량, 드라이브 타입 (NVMe/SSD/HDD) 자동 감지
+  - **Summary 로깅**: 실행 결과 통계 (적용됨/스킵됨/실패) 및 로그 파일 저장
 
 **프리셋 구성:**
 
@@ -58,10 +63,49 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 **사용 방법:**
 1. 스크립트 실행 후 콘솔 메뉴 표시
 2. 숫자 키로 항목 선택/해제 또는 프리셋 선택 (B/G/S/W)
-3. [R] 키로 실행 시작
-4. 모든 최적화 완료 후 재부팅 안내
+3. [F] 키로 ForceOverride 모드 토글 (이미 적용된 설정도 강제 재적용)
+4. [R] 키로 실행 시작
+5. 모든 최적화 완료 후 Summary 출력 및 재부팅 안내
+
+**로그 파일:**
+- 위치: `%USERPROFILE%\Documents\windows11-optimization-logs\`
+- 형식: `Windows11Optimizer_ORCHESTRATE_YYYYMMDD_HHmmss.log`
+- 내용: 시스템 정보, 스크립트별 결과 (적용됨/스킵됨/실패), 분기 결정 사항
 
 [스크립트 보기](https://github.com/Zeliper/windows-11-optimization/blob/main/ps_scripts/000.orchestrate.ps1)
+
+---
+
+## v1.1.0 공통 기능 (모든 스크립트)
+
+모든 스크립트에 다음 기능이 추가되었습니다:
+
+**스킵/Override 시스템:**
+- 각 설정 항목의 현재 값과 목표 값을 비교
+- 이미 최적화된 설정은 자동으로 스킵 (Gray 색상)
+- 변경이 필요한 설정만 적용 (Green 색상)
+- 실패한 설정은 명시적으로 표시 (Red 색상)
+
+**Summary 출력:**
+```
+Summary:
+  - 적용됨: X 개
+  - 스킵됨: Y 개 (이미 최적 설정)
+  - 실패: Z 개
+
+로그 파일: C:\Users\...\Documents\windows11-optimization-logs\Windows11Optimizer_XXX_...log
+```
+
+**로그 파일 저장:**
+- 모든 스크립트는 실행 결과를 로그 파일로 저장
+- 위치: `%USERPROFILE%\Documents\windows11-optimization-logs\`
+- 형식: `Windows11Optimizer_{스크립트번호}_{날짜_시간}.log`
+
+**ForceOverride 모드:**
+- `$global:ForceOverride = $true` 설정 시 이미 적용된 설정도 강제 재적용
+- orchestrate.ps1에서 [F] 키로 토글 가능
+
+---
 
 ## 윈도우즈 업데이트 수동 설정 및 UAC 프롬프트 비활성화 스크립트
 

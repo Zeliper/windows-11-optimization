@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.0.0"
+$scriptVersion = "1.1.1"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -20,7 +20,93 @@ if ($null -eq $global:OrchestrateMode) {
     $global:OrchestrateMode = $false
 }
 
+# ForceOverride 모드 확인
+if ($null -eq $global:ForceOverride) {
+    $global:ForceOverride = $false
+}
+
+#region 공통 함수
+
+# 로그 파일 경로 설정
+$logFileName = "Windows11Optimizer_005_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+$logDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "windows11-optimization-logs"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+$global:LogFilePath = Join-Path $logDir $logFileName
+$global:LogEntries = [System.Collections.ArrayList]@()
+$global:AppliedCount = 0
+$global:SkippedCount = 0
+$global:FailedCount = 0
+
+function Write-OptLog {
+    param(
+        [string]$Message,
+        [ValidateSet("Applied", "Skipped", "Failed", "Info")]
+        [string]$Status = "Info"
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "[$timestamp] [$Status] $Message"
+    [void]$global:LogEntries.Add($logEntry)
+
+    switch ($Status) {
+        "Applied" { $global:AppliedCount++ }
+        "Skipped" { $global:SkippedCount++ }
+        "Failed" { $global:FailedCount++ }
+    }
+}
+
+function Save-OptLog {
+    if ($global:LogEntries.Count -gt 0) {
+        $global:LogEntries | Out-File -FilePath $global:LogFilePath -Encoding UTF8
+    }
+}
+
+function Set-RegistryIfDifferent {
+    param(
+        [string]$Path,
+        [string]$Name,
+        [object]$Value,
+        [string]$Type = "DWord",
+        [string]$StepName,
+        [string]$Description = ""
+    )
+
+    try {
+        if (!(Test-Path $Path)) {
+            New-Item -Path $Path -Force | Out-Null
+        }
+
+        $currentValue = $null
+        try {
+            $currentValue = (Get-ItemProperty -Path $Path -Name $Name -ErrorAction Stop).$Name
+        } catch {
+            $currentValue = $null
+        }
+
+        if (-not $global:ForceOverride -and $currentValue -eq $Value) {
+            $displayDesc = if ($Description) { " - $Description" } else { "" }
+            Write-Host "  - $StepName : 이미 적용됨 (스킵)$displayDesc" -ForegroundColor Gray
+            Write-OptLog -Message "$StepName : 이미 적용됨 ($Name = $Value)" -Status "Skipped"
+            return $false
+        }
+
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -ErrorAction Stop
+        $displayDesc = if ($Description) { " - $Description" } else { "" }
+        Write-Host "  - $StepName : 적용됨$displayDesc" -ForegroundColor Green
+        Write-OptLog -Message "$StepName : 적용됨 ($Name = $Value)" -Status "Applied"
+        return $true
+    } catch {
+        Write-Host "  - $StepName : 실패 - $($_.Exception.Message)" -ForegroundColor Red
+        Write-OptLog -Message "$StepName : 실패 - $($_.Exception.Message)" -Status "Failed"
+        return $false
+    }
+}
+
+#endregion 공통 함수
+
 Write-Host "=== Windows 11 블로트웨어 제거 v$scriptVersion ===" -ForegroundColor Cyan
+if ($global:ForceOverride) {
+    Write-Host "[ForceOverride 모드: 모든 설정 강제 재적용]" -ForegroundColor Magenta
+}
 Write-Host ""
 
 
@@ -128,23 +214,31 @@ Write-Host "[1/6] 현재 사용자 블로트웨어 앱 제거 중..." -Foregroun
 # 한 번의 호출로 모든 패키지 가져오기 (성능 최적화)
 $allPackages = Get-AppxPackage -ErrorAction SilentlyContinue
 $removedCount = 0
+$skippedAppCount = 0
 
 foreach ($app in $bloatwareApps) {
     $matched = $allPackages | Where-Object { $_.Name -like "*$app*" }
+    if (-not $matched) {
+        $skippedAppCount++
+        continue
+    }
     foreach ($package in $matched) {
         try {
             $package | Remove-AppxPackage -ErrorAction SilentlyContinue
             Write-Host "  - $($package.Name) 제거됨" -ForegroundColor Green
+            Write-OptLog -Message "앱 제거: $($package.Name)" -Status "Applied"
             $removedCount++
         }
         catch {
             Write-Host "  - $($package.Name) 제거 실패" -ForegroundColor Red
+            Write-OptLog -Message "앱 제거 실패: $($package.Name)" -Status "Failed"
         }
     }
 }
 
 if ($removedCount -eq 0) {
-    Write-Host "  - 제거할 앱이 없습니다 (이미 제거됨)" -ForegroundColor Yellow
+    Write-Host "  - 제거할 앱이 없습니다 (이미 제거됨)" -ForegroundColor Gray
+    Write-OptLog -Message "현재 사용자 앱: 모두 이미 제거됨" -Status "Skipped"
 } else {
     Write-Host "  - 총 $removedCount 개 앱 제거 완료" -ForegroundColor Green
 }
@@ -160,10 +254,12 @@ $allUsersRemoved = 0
 
 foreach ($app in $bloatwareApps) {
     $matched = $allUsersPackages | Where-Object { $_.Name -like "*$app*" }
+    if (-not $matched) { continue }
     foreach ($package in $matched) {
         try {
             $package | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
             Write-Host "  - $($package.Name) 제거됨 (AllUsers)" -ForegroundColor Green
+            Write-OptLog -Message "앱 제거 (AllUsers): $($package.Name)" -Status "Applied"
             $allUsersRemoved++
         }
         catch {
@@ -175,7 +271,8 @@ foreach ($app in $bloatwareApps) {
 if ($allUsersRemoved -gt 0) {
     Write-Host "  - 총 $allUsersRemoved 개 앱 (AllUsers) 제거 완료" -ForegroundColor Green
 } else {
-    Write-Host "  - 추가 제거할 앱 없음" -ForegroundColor Yellow
+    Write-Host "  - 추가 제거할 앱 없음 (스킵)" -ForegroundColor Gray
+    Write-OptLog -Message "AllUsers 앱: 추가 제거 없음" -Status "Skipped"
 }
 
 
@@ -188,10 +285,12 @@ $provisionedPackages = Get-AppxProvisionedPackage -Online -ErrorAction SilentlyC
 
 foreach ($app in $bloatwareApps) {
     $matched = $provisionedPackages | Where-Object { $_.PackageName -like "*$app*" }
+    if (-not $matched) { continue }
     foreach ($pkg in $matched) {
         try {
             Remove-AppxProvisionedPackage -Online -PackageName $pkg.PackageName -ErrorAction SilentlyContinue | Out-Null
             Write-Host "  - $($pkg.DisplayName) 프로비저닝 제거됨" -ForegroundColor Green
+            Write-OptLog -Message "프로비저닝 제거: $($pkg.DisplayName)" -Status "Applied"
             $provisionedRemoved++
         }
         catch {
@@ -201,7 +300,8 @@ foreach ($app in $bloatwareApps) {
 }
 
 if ($provisionedRemoved -eq 0) {
-    Write-Host "  - 프로비저닝된 블로트웨어 없음" -ForegroundColor Yellow
+    Write-Host "  - 프로비저닝된 블로트웨어 없음 (스킵)" -ForegroundColor Gray
+    Write-OptLog -Message "프로비저닝 패키지: 없음" -Status "Skipped"
 } else {
     Write-Host "  - 총 $provisionedRemoved 개 프로비저닝 패키지 제거 완료" -ForegroundColor Green
 }
@@ -218,15 +318,19 @@ $features = @(
     "Internet-Explorer-Optional-amd64" # Internet Explorer (레거시)
 )
 
+$featureRemoved = 0
 foreach ($feature in $features) {
     $capability = Get-WindowsCapability -Online | Where-Object { $_.Name -like "*$feature*" -and $_.State -eq "Installed" }
     if ($capability) {
         try {
             $capability | Remove-WindowsCapability -Online -ErrorAction SilentlyContinue | Out-Null
             Write-Host "  - $($capability.Name) 기능 제거됨" -ForegroundColor Green
+            Write-OptLog -Message "기능 제거: $($capability.Name)" -Status "Applied"
+            $featureRemoved++
         }
         catch {
             Write-Host "  - $feature 기능 제거 실패" -ForegroundColor Red
+            Write-OptLog -Message "기능 제거 실패: $feature" -Status "Failed"
         }
     }
 }
@@ -243,6 +347,8 @@ foreach ($feature in $optionalFeatures) {
         try {
             Disable-WindowsOptionalFeature -Online -FeatureName $feature -NoRestart -ErrorAction SilentlyContinue | Out-Null
             Write-Host "  - $feature 기능 비활성화됨" -ForegroundColor Green
+            Write-OptLog -Message "기능 비활성화: $feature" -Status "Applied"
+            $featureRemoved++
         }
         catch {
             # 일부 기능은 비활성화 불가
@@ -250,34 +356,55 @@ foreach ($feature in $optionalFeatures) {
     }
 }
 
-Write-Host "  - Windows 기능 정리 완료" -ForegroundColor Green
+if ($featureRemoved -eq 0) {
+    Write-Host "  - Windows 기능 이미 정리됨 (스킵)" -ForegroundColor Gray
+    Write-OptLog -Message "Windows 기능: 이미 정리됨" -Status "Skipped"
+} else {
+    Write-Host "  - Windows 기능 정리 완료" -ForegroundColor Green
+}
 
 
-# 5. 바탕화면 검은색으로 설정
+# 5. 시작 메뉴 고정 앱 제거
 Write-Host ""
 Write-Host "[5/6] 시작 메뉴 고정 앱 제거 중..." -ForegroundColor Yellow
 
 # Windows 11 시작 메뉴 레이아웃 초기화 (고정 앱 제거)
 $startMenuPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\CloudStore\Store\Cache\DefaultAccount"
+$startMenuCleared = $false
 
-# 시작 메뉴 캐시 제거 ($ 기호 이스케이프)
+# 시작 메뉴 캐시 제거
 $startCachePaths = @(
     "$startMenuPath\`$`$windows.data.unifiedtile.startglobalproperties`$`$*",
     "$startMenuPath\`$`$windows.data.unifiedtile.pinnedtileiddata`$`$*"
 )
 
 foreach ($cachePath in $startCachePaths) {
-    Get-ChildItem -Path $cachePath -ErrorAction SilentlyContinue | ForEach-Object {
-        Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+    $items = Get-ChildItem -Path $cachePath -ErrorAction SilentlyContinue
+    if ($items) {
+        $items | ForEach-Object {
+            Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        $startMenuCleared = $true
     }
 }
-Write-Host "  - 시작 메뉴 고정 앱 캐시 제거됨" -ForegroundColor Green
+
+if ($startMenuCleared) {
+    Write-Host "  - 시작 메뉴 고정 앱 캐시 제거됨" -ForegroundColor Green
+    Write-OptLog -Message "시작 메뉴 캐시 제거" -Status "Applied"
+} else {
+    Write-Host "  - 시작 메뉴 캐시 없음 (스킵)" -ForegroundColor Gray
+    Write-OptLog -Message "시작 메뉴 캐시: 없음" -Status "Skipped"
+}
 
 # start2.bin 파일 삭제 (시작 메뉴 레이아웃 초기화)
 $start2BinPath = "$env:LOCALAPPDATA\Packages\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\LocalState\start2.bin"
 if (Test-Path $start2BinPath) {
     Remove-Item -Path $start2BinPath -Force -ErrorAction SilentlyContinue
     Write-Host "  - 시작 메뉴 레이아웃 초기화됨" -ForegroundColor Green
+    Write-OptLog -Message "시작 메뉴 레이아웃 초기화" -Status "Applied"
+} else {
+    Write-Host "  - 시작 메뉴 레이아웃 파일 없음 (스킵)" -ForegroundColor Gray
+    Write-OptLog -Message "시작 메뉴 레이아웃: 파일 없음" -Status "Skipped"
 }
 
 # Explorer 재시작으로 시작 메뉴 변경사항 즉시 적용
@@ -290,20 +417,40 @@ Write-Host "  - 시작 메뉴 변경사항 적용됨" -ForegroundColor Green
 # Microsoft Teams 관련 추가 정리
 $teamsPath = "$env:LOCALAPPDATA\Microsoft\Teams"
 $teamsProgramData = "$env:ProgramData\Microsoft\Teams"
+$teamsCleared = $false
+
 if (Test-Path $teamsPath) {
     Remove-Item -Path $teamsPath -Recurse -Force -ErrorAction SilentlyContinue
     Write-Host "  - Teams 로컬 데이터 제거됨" -ForegroundColor Green
+    Write-OptLog -Message "Teams 로컬 데이터 제거" -Status "Applied"
+    $teamsCleared = $true
 }
 if (Test-Path $teamsProgramData) {
     Remove-Item -Path $teamsProgramData -Recurse -Force -ErrorAction SilentlyContinue
     Write-Host "  - Teams ProgramData 제거됨" -ForegroundColor Green
+    Write-OptLog -Message "Teams ProgramData 제거" -Status "Applied"
+    $teamsCleared = $true
+}
+
+if (-not $teamsCleared) {
+    Write-Host "  - Teams 데이터 없음 (스킵)" -ForegroundColor Gray
+    Write-OptLog -Message "Teams 데이터: 없음" -Status "Skipped"
 }
 
 # Teams 자동 시작 레지스트리 제거
 $teamsAutoStart = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-Remove-ItemProperty -Path $teamsAutoStart -Name "com.squirrel.Teams.Teams" -ErrorAction SilentlyContinue
-Remove-ItemProperty -Path $teamsAutoStart -Name "Teams" -ErrorAction SilentlyContinue
-Write-Host "  - Teams 자동 시작 제거됨" -ForegroundColor Green
+$teamsReg1 = Get-ItemProperty -Path $teamsAutoStart -Name "com.squirrel.Teams.Teams" -ErrorAction SilentlyContinue
+$teamsReg2 = Get-ItemProperty -Path $teamsAutoStart -Name "Teams" -ErrorAction SilentlyContinue
+
+if ($teamsReg1 -or $teamsReg2) {
+    Remove-ItemProperty -Path $teamsAutoStart -Name "com.squirrel.Teams.Teams" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path $teamsAutoStart -Name "Teams" -ErrorAction SilentlyContinue
+    Write-Host "  - Teams 자동 시작 제거됨" -ForegroundColor Green
+    Write-OptLog -Message "Teams 자동 시작 제거" -Status "Applied"
+} else {
+    Write-Host "  - Teams 자동 시작 없음 (스킵)" -ForegroundColor Gray
+    Write-OptLog -Message "Teams 자동 시작: 없음" -Status "Skipped"
+}
 
 
 # 6. 바탕화면 검은색으로 설정
@@ -314,17 +461,27 @@ Write-Host "[6/6] 바탕화면을 검은색으로 설정 중..." -ForegroundColo
 $desktopPath = "HKCU:\Control Panel\Desktop"
 $colorsPath = "HKCU:\Control Panel\Colors"
 
-# 배경색을 단색으로 설정 (WallpaperStyle: 0 = 단색)
-Set-ItemProperty -Path $desktopPath -Name "WallPaper" -Value "" -Type String
-Set-ItemProperty -Path $desktopPath -Name "WallpaperStyle" -Value "0" -Type String
-Write-Host "  - 바탕화면 배경 이미지 제거됨" -ForegroundColor Green
+# 현재 값 확인
+$currentWallpaper = (Get-ItemProperty -Path $desktopPath -Name "WallPaper" -ErrorAction SilentlyContinue).WallPaper
+$currentBgColor = (Get-ItemProperty -Path $colorsPath -Name "Background" -ErrorAction SilentlyContinue).Background
 
-# 배경색을 검은색으로 설정 (RGB: 0 0 0)
-Set-ItemProperty -Path $colorsPath -Name "Background" -Value "0 0 0" -Type String
-Write-Host "  - 배경색 검은색으로 설정됨" -ForegroundColor Green
+if (-not $global:ForceOverride -and $currentWallpaper -eq "" -and $currentBgColor -eq "0 0 0") {
+    Write-Host "  - 바탕화면 이미 검은색 (스킵)" -ForegroundColor Gray
+    Write-OptLog -Message "바탕화면: 이미 검은색" -Status "Skipped"
+} else {
+    # 배경색을 단색으로 설정 (WallpaperStyle: 0 = 단색)
+    Set-ItemProperty -Path $desktopPath -Name "WallPaper" -Value "" -Type String
+    Set-ItemProperty -Path $desktopPath -Name "WallpaperStyle" -Value "0" -Type String
+    Write-Host "  - 바탕화면 배경 이미지 제거됨" -ForegroundColor Green
+    Write-OptLog -Message "바탕화면 배경 이미지 제거" -Status "Applied"
 
-# 바탕화면 새로고침 (SystemParametersInfo 호출)
-Add-Type -TypeDefinition @"
+    # 배경색을 검은색으로 설정 (RGB: 0 0 0)
+    Set-ItemProperty -Path $colorsPath -Name "Background" -Value "0 0 0" -Type String
+    Write-Host "  - 배경색 검은색으로 설정됨" -ForegroundColor Green
+    Write-OptLog -Message "배경색 검은색 설정" -Status "Applied"
+
+    # 바탕화면 새로고침 (SystemParametersInfo 호출)
+    Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
 public class Wallpaper {
@@ -333,15 +490,26 @@ public class Wallpaper {
 }
 "@
 
-# SPI_SETDESKWALLPAPER = 0x0014, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE = 0x03
-[Wallpaper]::SystemParametersInfo(0x0014, 0, "", 0x03) | Out-Null
-Write-Host "  - 바탕화면 설정 적용됨" -ForegroundColor Green
+    # SPI_SETDESKWALLPAPER = 0x0014, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE = 0x03
+    [Wallpaper]::SystemParametersInfo(0x0014, 0, "", 0x03) | Out-Null
+    Write-Host "  - 바탕화면 설정 적용됨" -ForegroundColor Green
+}
 
+
+# 로그 저장
+Save-OptLog
 
 # 완료 메시지
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "모든 블로트웨어 제거가 완료되었습니다!" -ForegroundColor Green
+Write-Host ""
+Write-Host "Summary:" -ForegroundColor Yellow
+Write-Host "  - 적용됨: $($global:AppliedCount) 개" -ForegroundColor Green
+Write-Host "  - 스킵됨: $($global:SkippedCount) 개 (이미 최적 설정)" -ForegroundColor Gray
+Write-Host "  - 실패: $($global:FailedCount) 개" -ForegroundColor $(if($global:FailedCount -gt 0){"Red"}else{"Gray"})
+Write-Host ""
+Write-Host "로그 파일: $($global:LogFilePath)" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "적용된 항목:" -ForegroundColor Yellow
 Write-Host "  - Microsoft 기본 앱 제거 (Cortana, Xbox, Teams, People 등)" -ForegroundColor White

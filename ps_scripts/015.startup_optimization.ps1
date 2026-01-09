@@ -5,7 +5,8 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.0.0"
+$scriptVersion = "1.1.1"
+$scriptName = "015.startup_optimization.ps1"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -26,6 +27,88 @@ $script:ScriptMetadata = @{
     Description = "시작 프로그램 비활성화, 부팅 지연 최적화, 프리패치/슈퍼패치, NTFS 최적화"
     RequiresReboot = $true
 }
+
+# ===== 로깅 시스템 =====
+$logFileName = "Windows11Optimizer_015_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+$logDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "windows11-optimization-logs"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+$global:LogFilePath = Join-Path $logDir $logFileName
+$global:LogEntries = [System.Collections.ArrayList]@()
+$global:AppliedCount = 0
+$global:SkippedCount = 0
+$global:FailedCount = 0
+
+function Write-OptLog {
+    param([string]$Step, [string]$Status, [string]$Message, [string]$PreviousValue = "", [string]$NewValue = "")
+    $entry = [PSCustomObject]@{ Timestamp = Get-Date -Format "HH:mm:ss"; Step = $Step; Status = $Status; Message = $Message; PreviousValue = $PreviousValue; NewValue = $NewValue }
+    [void]$global:LogEntries.Add($entry)
+    switch ($Status) { "적용됨" { $global:AppliedCount++ } "스킵됨" { $global:SkippedCount++ } "실패" { $global:FailedCount++ } }
+}
+
+function Save-OptLog {
+    $logContent = "================================================================================`nWindows 11 Optimization Log - Startup Optimization`n================================================================================`n실행 시간: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n스크립트: $scriptName v$scriptVersion`n================================================================================`n`n단계별 결과`n================================================================================`n`n"
+    foreach ($entry in $global:LogEntries) {
+        $logContent += "[$($entry.Timestamp)] [$($entry.Step)]`n  상태: $($entry.Status)`n  내용: $($entry.Message)`n"
+        if ($entry.PreviousValue) { $logContent += "  이전값: $($entry.PreviousValue)`n" }
+        if ($entry.NewValue) { $logContent += "  새값: $($entry.NewValue)`n" }
+        $logContent += "`n"
+    }
+    $logContent += "================================================================================`nSummary`n================================================================================`n총 항목: $($global:AppliedCount + $global:SkippedCount + $global:FailedCount)`n적용됨: $global:AppliedCount`n스킵됨: $global:SkippedCount (이미 최적 설정)`n실패: $global:FailedCount`n`n로그 파일: $global:LogFilePath`n================================================================================"
+    $logContent | Set-Content -Path $global:LogFilePath -Encoding UTF8
+}
+
+function Set-RegistryIfDifferent {
+    param([string]$Path, [string]$Name, [object]$Value, [string]$Type = "DWord", [string]$StepName, [string]$Description = "")
+    if (!(Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
+    $currentValue = (Get-ItemProperty -Path $Path -Name $Name -ErrorAction SilentlyContinue).$Name
+    if ($currentValue -eq $Value) {
+        $msg = if ($Description) { "$Description : 이미 설정됨" } else { "$Name : 이미 설정됨" }
+        Write-Host "  - $msg (스킵)" -ForegroundColor Gray
+        Write-OptLog -Step $StepName -Status "스킵됨" -Message "$Name 이미 최적값" -PreviousValue "$currentValue" -NewValue "$Value"
+        return $false
+    }
+    try {
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type
+        $msg = if ($Description) { "$Description : $currentValue → $Value" } else { "$Name : $currentValue → $Value" }
+        Write-Host "  - $msg (적용됨)" -ForegroundColor Green
+        Write-OptLog -Step $StepName -Status "적용됨" -Message "$Name 변경됨" -PreviousValue "$currentValue" -NewValue "$Value"
+        return $true
+    } catch {
+        $msg = if ($Description) { "$Description : 설정 실패" } else { "$Name : 설정 실패" }
+        Write-Host "  - $msg" -ForegroundColor Red
+        Write-OptLog -Step $StepName -Status "실패" -Message "$Name 설정 실패: $_"
+        return $false
+    }
+}
+
+function Set-ServiceIfDifferent {
+    param([string]$ServiceName, [string]$StartupType, [bool]$StopService = $false, [string]$StepName, [string]$Description = "")
+    $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+    if (-not $service) {
+        Write-Host "  - $ServiceName : 서비스 없음 (스킵)" -ForegroundColor Gray
+        Write-OptLog -Step $StepName -Status "스킵됨" -Message "서비스 없음"
+        return $false
+    }
+    $currentStartType = $service.StartType.ToString()
+    if ($currentStartType -eq $StartupType) {
+        Write-Host "  - $ServiceName : 이미 $StartupType (스킵)" -ForegroundColor Gray
+        Write-OptLog -Step $StepName -Status "스킵됨" -Message "이미 $StartupType"
+        return $false
+    }
+    try {
+        if ($StopService -and $service.Status -eq "Running") { Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue }
+        Set-Service -Name $ServiceName -StartupType $StartupType
+        Write-Host "  - $ServiceName : $currentStartType → $StartupType (적용됨)" -ForegroundColor Green
+        Write-OptLog -Step $StepName -Status "적용됨" -Message "변경됨" -PreviousValue $currentStartType -NewValue $StartupType
+        return $true
+    } catch {
+        Write-Host "  - $ServiceName : 설정 실패" -ForegroundColor Red
+        Write-OptLog -Step $StepName -Status "실패" -Message "설정 실패: $_"
+        return $false
+    }
+}
+
+# ===== 메인 스크립트 시작 =====
 
 Write-Host "=== Windows 11 25H2 시작 프로그램/부팅 최적화 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host "시작 프로그램 비활성화, 부팅 지연 최적화, NTFS 최적화를 수행합니다." -ForegroundColor White
@@ -318,11 +401,21 @@ Set-ItemProperty -Path $winlogonRegPath -Name "UserinfoBlockLoadTimeout" -Value 
 Write-Host "  - 사용자 정보 로드 타임아웃: 0ms" -ForegroundColor Green
 
 
-# 완료 메시지
+# 로그 저장
+Save-OptLog
+
+# Summary 출력
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "시작 프로그램/부팅 최적화가 완료되었습니다!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Summary:" -ForegroundColor Yellow
+Write-Host "  - 적용됨: $($global:AppliedCount) 개" -ForegroundColor Green
+Write-Host "  - 스킵됨: $($global:SkippedCount) 개 (이미 최적 설정)" -ForegroundColor Gray
+Write-Host "  - 실패: $($global:FailedCount) 개" -ForegroundColor Red
+Write-Host ""
+Write-Host "로그 파일: $($global:LogFilePath)" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "적용된 설정:" -ForegroundColor Yellow
 Write-Host "  - 불필요한 시작 프로그램 비활성화 ($disabledCount 개)" -ForegroundColor White

@@ -5,7 +5,8 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.0.0"
+$scriptVersion = "1.1.1"
+$scriptName = "014.storage_optimization.ps1"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -27,6 +28,61 @@ $script:ScriptMetadata = @{
     RequiresReboot = $false
 }
 
+# ===== 로깅 시스템 =====
+$logFileName = "Windows11Optimizer_014_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+$logDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "windows11-optimization-logs"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+$global:LogFilePath = Join-Path $logDir $logFileName
+$global:LogEntries = [System.Collections.ArrayList]@()
+$global:AppliedCount = 0
+$global:SkippedCount = 0
+$global:FailedCount = 0
+
+function Write-OptLog {
+    param([string]$Step, [string]$Status, [string]$Message, [string]$PreviousValue = "", [string]$NewValue = "")
+    $entry = [PSCustomObject]@{ Timestamp = Get-Date -Format "HH:mm:ss"; Step = $Step; Status = $Status; Message = $Message; PreviousValue = $PreviousValue; NewValue = $NewValue }
+    [void]$global:LogEntries.Add($entry)
+    switch ($Status) { "적용됨" { $global:AppliedCount++ } "스킵됨" { $global:SkippedCount++ } "실패" { $global:FailedCount++ } }
+}
+
+function Save-OptLog {
+    $logContent = "================================================================================`nWindows 11 Optimization Log - Storage Optimization`n================================================================================`n실행 시간: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n스크립트: $scriptName v$scriptVersion`n================================================================================`n`n단계별 결과`n================================================================================`n`n"
+    foreach ($entry in $global:LogEntries) {
+        $logContent += "[$($entry.Timestamp)] [$($entry.Step)]`n  상태: $($entry.Status)`n  내용: $($entry.Message)`n"
+        if ($entry.PreviousValue) { $logContent += "  이전값: $($entry.PreviousValue)`n" }
+        if ($entry.NewValue) { $logContent += "  새값: $($entry.NewValue)`n" }
+        $logContent += "`n"
+    }
+    $logContent += "================================================================================`nSummary`n================================================================================`n총 항목: $($global:AppliedCount + $global:SkippedCount + $global:FailedCount)`n적용됨: $global:AppliedCount`n스킵됨: $global:SkippedCount (이미 최적 설정)`n실패: $global:FailedCount`n`n로그 파일: $global:LogFilePath`n================================================================================"
+    $logContent | Set-Content -Path $global:LogFilePath -Encoding UTF8
+}
+
+function Set-RegistryIfDifferent {
+    param([string]$Path, [string]$Name, [object]$Value, [string]$Type = "DWord", [string]$StepName, [string]$Description = "")
+    if (!(Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
+    $currentValue = (Get-ItemProperty -Path $Path -Name $Name -ErrorAction SilentlyContinue).$Name
+    if ($currentValue -eq $Value) {
+        $msg = if ($Description) { "$Description : 이미 설정됨" } else { "$Name : 이미 설정됨" }
+        Write-Host "  - $msg (스킵)" -ForegroundColor Gray
+        Write-OptLog -Step $StepName -Status "스킵됨" -Message "$Name 이미 최적값" -PreviousValue "$currentValue" -NewValue "$Value"
+        return $false
+    }
+    try {
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type
+        $msg = if ($Description) { "$Description : $currentValue → $Value" } else { "$Name : $currentValue → $Value" }
+        Write-Host "  - $msg (적용됨)" -ForegroundColor Green
+        Write-OptLog -Step $StepName -Status "적용됨" -Message "$Name 변경됨" -PreviousValue "$currentValue" -NewValue "$Value"
+        return $true
+    } catch {
+        $msg = if ($Description) { "$Description : 설정 실패" } else { "$Name : 설정 실패" }
+        Write-Host "  - $msg" -ForegroundColor Red
+        Write-OptLog -Step $StepName -Status "실패" -Message "$Name 설정 실패: $_"
+        return $false
+    }
+}
+
+# ===== 메인 스크립트 시작 =====
+
 Write-Host "=== Windows 11 25H2 저장소 최적화 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host "Storage Sense 활성화, 자동 정리, 임시 파일/캐시 정리를 수행합니다." -ForegroundColor White
 Write-Host ""
@@ -37,38 +93,21 @@ $totalSteps = 7
 # [1/7] Storage Sense 활성화 및 자동 정리 설정
 Write-Host "[1/$totalSteps] Storage Sense 활성화 및 자동 정리 설정 중..." -ForegroundColor Yellow
 
+$stepName = "1. Storage Sense"
 $storageSensePath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy"
-if (!(Test-Path $storageSensePath)) {
-    New-Item -Path $storageSensePath -Force | Out-Null
-}
-
-# Storage Sense 활성화
-Set-ItemProperty -Path $storageSensePath -Name "01" -Value 1 -Type DWord
-Write-Host "  - Storage Sense 활성화" -ForegroundColor Green
-
-# Storage Sense 실행 빈도 (1 = 매일, 7 = 매주, 30 = 매월, 0 = 저장소 부족 시에만)
-Set-ItemProperty -Path $storageSensePath -Name "2048" -Value 7 -Type DWord
-Write-Host "  - 실행 주기: 매주" -ForegroundColor Green
-
-# 임시 파일 자동 정리 활성화
-Set-ItemProperty -Path $storageSensePath -Name "04" -Value 1 -Type DWord
-Write-Host "  - 임시 파일 자동 정리 활성화" -ForegroundColor Green
-
-# 클라우드 지원 콘텐츠를 로컬 전용으로 설정 (OneDrive 파일 정리)
-Set-ItemProperty -Path $storageSensePath -Name "08" -Value 1 -Type DWord
-Set-ItemProperty -Path $storageSensePath -Name "256" -Value 30 -Type DWord
-Write-Host "  - OneDrive 파일 로컬 전용 설정 (30일 미사용 시)" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $storageSensePath -Name "01" -Value 1 -StepName $stepName -Description "Storage Sense 활성화"
+Set-RegistryIfDifferent -Path $storageSensePath -Name "2048" -Value 7 -StepName $stepName -Description "실행 주기 (매주)"
+Set-RegistryIfDifferent -Path $storageSensePath -Name "04" -Value 1 -StepName $stepName -Description "임시 파일 자동 정리"
+Set-RegistryIfDifferent -Path $storageSensePath -Name "08" -Value 1 -StepName $stepName -Description "클라우드 콘텐츠 로컬 전용"
+Set-RegistryIfDifferent -Path $storageSensePath -Name "256" -Value 30 -StepName $stepName -Description "OneDrive 파일 정리 기간"
 
 
 # [2/7] 휴지통 자동 비우기 (30일)
 Write-Host ""
 Write-Host "[2/$totalSteps] 휴지통 자동 비우기 설정 중 (30일)..." -ForegroundColor Yellow
 
-# 휴지통 자동 비우기 활성화
-Set-ItemProperty -Path $storageSensePath -Name "08" -Value 1 -Type DWord
-# 휴지통 비우기 기간 (일 단위): 0=안함, 1=1일, 14=14일, 30=30일, 60=60일
-Set-ItemProperty -Path $storageSensePath -Name "128" -Value 30 -Type DWord
-Write-Host "  - 휴지통 자동 비우기: 30일 후 자동 삭제" -ForegroundColor Green
+$stepName = "2. 휴지통 자동 비우기"
+Set-RegistryIfDifferent -Path $storageSensePath -Name "128" -Value 30 -StepName $stepName -Description "휴지통 자동 비우기 (30일)"
 
 # 현재 휴지통 비우기 (옵션)
 $recycleBinItems = (New-Object -ComObject Shell.Application).NameSpace(10).Items()
@@ -321,11 +360,21 @@ foreach ($dumpPath in $dumpPaths) {
 Write-Host "  - 메모리 덤프 파일 정리 완료" -ForegroundColor Green
 
 
-# 완료 메시지
+# 로그 저장
+Save-OptLog
+
+# Summary 출력
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "저장소 최적화가 완료되었습니다!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Summary:" -ForegroundColor Yellow
+Write-Host "  - 적용됨: $($global:AppliedCount) 개" -ForegroundColor Green
+Write-Host "  - 스킵됨: $($global:SkippedCount) 개 (이미 최적 설정)" -ForegroundColor Gray
+Write-Host "  - 실패: $($global:FailedCount) 개" -ForegroundColor Red
+Write-Host ""
+Write-Host "로그 파일: $($global:LogFilePath)" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "적용된 설정:" -ForegroundColor Yellow
 Write-Host "  - Storage Sense 활성화 (매주 실행)" -ForegroundColor White

@@ -17,15 +17,139 @@ if ($null -eq $global:OrchestrateMode) {
     $global:OrchestrateMode = $false
 }
 
+# ForceOverride 모드 확인
+if ($null -eq $global:ForceOverride) {
+    $global:ForceOverride = $false
+}
+
 # 스크립트 버전
-$scriptVersion = "1.0.0"
+$scriptVersion = "1.1.0"
+$scriptName = "019.search_optimization.ps1"
+
+# ===== 로깅 시스템 =====
+$logFileName = "Windows11Optimizer_019_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+$logDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "windows11-optimization-logs"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+$global:LogFilePath = Join-Path $logDir $logFileName
+$global:LogEntries = [System.Collections.ArrayList]@()
+$global:AppliedCount = 0
+$global:SkippedCount = 0
+$global:FailedCount = 0
+
+function Write-OptLog {
+    param(
+        [string]$Step,
+        [string]$Status,
+        [string]$Message,
+        [string]$PreviousValue = "",
+        [string]$NewValue = ""
+    )
+    $entry = [PSCustomObject]@{
+        Timestamp = Get-Date -Format "HH:mm:ss"
+        Step = $Step
+        Status = $Status
+        Message = $Message
+        PreviousValue = $PreviousValue
+        NewValue = $NewValue
+    }
+    [void]$global:LogEntries.Add($entry)
+    switch ($Status) {
+        "적용됨" { $global:AppliedCount++ }
+        "스킵됨" { $global:SkippedCount++ }
+        "실패" { $global:FailedCount++ }
+    }
+}
+
+function Save-OptLog {
+    $logContent = @()
+    $logContent += "===== Windows 11 Optimizer Log ====="
+    $logContent += "스크립트: $scriptName v$scriptVersion"
+    $logContent += "실행 시간: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+    $logContent += "====================================="
+    $logContent += ""
+    foreach ($entry in $global:LogEntries) {
+        $line = "[$($entry.Timestamp)] [$($entry.Status)] $($entry.Step): $($entry.Message)"
+        if ($entry.PreviousValue -or $entry.NewValue) {
+            $line += " ($($entry.PreviousValue) -> $($entry.NewValue))"
+        }
+        $logContent += $line
+    }
+    $logContent += ""
+    $logContent += "===== Summary ====="
+    $logContent += "적용됨: $global:AppliedCount"
+    $logContent += "스킵됨: $global:SkippedCount"
+    $logContent += "실패: $global:FailedCount"
+    $logContent | Out-File -FilePath $global:LogFilePath -Encoding UTF8
+}
+
+function Set-RegistryIfDifferent {
+    param(
+        [string]$Path,
+        [string]$Name,
+        $Value,
+        [string]$Type = "DWord",
+        [string]$StepName
+    )
+    try {
+        if (!(Test-Path $Path)) {
+            New-Item -Path $Path -Force | Out-Null
+        }
+        $currentValue = (Get-ItemProperty -Path $Path -Name $Name -ErrorAction SilentlyContinue).$Name
+        if (-not $global:ForceOverride -and $currentValue -eq $Value) {
+            Write-Host "  - $StepName : 이미 설정됨 (스킵)" -ForegroundColor Gray
+            Write-OptLog -Step $StepName -Status "스킵됨" -Message "이미 최적 설정" -PreviousValue "$currentValue" -NewValue "$Value"
+            return $false
+        }
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type
+        Write-Host "  - $StepName : $currentValue → $Value (적용됨)" -ForegroundColor Green
+        Write-OptLog -Step $StepName -Status "적용됨" -Message "레지스트리 변경" -PreviousValue "$currentValue" -NewValue "$Value"
+        return $true
+    } catch {
+        Write-Host "  - $StepName : 설정 실패" -ForegroundColor Red
+        Write-OptLog -Step $StepName -Status "실패" -Message "$_"
+        return $false
+    }
+}
+
+function Set-ServiceIfDifferent {
+    param(
+        [string]$ServiceName,
+        [string]$StartupType,
+        [switch]$StopService,
+        [string]$StepName
+    )
+    try {
+        $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+        if (-not $service) {
+            Write-Host "  - $StepName : 서비스 없음 (스킵)" -ForegroundColor Gray
+            Write-OptLog -Step $StepName -Status "스킵됨" -Message "서비스가 존재하지 않음"
+            return $false
+        }
+        $currentStartType = (Get-Service -Name $ServiceName).StartType.ToString()
+        if (-not $global:ForceOverride -and $currentStartType -eq $StartupType) {
+            Write-Host "  - $StepName : 이미 $StartupType (스킵)" -ForegroundColor Gray
+            Write-OptLog -Step $StepName -Status "스킵됨" -Message "이미 최적 설정" -PreviousValue $currentStartType -NewValue $StartupType
+            return $false
+        }
+        Set-Service -Name $ServiceName -StartupType $StartupType
+        if ($StopService -and $service.Status -eq "Running") {
+            Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
+        }
+        Write-Host "  - $StepName : $currentStartType → $StartupType (적용됨)" -ForegroundColor Green
+        Write-OptLog -Step $StepName -Status "적용됨" -Message "서비스 설정 변경" -PreviousValue $currentStartType -NewValue $StartupType
+        return $true
+    } catch {
+        Write-Host "  - $StepName : 설정 실패" -ForegroundColor Red
+        Write-OptLog -Step $StepName -Status "실패" -Message "$_"
+        return $false
+    }
+}
 
 Write-Host "=== Windows 11 Windows Search 최적화 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host "인덱싱 최적화, 클라우드 검색 비활성화, WSearch 서비스 설정을 수행합니다." -ForegroundColor White
 Write-Host ""
 
 $totalSteps = 6
-
 
 # [1/6] Windows Search 현재 상태 분석
 Write-Host "[1/$totalSteps] Windows Search 현재 상태 분석 중..." -ForegroundColor Yellow
@@ -38,7 +162,6 @@ if ($wsearchService) {
     Write-Host "  - WSearch 서비스를 찾을 수 없습니다" -ForegroundColor Yellow
 }
 
-# 인덱스 크기 확인
 $indexPath = "$env:ProgramData\Microsoft\Search\Data\Applications\Windows"
 if (Test-Path $indexPath) {
     try {
@@ -52,82 +175,40 @@ if (Test-Path $indexPath) {
     Write-Host "  - 인덱스 폴더를 찾을 수 없습니다" -ForegroundColor Gray
 }
 
-
 # [2/6] 인덱싱 정책 최적화
 Write-Host ""
 Write-Host "[2/$totalSteps] 인덱싱 정책 최적화 중..." -ForegroundColor Yellow
 
 $searchPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search"
-if (!(Test-Path $searchPolicyPath)) {
-    New-Item -Path $searchPolicyPath -Force | Out-Null
-}
 
-# 디스크 공간 부족 시 인덱싱 중단 (5GB 미만)
-Set-ItemProperty -Path $searchPolicyPath -Name "PreventIndexingLowDiskSpaceMB" -Value 5000 -Type DWord
-Write-Host "  - 디스크 공간 5GB 미만 시 인덱싱 중단 설정" -ForegroundColor Green
-
-# 암호화된 파일 인덱싱 비활성화 (성능 향상)
-Set-ItemProperty -Path $searchPolicyPath -Name "PreventIndexingEncryptedStores" -Value 1 -Type DWord
-Write-Host "  - 암호화된 파일 인덱싱: 비활성화" -ForegroundColor Green
-
-# Outlook 오프라인 파일 인덱싱 비활성화
-Set-ItemProperty -Path $searchPolicyPath -Name "PreventIndexingOutlook" -Value 1 -Type DWord
-Write-Host "  - Outlook 오프라인 파일 인덱싱: 비활성화" -ForegroundColor Green
-
+Set-RegistryIfDifferent -Path $searchPolicyPath -Name "PreventIndexingLowDiskSpaceMB" -Value 5000 -Type DWord -StepName "디스크 5GB 미만 시 인덱싱 중단"
+Set-RegistryIfDifferent -Path $searchPolicyPath -Name "PreventIndexingEncryptedStores" -Value 1 -Type DWord -StepName "암호화된 파일 인덱싱 비활성화"
+Set-RegistryIfDifferent -Path $searchPolicyPath -Name "PreventIndexingOutlook" -Value 1 -Type DWord -StepName "Outlook 오프라인 파일 인덱싱 비활성화"
 
 # [3/6] 클라우드 검색 및 검색 기록 비활성화
 Write-Host ""
 Write-Host "[3/$totalSteps] 클라우드 검색 및 검색 기록 비활성화 중..." -ForegroundColor Yellow
 
 $searchSettingsPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\SearchSettings"
-if (!(Test-Path $searchSettingsPath)) {
-    New-Item -Path $searchSettingsPath -Force | Out-Null
-}
 
-# 검색 기록 비활성화
-Set-ItemProperty -Path $searchSettingsPath -Name "IsDeviceSearchHistoryEnabled" -Value 0 -Type DWord
-Write-Host "  - 장치 검색 기록: 비활성화" -ForegroundColor Green
-
-# Azure AD 클라우드 검색 비활성화
-Set-ItemProperty -Path $searchSettingsPath -Name "IsAADCloudSearchEnabled" -Value 0 -Type DWord
-Write-Host "  - Azure AD 클라우드 검색: 비활성화" -ForegroundColor Green
-
-# Microsoft 계정 클라우드 검색 비활성화
-Set-ItemProperty -Path $searchSettingsPath -Name "IsMSACloudSearchEnabled" -Value 0 -Type DWord
-Write-Host "  - Microsoft 계정 클라우드 검색: 비활성화" -ForegroundColor Green
-
-# Safe Search 모드 설정 (선택적)
-$safeSearchPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\SearchSettings"
-Set-ItemProperty -Path $safeSearchPath -Name "SafeSearchMode" -Value 0 -Type DWord -ErrorAction SilentlyContinue
-Write-Host "  - Safe Search: 필터링 비활성화" -ForegroundColor Green
-
+Set-RegistryIfDifferent -Path $searchSettingsPath -Name "IsDeviceSearchHistoryEnabled" -Value 0 -Type DWord -StepName "장치 검색 기록 비활성화"
+Set-RegistryIfDifferent -Path $searchSettingsPath -Name "IsAADCloudSearchEnabled" -Value 0 -Type DWord -StepName "Azure AD 클라우드 검색 비활성화"
+Set-RegistryIfDifferent -Path $searchSettingsPath -Name "IsMSACloudSearchEnabled" -Value 0 -Type DWord -StepName "Microsoft 계정 클라우드 검색 비활성화"
+Set-RegistryIfDifferent -Path $searchSettingsPath -Name "SafeSearchMode" -Value 0 -Type DWord -StepName "Safe Search 필터링 비활성화"
 
 # [4/6] 백그라운드 인덱싱 활동 관리
 Write-Host ""
 Write-Host "[4/$totalSteps] 백그라운드 인덱싱 활동 관리 중..." -ForegroundColor Yellow
 
-# 배터리 모드에서 인덱싱 비활성화
-Set-ItemProperty -Path $searchPolicyPath -Name "PreventIndexOnBattery" -Value 1 -Type DWord
-Write-Host "  - 배터리 모드 인덱싱: 비활성화" -ForegroundColor Green
-
-# 시스템 부하 시 인덱싱 백오프 활성화
-Set-ItemProperty -Path $searchPolicyPath -Name "DisableBackOff" -Value 0 -Type DWord
-Write-Host "  - 시스템 부하 시 인덱싱 백오프: 활성화" -ForegroundColor Green
-
-# 이동식 드라이브 인덱싱 비활성화
-Set-ItemProperty -Path $searchPolicyPath -Name "DisableRemovableDriveIndexing" -Value 1 -Type DWord
-Write-Host "  - 이동식 드라이브 인덱싱: 비활성화" -ForegroundColor Green
-
-# 네트워크 위치 인덱싱 비활성화
-Set-ItemProperty -Path $searchPolicyPath -Name "PreventIndexingNetworkDrives" -Value 1 -Type DWord -ErrorAction SilentlyContinue
-Write-Host "  - 네트워크 드라이브 인덱싱: 비활성화" -ForegroundColor Green
-
+Set-RegistryIfDifferent -Path $searchPolicyPath -Name "PreventIndexOnBattery" -Value 1 -Type DWord -StepName "배터리 모드 인덱싱 비활성화"
+Set-RegistryIfDifferent -Path $searchPolicyPath -Name "DisableBackOff" -Value 0 -Type DWord -StepName "시스템 부하 시 인덱싱 백오프 활성화"
+Set-RegistryIfDifferent -Path $searchPolicyPath -Name "DisableRemovableDriveIndexing" -Value 1 -Type DWord -StepName "이동식 드라이브 인덱싱 비활성화"
+Set-RegistryIfDifferent -Path $searchPolicyPath -Name "PreventIndexingNetworkDrives" -Value 1 -Type DWord -StepName "네트워크 드라이브 인덱싱 비활성화"
 
 # [5/6] WSearch 서비스 최적화
 Write-Host ""
 Write-Host "[5/$totalSteps] WSearch 서비스 최적화 중..." -ForegroundColor Yellow
 
-# 서비스 시작 유형 선택
 $wsearchChoice = "1"
 if (-not $global:OrchestrateMode) {
     Write-Host ""
@@ -141,25 +222,19 @@ if (-not $global:OrchestrateMode) {
 
 switch ($wsearchChoice) {
     "2" {
-        Set-Service -Name "WSearch" -StartupType Automatic -ErrorAction SilentlyContinue
+        Set-ServiceIfDifferent -ServiceName "WSearch" -StartupType "Automatic" -StepName "WSearch 서비스"
         Start-Service -Name "WSearch" -ErrorAction SilentlyContinue
-        Write-Host "  - WSearch 서비스: 자동 시작" -ForegroundColor Green
     }
     "3" {
-        Stop-Service -Name "WSearch" -Force -ErrorAction SilentlyContinue
-        Set-Service -Name "WSearch" -StartupType Disabled -ErrorAction SilentlyContinue
-        Write-Host "  - WSearch 서비스: 비활성화" -ForegroundColor Yellow
+        Set-ServiceIfDifferent -ServiceName "WSearch" -StartupType "Disabled" -StopService -StepName "WSearch 서비스"
         Write-Host "    주의: 파일 탐색기 및 시작 메뉴 검색이 작동하지 않습니다" -ForegroundColor Red
     }
     default {
-        Set-Service -Name "WSearch" -StartupType Manual -ErrorAction SilentlyContinue
-        Write-Host "  - WSearch 서비스: 수동 시작 (검색 시 자동 활성화)" -ForegroundColor Green
+        Set-ServiceIfDifferent -ServiceName "WSearch" -StartupType "Manual" -StepName "WSearch 서비스"
     }
 }
 
-# SearchIndexer 프로세스 우선순위 낮춤 (레지스트리로 제어 불가, 정보 제공)
 Write-Host "  - 참고: SearchIndexer.exe는 시스템 유휴 시에만 인덱싱 수행" -ForegroundColor Gray
-
 
 # [6/6] 검색 인덱스 재구축 옵션
 Write-Host ""
@@ -176,20 +251,15 @@ if (-not $global:OrchestrateMode) {
 
 if ($rebuildIndex -eq "Y" -or $rebuildIndex -eq "y") {
     Write-Host "  - 검색 인덱스 재구축 시작 중..." -ForegroundColor Yellow
-
     try {
-        # 서비스 중지
         Stop-Service -Name "WSearch" -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 3
-
-        # 인덱스 파일 삭제
         $indexDataPath = "$env:ProgramData\Microsoft\Search\Data\Applications\Windows"
         if (Test-Path $indexDataPath) {
             Remove-Item -Path "$indexDataPath\*" -Recurse -Force -ErrorAction SilentlyContinue
             Write-Host "  - 기존 인덱스 파일 삭제 완료" -ForegroundColor Green
+            Write-OptLog -Step "인덱스 재구축" -Status "적용됨" -Message "기존 인덱스 파일 삭제 완료"
         }
-
-        # 서비스 재시작 (수동이 아닌 경우)
         if ($wsearchChoice -ne "3") {
             Start-Service -Name "WSearch" -ErrorAction SilentlyContinue
             Write-Host "  - WSearch 서비스 재시작됨" -ForegroundColor Green
@@ -197,21 +267,19 @@ if ($rebuildIndex -eq "Y" -or $rebuildIndex -eq "y") {
         }
     } catch {
         Write-Host "  - 인덱스 재구축 중 오류 발생: $_" -ForegroundColor Red
+        Write-OptLog -Step "인덱스 재구축" -Status "실패" -Message "$_"
     }
 } else {
     Write-Host "  - 검색 인덱스 재구축 건너뜀" -ForegroundColor Gray
 }
 
-
-# 추가 최적화: Cortana 검색 비활성화 (이미 다른 스크립트에서 처리될 수 있음)
+# Cortana/Bing 검색 비활성화
 $cortanaSearchPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search"
-if (!(Test-Path $cortanaSearchPath)) {
-    New-Item -Path $cortanaSearchPath -Force | Out-Null
-}
-Set-ItemProperty -Path $cortanaSearchPath -Name "BingSearchEnabled" -Value 0 -Type DWord -ErrorAction SilentlyContinue
-Set-ItemProperty -Path $cortanaSearchPath -Name "CortanaConsent" -Value 0 -Type DWord -ErrorAction SilentlyContinue
-Write-Host "  - Bing/Cortana 웹 검색: 비활성화" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $cortanaSearchPath -Name "BingSearchEnabled" -Value 0 -Type DWord -StepName "Bing 웹 검색 비활성화"
+Set-RegistryIfDifferent -Path $cortanaSearchPath -Name "CortanaConsent" -Value 0 -Type DWord -StepName "Cortana 동의 비활성화"
 
+# 로그 저장
+Save-OptLog
 
 # 완료 메시지
 Write-Host ""
@@ -219,19 +287,17 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Windows Search 최적화가 완료되었습니다!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "적용된 설정:" -ForegroundColor Yellow
-Write-Host "  - 인덱싱 정책: 디스크 5GB 미만 시 중단" -ForegroundColor White
-Write-Host "  - 암호화/Outlook 파일 인덱싱: 비활성화" -ForegroundColor White
-Write-Host "  - 클라우드 검색 및 검색 기록: 비활성화" -ForegroundColor White
-Write-Host "  - 배터리/이동식/네트워크 드라이브 인덱싱: 비활성화" -ForegroundColor White
-Write-Host "  - WSearch 서비스: $(switch($wsearchChoice) { '2' { '자동' } '3' { '비활성화' } default { '수동' } })" -ForegroundColor White
-Write-Host "  - Bing/Cortana 웹 검색: 비활성화" -ForegroundColor White
+Write-Host "Summary:" -ForegroundColor Yellow
+Write-Host "  - 적용됨: $global:AppliedCount" -ForegroundColor Green
+Write-Host "  - 스킵됨: $global:SkippedCount (이미 최적 설정)" -ForegroundColor Gray
+Write-Host "  - 실패: $global:FailedCount" -ForegroundColor Red
+Write-Host ""
+Write-Host "로그 파일: $global:LogFilePath" -ForegroundColor White
 Write-Host ""
 Write-Host "설정은 즉시 적용됩니다." -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 이 스크립트는 재부팅 불필요
 if (-not $global:OrchestrateMode) {
     Write-Host "참고: 이 스크립트는 재부팅이 필요하지 않습니다." -ForegroundColor Gray
 }

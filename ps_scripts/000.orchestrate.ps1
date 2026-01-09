@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.0.0"
+$scriptVersion = "1.1.0"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -17,6 +17,329 @@ $ProgressPreference = 'SilentlyContinue'
 
 # Orchestrate 모드 플래그 설정
 $global:OrchestrateMode = $true
+
+# ForceOverride 플래그 (true 시 이미 적용된 설정도 강제 재적용)
+if ($null -eq $global:ForceOverride) {
+    $global:ForceOverride = $false
+}
+
+# ===== Orchestrate 전용 Summary 로깅 시스템 =====
+$global:OrchestrateStartTime = Get-Date
+$global:OrchestrateLogDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "windows11-optimization-logs"
+if (-not (Test-Path $global:OrchestrateLogDir)) { New-Item -Path $global:OrchestrateLogDir -ItemType Directory -Force | Out-Null }
+$global:OrchestrateLogFile = Join-Path $global:OrchestrateLogDir "Windows11Optimizer_ORCHESTRATE_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+
+# 전체 실행 결과 수집용 (스크립트별 Summary)
+$global:ScriptResults = [System.Collections.ArrayList]@()
+
+# 시스템 정보 수집 (상세)
+function Get-SystemInfoForLog {
+    $os = Get-CimInstance -ClassName Win32_OperatingSystem
+    $cpu = Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1
+    $ramGB = [math]::Round($os.TotalVisibleMemorySize / 1MB, 1)
+    $gpu = (Get-CimInstance -ClassName Win32_VideoController | Select-Object -First 1).Name
+
+    # 메모리 용량 기반 분기 정보
+    $memoryCategory = if ($ramGB -ge 32) { "대용량 (32GB+) - Prefetch 비활성화 권장" }
+                      elseif ($ramGB -ge 16) { "중간 (16-31GB) - SysMain 조건부 비활성화" }
+                      else { "소용량 (<16GB) - SysMain/Prefetch 유지 권장" }
+
+    $systemInfo = @"
+[시스템 정보]
+- OS: $($os.Caption) Build $($os.BuildNumber)
+- CPU: $($cpu.Name)
+- RAM: ${ramGB} GB
+- RAM 분기: $memoryCategory
+- GPU: $gpu
+- 컴퓨터 이름: $env:COMPUTERNAME
+- 사용자: $env:USERNAME
+"@
+    return $systemInfo
+}
+
+# 드라이브 정보 수집 (상세 - NVMe/SATA 구분)
+function Get-DriveInfoForLog {
+    $driveInfo = "[드라이브 정보]`n"
+
+    # 물리 디스크 정보
+    $physicalDisks = Get-PhysicalDisk -ErrorAction SilentlyContinue
+    if ($physicalDisks) {
+        foreach ($disk in $physicalDisks) {
+            $mediaType = switch ($disk.MediaType) {
+                "SSD" { "SSD" }
+                "HDD" { "HDD" }
+                "Unspecified" { "알 수 없음" }
+                default { $disk.MediaType }
+            }
+            $sizeGB = [math]::Round($disk.Size / 1GB, 0)
+
+            # 버스 타입 확인 (NVMe vs SATA)
+            $busType = switch ($disk.BusType) {
+                "NVMe" { "NVMe" }
+                "SATA" { "SATA" }
+                "USB" { "USB" }
+                "RAID" { "RAID" }
+                default { $disk.BusType }
+            }
+
+            # NVMe/SATA 분기 정보
+            $busNote = if ($busType -eq "NVMe") { " (Native NVMe 드라이버 적용 가능)" }
+                       elseif ($busType -eq "SATA" -and $mediaType -eq "SSD") { " (SATA SSD - TRIM 활성화)" }
+                       elseif ($busType -eq "SATA" -and $mediaType -eq "HDD") { " (SATA HDD - Prefetch 유지 권장)" }
+                       else { "" }
+
+            $driveInfo += "- $($disk.FriendlyName): $mediaType ($busType), ${sizeGB}GB$busNote`n"
+        }
+    }
+
+    # SSD 존재 여부 요약
+    $hasSSD = ($physicalDisks | Where-Object { $_.MediaType -eq "SSD" }).Count -gt 0
+    $hasNVMe = ($physicalDisks | Where-Object { $_.BusType -eq "NVMe" }).Count -gt 0
+    $hasHDD = ($physicalDisks | Where-Object { $_.MediaType -eq "HDD" }).Count -gt 0
+
+    $driveInfo += "`n[드라이브 분기 결정]`n"
+    $driveInfo += "- SSD 감지: $(if ($hasSSD) { "예 - Last Access Time 비활성화, Prefetch 조정" } else { "아니오" })`n"
+    $driveInfo += "- NVMe 감지: $(if ($hasNVMe) { "예 - Native NVMe 드라이버 활성화 가능" } else { "아니오" })`n"
+    $driveInfo += "- HDD 감지: $(if ($hasHDD) { "예 - Prefetch/Superfetch 유지 권장" } else { "아니오" })`n"
+
+    return $driveInfo.TrimEnd()
+}
+
+# 전역 시스템 분기 정보 저장 (스크립트들이 참조)
+$global:SystemProfile = @{
+    RamGB = [math]::Round((Get-CimInstance -ClassName Win32_OperatingSystem).TotalVisibleMemorySize / 1MB, 1)
+    HasSSD = $false
+    HasNVMe = $false
+    HasHDD = $false
+}
+
+# 드라이브 정보 미리 로드
+$physicalDisksInit = Get-PhysicalDisk -ErrorAction SilentlyContinue
+if ($physicalDisksInit) {
+    $global:SystemProfile.HasSSD = ($physicalDisksInit | Where-Object { $_.MediaType -eq "SSD" }).Count -gt 0
+    $global:SystemProfile.HasNVMe = ($physicalDisksInit | Where-Object { $_.BusType -eq "NVMe" }).Count -gt 0
+    $global:SystemProfile.HasHDD = ($physicalDisksInit | Where-Object { $_.MediaType -eq "HDD" }).Count -gt 0
+}
+
+# 스크립트 실행 결과 기록
+function Add-ScriptResult {
+    param(
+        [int]$ScriptId,
+        [string]$ScriptName,
+        [string]$Status,  # "완료", "실패", "스킵"
+        [int]$AppliedCount = 0,
+        [int]$SkippedCount = 0,
+        [int]$FailedCount = 0,
+        [string]$Notes = "",
+        [string]$Duration = ""
+    )
+
+    $result = [PSCustomObject]@{
+        Id = $ScriptId
+        Name = $ScriptName
+        Status = $Status
+        AppliedCount = $AppliedCount
+        SkippedCount = $SkippedCount
+        FailedCount = $FailedCount
+        Notes = $Notes
+        Duration = $Duration
+        Timestamp = Get-Date -Format "HH:mm:ss"
+    }
+
+    [void]$global:ScriptResults.Add($result)
+}
+
+# 전체 Summary 저장
+function Save-OrchestrateSummary {
+    param(
+        [array]$CompletedItems,
+        [array]$FailedItems,
+        [array]$SkippedItems
+    )
+
+    $endTime = Get-Date
+    $totalDuration = $endTime - $global:OrchestrateStartTime
+    $durationStr = "{0:hh\:mm\:ss}" -f $totalDuration
+
+    $systemInfo = Get-SystemInfoForLog
+    $driveInfo = Get-DriveInfoForLog
+
+    # 전체 통계 계산
+    $totalApplied = ($global:ScriptResults | Measure-Object -Property AppliedCount -Sum).Sum
+    $totalSkipped = ($global:ScriptResults | Measure-Object -Property SkippedCount -Sum).Sum
+    $totalFailed = ($global:ScriptResults | Measure-Object -Property FailedCount -Sum).Sum
+
+    $logContent = @"
+================================================================================
+Windows 11 Optimization - Orchestrate Summary Log
+================================================================================
+실행 시간: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+총 소요 시간: $durationStr
+스크립트: 000.orchestrate.ps1 v$scriptVersion
+ForceOverride: $($global:ForceOverride)
+================================================================================
+
+$systemInfo
+
+$driveInfo
+
+================================================================================
+스크립트별 실행 결과
+================================================================================
+
+"@
+
+    foreach ($result in $global:ScriptResults) {
+        $statusColor = switch ($result.Status) {
+            "완료" { "[성공]" }
+            "실패" { "[실패]" }
+            "스킵" { "[스킵]" }
+            default { "[$($result.Status)]" }
+        }
+
+        $logContent += @"
+[$($result.Timestamp)] [$($result.Id.ToString().PadLeft(2, '0'))] $($result.Name)
+  상태: $statusColor
+  적용됨: $($result.AppliedCount) | 스킵됨: $($result.SkippedCount) | 실패: $($result.FailedCount)
+
+"@
+        if ($result.Notes) {
+            $logContent += "  비고: $($result.Notes)`n"
+        }
+        $logContent += "`n"
+    }
+
+    $logContent += @"
+================================================================================
+실행 항목 요약
+================================================================================
+[완료된 스크립트] ($($CompletedItems.Count) 개)
+"@
+
+    foreach ($id in $CompletedItems) {
+        $item = $global:ScriptItems | Where-Object { $_.Id -eq $id }
+        $logContent += "  - [$id] $($item.Name)`n"
+    }
+
+    if ($SkippedItems.Count -gt 0) {
+        $logContent += "`n[사용자 미선택 스크립트] ($($SkippedItems.Count) 개)`n"
+        foreach ($id in $SkippedItems) {
+            $item = $global:ScriptItems | Where-Object { $_.Id -eq $id }
+            $logContent += "  - [$id] $($item.Name)`n"
+        }
+    }
+
+    if ($FailedItems.Count -gt 0) {
+        $logContent += "`n[실패한 스크립트] ($($FailedItems.Count) 개)`n"
+        foreach ($id in $FailedItems) {
+            $item = $global:ScriptItems | Where-Object { $_.Id -eq $id }
+            $logContent += "  - [$id] $($item.Name)`n"
+        }
+    }
+
+    # 시스템 분기에 따른 자동 결정 사항
+    $logContent += @"
+
+================================================================================
+시스템 분기에 따른 자동 결정 사항
+================================================================================
+[메모리 기반 분기]
+- RAM 용량: $($global:SystemProfile.RamGB) GB
+- SysMain/Prefetch: $(
+    if ($global:SystemProfile.RamGB -ge 32) { "비활성화 (대용량 RAM으로 불필요)" }
+    elseif ($global:SystemProfile.RamGB -ge 16) { "SysMain 비활성화, Prefetch 부팅만" }
+    else { "활성화 유지 (소용량 RAM)" }
+)
+- 페이지 파일: $(
+    if ($global:SystemProfile.RamGB -ge 32) { "8-16GB 권장" }
+    elseif ($global:SystemProfile.RamGB -ge 16) { "16-32GB 권장" }
+    else { "RAM의 1.5-3배 권장" }
+)
+- Large System Cache: $(if ($global:SystemProfile.RamGB -ge 16) { "활성화 (RAM 16GB+)" } else { "비활성화" })
+
+[드라이브 기반 분기]
+- NVMe 드라이브: $(if ($global:SystemProfile.HasNVMe) { "감지됨 - Native NVMe 드라이버 활성화, SysMain 비활성화" } else { "미감지" })
+- SATA SSD: $(if ($global:SystemProfile.HasSSD -and -not $global:SystemProfile.HasNVMe) { "감지됨 - Last Access Time 비활성화, TRIM 활성화" } else { "미감지" })
+- HDD: $(if ($global:SystemProfile.HasHDD) { "감지됨 - Prefetch/Superfetch 유지, 디스크 조각모음 예약" } else { "미감지" })
+
+[ForceOverride 설정]
+- 상태: $(if ($global:ForceOverride) { "활성화 - 모든 설정 강제 재적용" } else { "비활성화 - 이미 적용된 설정 스킵" })
+"@
+
+    $logContent += @"
+
+================================================================================
+전체 통계 (모든 스크립트 합산)
+================================================================================
+총 설정 항목: $($totalApplied + $totalSkipped + $totalFailed) 개
+  - 적용됨: $totalApplied 개
+  - 스킵됨: $totalSkipped 개 (이미 최적 설정)
+  - 실패: $totalFailed 개
+
+================================================================================
+로그 파일: $global:OrchestrateLogFile
+================================================================================
+"@
+
+    $logContent | Set-Content -Path $global:OrchestrateLogFile -Encoding UTF8
+    return @{
+        TotalApplied = $totalApplied
+        TotalSkipped = $totalSkipped
+        TotalFailed = $totalFailed
+        Duration = $durationStr
+    }
+}
+
+# Summary 콘솔 출력
+function Show-OrchestrateSummary {
+    param(
+        [array]$CompletedItems,
+        [array]$FailedItems
+    )
+
+    $stats = Save-OrchestrateSummary -CompletedItems $CompletedItems -FailedItems $FailedItems -SkippedItems @()
+
+    Write-Host ""
+    Write-Host "====================================================" -ForegroundColor Cyan
+    Write-Host "  전체 최적화 Summary" -ForegroundColor Cyan
+    Write-Host "====================================================" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host " 총 소요 시간: $($stats.Duration)" -ForegroundColor White
+    Write-Host ""
+    Write-Host " [스크립트별 결과]" -ForegroundColor Yellow
+    Write-Host " ------------------------------------------------" -ForegroundColor Gray
+
+    foreach ($result in $global:ScriptResults) {
+        $statusIcon = switch ($result.Status) {
+            "완료" { "[V]" }
+            "실패" { "[X]" }
+            "스킵" { "[-]" }
+            default { "[?]" }
+        }
+        $statusColor = switch ($result.Status) {
+            "완료" { "Green" }
+            "실패" { "Red" }
+            "스킵" { "Gray" }
+            default { "White" }
+        }
+
+        $idStr = $result.Id.ToString().PadLeft(2)
+        $nameStr = $result.Name.PadRight(28)
+        $statsStr = "적용:$($result.AppliedCount) 스킵:$($result.SkippedCount) 실패:$($result.FailedCount)"
+
+        Write-Host " $statusIcon $idStr. $nameStr $statsStr" -ForegroundColor $statusColor
+    }
+
+    Write-Host " ------------------------------------------------" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host " [전체 통계]" -ForegroundColor Yellow
+    Write-Host "  - 적용됨: $($stats.TotalApplied) 개" -ForegroundColor Green
+    Write-Host "  - 스킵됨: $($stats.TotalSkipped) 개 (이미 최적 설정)" -ForegroundColor Gray
+    Write-Host "  - 실패: $($stats.TotalFailed) 개" -ForegroundColor Red
+    Write-Host ""
+    Write-Host " 로그 파일: $global:OrchestrateLogFile" -ForegroundColor Cyan
+    Write-Host ""
+}
 
 # 상태 저장 경로 정의
 $global:StateFilePath = "$env:LOCALAPPDATA\Windows11Optimizer\state.json"
@@ -142,13 +465,43 @@ function Unregister-RunOnce {
 
 # ===== 메뉴 UI 함수 =====
 
+function Show-SystemInfo {
+    Write-Host ""
+    Write-Host " [시스템 정보]" -ForegroundColor Cyan
+    Write-Host " ------------------------------------------------" -ForegroundColor Gray
+
+    # RAM 정보
+    $ramInfo = if ($global:SystemProfile.RamGB -ge 32) { "$(($global:SystemProfile.RamGB)) GB (대용량)" }
+               elseif ($global:SystemProfile.RamGB -ge 16) { "$(($global:SystemProfile.RamGB)) GB (중간)" }
+               else { "$(($global:SystemProfile.RamGB)) GB (소용량)" }
+    Write-Host " RAM: $ramInfo" -ForegroundColor White
+
+    # 드라이브 정보
+    $driveInfo = @()
+    if ($global:SystemProfile.HasNVMe) { $driveInfo += "NVMe" }
+    if ($global:SystemProfile.HasSSD -and -not $global:SystemProfile.HasNVMe) { $driveInfo += "SATA SSD" }
+    if ($global:SystemProfile.HasHDD) { $driveInfo += "HDD" }
+    $driveStr = if ($driveInfo.Count -gt 0) { $driveInfo -join ", " } else { "감지 안됨" }
+    Write-Host " 드라이브: $driveStr" -ForegroundColor White
+
+    # ForceOverride 상태
+    $forceStr = if ($global:ForceOverride) { "활성화 (모든 설정 강제 재적용)" } else { "비활성화 (이미 적용된 설정 스킵)" }
+    $forceColor = if ($global:ForceOverride) { "Yellow" } else { "Gray" }
+    Write-Host " ForceOverride: $forceStr" -ForegroundColor $forceColor
+    Write-Host " ------------------------------------------------" -ForegroundColor Gray
+}
+
 function Show-Menu {
     param([hashtable]$SelectedItems)
 
     Clear-Host
     Write-Host "====================================================" -ForegroundColor Cyan
-    Write-Host "  Windows 11 25H2 원클릭 최적화 스크립트" -ForegroundColor Cyan
+    Write-Host "  Windows 11 25H2 원클릭 최적화 스크립트 v$scriptVersion" -ForegroundColor Cyan
     Write-Host "====================================================" -ForegroundColor Cyan
+
+    # 시스템 정보 표시
+    Show-SystemInfo
+
     Write-Host ""
     Write-Host " 숫자를 눌러 항목을 선택/해제하세요 (체크박스 토글)" -ForegroundColor White
     Write-Host ""
@@ -171,6 +524,8 @@ function Show-Menu {
     Write-Host " [A] 전체 선택      [N] 전체 해제" -ForegroundColor Cyan
     Write-Host " [B] 기본 프리셋    [G] 게임 프리셋" -ForegroundColor Cyan
     Write-Host " [S] 서버 프리셋    [W] 웹서버 프리셋" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host " [F] ForceOverride 토글 (현재: $(if ($global:ForceOverride) { 'ON' } else { 'OFF' }))" -ForegroundColor $(if ($global:ForceOverride) { 'Yellow' } else { 'Gray' })
     Write-Host ""
     Write-Host " [R] 실행 시작      [Q] 종료" -ForegroundColor Yellow
     Write-Host ""
@@ -236,9 +591,21 @@ function Get-UserSelection {
                 Write-Host "종료합니다." -ForegroundColor Yellow
                 exit
             }
+            "F" {
+                # ForceOverride 토글
+                $global:ForceOverride = -not $global:ForceOverride
+                if ($global:ForceOverride) {
+                    Write-Host ""
+                    Write-Host "ForceOverride 활성화: 이미 적용된 설정도 강제로 재적용합니다." -ForegroundColor Yellow
+                } else {
+                    Write-Host ""
+                    Write-Host "ForceOverride 비활성화: 이미 적용된 설정은 스킵합니다." -ForegroundColor Gray
+                }
+                Start-Sleep -Seconds 1
+            }
             default {
                 $num = 0
-                if ([int]::TryParse($key, [ref]$num) -and $num -ge 1 -and $num -le 20) {
+                if ([int]::TryParse($key, [ref]$num) -and $num -ge 1 -and $num -le 22) {
                     if ($selected[$num]) {
                         $selected.Remove($num)
                     } else {
@@ -347,7 +714,7 @@ function Invoke-OptimizationScript {
     param([int]$ScriptId)
 
     $item = $global:ScriptItems | Where-Object { $_.Id -eq $ScriptId }
-    if (-not $item) { return $false }
+    if (-not $item) { return @{ Success = $false; AppliedCount = 0; SkippedCount = 0; FailedCount = 0 } }
 
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
@@ -355,14 +722,46 @@ function Invoke-OptimizationScript {
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
 
+    # 스크립트 실행 전 카운터 초기화 (개별 스크립트의 카운터를 가져오기 위해)
+    $global:AppliedCount = 0
+    $global:SkippedCount = 0
+    $global:FailedCount = 0
+
+    $startTime = Get-Date
+
     try {
         $scriptUrl = "$global:ScriptBaseUrl/$($item.File)"
         $scriptContent = Invoke-RestMethod $scriptUrl
         Invoke-Expression $scriptContent
-        return $true
+
+        $endTime = Get-Date
+        $duration = "{0:mm\:ss}" -f ($endTime - $startTime)
+
+        # 스크립트 실행 결과 기록 (개별 스크립트에서 설정한 카운터 값 사용)
+        Add-ScriptResult -ScriptId $item.Id -ScriptName $item.Name -Status "완료" `
+            -AppliedCount $global:AppliedCount -SkippedCount $global:SkippedCount -FailedCount $global:FailedCount `
+            -Duration $duration
+
+        return @{
+            Success = $true
+            AppliedCount = $global:AppliedCount
+            SkippedCount = $global:SkippedCount
+            FailedCount = $global:FailedCount
+        }
     } catch {
         Write-Host "오류 발생: $_" -ForegroundColor Red
-        return $false
+
+        # 실패 기록
+        Add-ScriptResult -ScriptId $item.Id -ScriptName $item.Name -Status "실패" `
+            -AppliedCount 0 -SkippedCount 0 -FailedCount 1 `
+            -Notes "오류: $_"
+
+        return @{
+            Success = $false
+            AppliedCount = 0
+            SkippedCount = 0
+            FailedCount = 1
+        }
     }
 }
 
@@ -373,8 +772,14 @@ function Invoke-ParallelScripts {
 
     # 단일 스크립트는 직접 실행
     if ($ScriptIds.Count -eq 1) {
-        $success = Invoke-OptimizationScript -ScriptId $ScriptIds[0]
-        return @(@{ Id = $ScriptIds[0]; Success = $success })
+        $result = Invoke-OptimizationScript -ScriptId $ScriptIds[0]
+        return @(@{
+            Id = $ScriptIds[0]
+            Success = $result.Success
+            AppliedCount = $result.AppliedCount
+            SkippedCount = $result.SkippedCount
+            FailedCount = $result.FailedCount
+        })
     }
 
     # 병렬 실행 시작 알림
@@ -394,22 +799,40 @@ function Invoke-ParallelScripts {
         $scriptUrl = "$global:ScriptBaseUrl/$($item.File)"
 
         $job = Start-Job -ScriptBlock {
-            param($url)
+            param($url, $forceOverride)
             # UTF-8 인코딩 설정
             [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
             $OutputEncoding = [System.Text.Encoding]::UTF8
 
-            # OrchestrateMode 설정
+            # OrchestrateMode 및 ForceOverride 설정
             $global:OrchestrateMode = $true
+            $global:ForceOverride = $forceOverride
+
+            # 카운터 초기화
+            $global:AppliedCount = 0
+            $global:SkippedCount = 0
+            $global:FailedCount = 0
 
             try {
                 $content = Invoke-RestMethod $url
                 Invoke-Expression $content
-                return @{ Success = $true; Error = $null }
+                return @{
+                    Success = $true
+                    Error = $null
+                    AppliedCount = $global:AppliedCount
+                    SkippedCount = $global:SkippedCount
+                    FailedCount = $global:FailedCount
+                }
             } catch {
-                return @{ Success = $false; Error = $_.Exception.Message }
+                return @{
+                    Success = $false
+                    Error = $_.Exception.Message
+                    AppliedCount = 0
+                    SkippedCount = 0
+                    FailedCount = 1
+                }
             }
-        } -ArgumentList $scriptUrl
+        } -ArgumentList $scriptUrl, $global:ForceOverride
 
         $jobs += @{ Job = $job; Id = $id }
     }
@@ -428,12 +851,22 @@ function Invoke-ParallelScripts {
         # 결과 출력
         Write-Host ""
         if ($output.Success) {
-            Write-Host "[$id] $($item.Name) 완료" -ForegroundColor Green
+            Write-Host "[$id] $($item.Name) 완료 (적용:$($output.AppliedCount) 스킵:$($output.SkippedCount) 실패:$($output.FailedCount))" -ForegroundColor Green
+            Add-ScriptResult -ScriptId $id -ScriptName $item.Name -Status "완료" `
+                -AppliedCount $output.AppliedCount -SkippedCount $output.SkippedCount -FailedCount $output.FailedCount
         } else {
             Write-Host "[$id] $($item.Name) 실패: $($output.Error)" -ForegroundColor Red
+            Add-ScriptResult -ScriptId $id -ScriptName $item.Name -Status "실패" `
+                -AppliedCount 0 -SkippedCount 0 -FailedCount 1 -Notes "오류: $($output.Error)"
         }
 
-        $results += @{ Id = $id; Success = $output.Success }
+        $results += @{
+            Id = $id
+            Success = $output.Success
+            AppliedCount = $output.AppliedCount
+            SkippedCount = $output.SkippedCount
+            FailedCount = $output.FailedCount
+        }
     }
 
     return $results
@@ -537,27 +970,14 @@ function Start-OptimizationProcess {
         Write-Host "  - 총 $removedCount 개 바로가기 삭제 완료" -ForegroundColor Green
     }
 
+    # 전체 Summary 출력 및 로그 저장
+    Show-OrchestrateSummary -CompletedItems ([array]$completedItems) -FailedItems ([array]$failedItems)
+
     # 완료 메시지
     Write-Host ""
     Write-Host "====================================================" -ForegroundColor Cyan
     Write-Host "  모든 최적화가 완료되었습니다!" -ForegroundColor Green
     Write-Host "====================================================" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "완료된 항목:" -ForegroundColor Yellow
-    foreach ($id in $completedItems) {
-        $item = $global:ScriptItems | Where-Object { $_.Id -eq $id }
-        Write-Host "  - $($item.Name)" -ForegroundColor Green
-    }
-
-    # 실패한 항목 표시
-    if ($failedItems.Count -gt 0) {
-        Write-Host ""
-        Write-Host "실패한 항목:" -ForegroundColor Red
-        foreach ($id in $failedItems) {
-            $item = $global:ScriptItems | Where-Object { $_.Id -eq $id }
-            Write-Host "  - $($item.Name)" -ForegroundColor Red
-        }
-    }
 
     # 재부팅 필요 여부 확인
     $hasRebootItems = $false

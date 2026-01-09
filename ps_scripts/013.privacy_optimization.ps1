@@ -5,7 +5,8 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.0.0"
+$scriptVersion = "1.1.1"
+$scriptName = "013.privacy_optimization.ps1"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -26,6 +27,206 @@ $script:ScriptMetadata = @{
     Description = "위치 서비스, 진단 피드백, 앱 권한, 백그라운드 앱, 동기화, 활동 기록, 광고 추적 비활성화"
     RequiresReboot = $true
 }
+
+# ===== 로깅 시스템 =====
+$logFileName = "Windows11Optimizer_013_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+$logDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "windows11-optimization-logs"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+$global:LogFilePath = Join-Path $logDir $logFileName
+$global:LogEntries = [System.Collections.ArrayList]@()
+$global:AppliedCount = 0
+$global:SkippedCount = 0
+$global:FailedCount = 0
+
+function Write-OptLog {
+    param(
+        [string]$Step,
+        [string]$Status,
+        [string]$Message,
+        [string]$PreviousValue = "",
+        [string]$NewValue = ""
+    )
+
+    $entry = [PSCustomObject]@{
+        Timestamp = Get-Date -Format "HH:mm:ss"
+        Step = $Step
+        Status = $Status
+        Message = $Message
+        PreviousValue = $PreviousValue
+        NewValue = $NewValue
+    }
+
+    [void]$global:LogEntries.Add($entry)
+
+    switch ($Status) {
+        "적용됨" { $global:AppliedCount++ }
+        "스킵됨" { $global:SkippedCount++ }
+        "실패" { $global:FailedCount++ }
+    }
+}
+
+function Save-OptLog {
+    $logContent = @"
+================================================================================
+Windows 11 Optimization Log - Privacy Optimization
+================================================================================
+실행 시간: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+스크립트: $scriptName v$scriptVersion
+================================================================================
+
+단계별 결과
+================================================================================
+
+"@
+
+    foreach ($entry in $global:LogEntries) {
+        $logContent += "[$($entry.Timestamp)] [$($entry.Step)]`n"
+        $logContent += "  상태: $($entry.Status)`n"
+        $logContent += "  내용: $($entry.Message)`n"
+        if ($entry.PreviousValue) {
+            $logContent += "  이전값: $($entry.PreviousValue)`n"
+        }
+        if ($entry.NewValue) {
+            $logContent += "  새값: $($entry.NewValue)`n"
+        }
+        $logContent += "`n"
+    }
+
+    $logContent += @"
+================================================================================
+Summary
+================================================================================
+총 항목: $($global:AppliedCount + $global:SkippedCount + $global:FailedCount)
+적용됨: $global:AppliedCount
+스킵됨: $global:SkippedCount (이미 최적 설정)
+실패: $global:FailedCount
+
+로그 파일: $global:LogFilePath
+================================================================================
+"@
+
+    $logContent | Set-Content -Path $global:LogFilePath -Encoding UTF8
+}
+
+# ===== 공통 함수 =====
+function Set-RegistryIfDifferent {
+    param(
+        [string]$Path,
+        [string]$Name,
+        [object]$Value,
+        [string]$Type = "DWord",
+        [string]$StepName,
+        [string]$Description = ""
+    )
+
+    if (!(Test-Path $Path)) {
+        New-Item -Path $Path -Force | Out-Null
+    }
+
+    $currentValue = (Get-ItemProperty -Path $Path -Name $Name -ErrorAction SilentlyContinue).$Name
+
+    if ($currentValue -eq $Value) {
+        $msg = if ($Description) { "$Description : 이미 설정됨" } else { "$Name : 이미 설정됨" }
+        Write-Host "  - $msg (스킵)" -ForegroundColor Gray
+        Write-OptLog -Step $StepName -Status "스킵됨" -Message "$Name 이미 최적값" -PreviousValue "$currentValue" -NewValue "$Value"
+        return $false
+    }
+
+    try {
+        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type
+        $msg = if ($Description) { "$Description : $currentValue → $Value" } else { "$Name : $currentValue → $Value" }
+        Write-Host "  - $msg (적용됨)" -ForegroundColor Green
+        Write-OptLog -Step $StepName -Status "적용됨" -Message "$Name 변경됨" -PreviousValue "$currentValue" -NewValue "$Value"
+        return $true
+    } catch {
+        $msg = if ($Description) { "$Description : 설정 실패" } else { "$Name : 설정 실패" }
+        Write-Host "  - $msg" -ForegroundColor Red
+        Write-OptLog -Step $StepName -Status "실패" -Message "$Name 설정 실패: $_"
+        return $false
+    }
+}
+
+function Set-ServiceIfDifferent {
+    param(
+        [string]$ServiceName,
+        [string]$StartupType,
+        [bool]$StopService = $false,
+        [string]$StepName,
+        [string]$Description = ""
+    )
+
+    $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+    if (-not $service) {
+        $msg = if ($Description) { "$Description : 서비스 없음" } else { "$ServiceName : 서비스 없음" }
+        Write-Host "  - $msg (스킵)" -ForegroundColor Gray
+        Write-OptLog -Step $StepName -Status "스킵됨" -Message "서비스 없음"
+        return $false
+    }
+
+    $currentStartType = $service.StartType.ToString()
+
+    if ($currentStartType -eq $StartupType) {
+        $msg = if ($Description) { "$Description : 이미 $StartupType" } else { "$ServiceName : 이미 $StartupType" }
+        Write-Host "  - $msg (스킵)" -ForegroundColor Gray
+        Write-OptLog -Step $StepName -Status "스킵됨" -Message "이미 $StartupType" -PreviousValue $currentStartType
+        return $false
+    }
+
+    try {
+        if ($StopService -and $service.Status -eq "Running") {
+            Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
+        }
+
+        Set-Service -Name $ServiceName -StartupType $StartupType
+        $msg = if ($Description) { "$Description : $currentStartType → $StartupType" } else { "$ServiceName : $currentStartType → $StartupType" }
+        Write-Host "  - $msg (적용됨)" -ForegroundColor Green
+        Write-OptLog -Step $StepName -Status "적용됨" -Message "변경됨" -PreviousValue $currentStartType -NewValue $StartupType
+        return $true
+    } catch {
+        $msg = if ($Description) { "$Description : 설정 실패" } else { "$ServiceName : 설정 실패" }
+        Write-Host "  - $msg" -ForegroundColor Red
+        Write-OptLog -Step $StepName -Status "실패" -Message "설정 실패: $_"
+        return $false
+    }
+}
+
+function Disable-ScheduledTaskIfEnabled {
+    param(
+        [string]$TaskName,
+        [string]$StepName,
+        [string]$Description = ""
+    )
+
+    $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    if (-not $task) {
+        $msg = if ($Description) { "$Description : 작업 없음" } else { "$TaskName : 작업 없음" }
+        Write-Host "  - $msg (스킵)" -ForegroundColor Gray
+        Write-OptLog -Step $StepName -Status "스킵됨" -Message "작업 없음"
+        return $false
+    }
+
+    if ($task.State -eq "Disabled") {
+        $msg = if ($Description) { "$Description : 이미 비활성화됨" } else { "$TaskName : 이미 비활성화됨" }
+        Write-Host "  - $msg (스킵)" -ForegroundColor Gray
+        Write-OptLog -Step $StepName -Status "스킵됨" -Message "이미 비활성화됨"
+        return $false
+    }
+
+    try {
+        Disable-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -ErrorAction Stop | Out-Null
+        $msg = if ($Description) { "$Description : 비활성화됨" } else { "$TaskName : 비활성화됨" }
+        Write-Host "  - $msg (적용됨)" -ForegroundColor Green
+        Write-OptLog -Step $StepName -Status "적용됨" -Message "비활성화됨"
+        return $true
+    } catch {
+        $msg = if ($Description) { "$Description : 비활성화 실패" } else { "$TaskName : 비활성화 실패" }
+        Write-Host "  - $msg" -ForegroundColor Red
+        Write-OptLog -Step $StepName -Status "실패" -Message "비활성화 실패: $_"
+        return $false
+    }
+}
+
+# ===== 메인 스크립트 시작 =====
 
 Write-Host "=== Windows 11 25H2 개인정보 보호 최적화 v$scriptVersion ===" -ForegroundColor Cyan
 Write-Host "위치 서비스, 진단 피드백, 앱 권한, 광고 추적 등을 비활성화합니다." -ForegroundColor White
@@ -50,114 +251,51 @@ Write-Host ""
 # [1/7] 위치 서비스 비활성화
 Write-Host "[1/$totalSteps] 위치 서비스 비활성화 중..." -ForegroundColor Yellow
 
-# 위치 서비스 시스템 전체 비활성화
-$locationPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location"
-if (!(Test-Path $locationPath)) {
-    New-Item -Path $locationPath -Force | Out-Null
-}
-Set-ItemProperty -Path $locationPath -Name "Value" -Value "Deny" -Type String
-Write-Host "  - 시스템 위치 서비스 비활성화" -ForegroundColor Green
-
-# 위치 서비스 사용자 레벨 비활성화
-$locationPathUser = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location"
-if (!(Test-Path $locationPathUser)) {
-    New-Item -Path $locationPathUser -Force | Out-Null
-}
-Set-ItemProperty -Path $locationPathUser -Name "Value" -Value "Deny" -Type String
-Write-Host "  - 사용자 위치 서비스 비활성화" -ForegroundColor Green
-
-# 위치 센서 비활성화
-$sensorPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors"
-if (!(Test-Path $sensorPath)) {
-    New-Item -Path $sensorPath -Force | Out-Null
-}
-Set-ItemProperty -Path $sensorPath -Name "DisableLocation" -Value 1 -Type DWord
-Set-ItemProperty -Path $sensorPath -Name "DisableLocationScripting" -Value 1 -Type DWord
-Set-ItemProperty -Path $sensorPath -Name "DisableWindowsLocationProvider" -Value 1 -Type DWord
-Write-Host "  - 위치 센서 및 스크립팅 비활성화" -ForegroundColor Green
+$stepName = "1. 위치 서비스"
+Set-RegistryIfDifferent -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location" -Name "Value" -Value "Deny" -Type "String" -StepName $stepName -Description "시스템 위치 서비스"
+Set-RegistryIfDifferent -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location" -Name "Value" -Value "Deny" -Type "String" -StepName $stepName -Description "사용자 위치 서비스"
+Set-RegistryIfDifferent -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors" -Name "DisableLocation" -Value 1 -StepName $stepName -Description "위치 비활성화"
+Set-RegistryIfDifferent -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors" -Name "DisableLocationScripting" -Value 1 -StepName $stepName -Description "위치 스크립팅 비활성화"
+Set-RegistryIfDifferent -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\LocationAndSensors" -Name "DisableWindowsLocationProvider" -Value 1 -StepName $stepName -Description "위치 제공자 비활성화"
 
 # 위치 서비스 관련 서비스 비활성화
-$locationServices = @("lfsvc")
-foreach ($svc in $locationServices) {
-    $service = Get-Service -Name $svc -ErrorAction SilentlyContinue
-    if ($service) {
-        Stop-Service -Name $svc -Force -ErrorAction SilentlyContinue
-        Set-Service -Name $svc -StartupType Disabled -ErrorAction SilentlyContinue
-        Write-Host "  - $svc (Geolocation Service) 비활성화" -ForegroundColor Green
-    }
-}
+Set-ServiceIfDifferent -ServiceName "lfsvc" -StartupType "Disabled" -StopService $true -StepName $stepName -Description "Geolocation Service"
 
 
 # [2/7] 진단 피드백 완전 비활성화
 Write-Host ""
 Write-Host "[2/$totalSteps] 진단 피드백 완전 비활성화 중..." -ForegroundColor Yellow
 
-# 진단 데이터 수준을 최소로 설정 (Security/Basic = 0)
+$stepName = "2. 진단 피드백"
 $diagDataPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection"
-if (!(Test-Path $diagDataPath)) {
-    New-Item -Path $diagDataPath -Force | Out-Null
-}
-Set-ItemProperty -Path $diagDataPath -Name "AllowTelemetry" -Value 0 -Type DWord
-Set-ItemProperty -Path $diagDataPath -Name "MaxTelemetryAllowed" -Value 0 -Type DWord
-Set-ItemProperty -Path $diagDataPath -Name "DisableEnterpriseAuthProxy" -Value 1 -Type DWord
-Write-Host "  - 진단 데이터 수준 최소화 (Security)" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $diagDataPath -Name "AllowTelemetry" -Value 0 -StepName $stepName -Description "진단 데이터 수준"
+Set-RegistryIfDifferent -Path $diagDataPath -Name "MaxTelemetryAllowed" -Value 0 -StepName $stepName -Description "최대 텔레메트리"
+Set-RegistryIfDifferent -Path $diagDataPath -Name "DisableEnterpriseAuthProxy" -Value 1 -StepName $stepName -Description "엔터프라이즈 인증 프록시"
 
-# 피드백 빈도 비활성화
 $feedbackPath = "HKCU:\Software\Microsoft\Siuf\Rules"
-if (!(Test-Path $feedbackPath)) {
-    New-Item -Path $feedbackPath -Force | Out-Null
-}
-Set-ItemProperty -Path $feedbackPath -Name "NumberOfSIUFInPeriod" -Value 0 -Type DWord
-Set-ItemProperty -Path $feedbackPath -Name "PeriodInNanoSeconds" -Value 0 -Type DWord
-Write-Host "  - 피드백 요청 빈도 비활성화" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $feedbackPath -Name "NumberOfSIUFInPeriod" -Value 0 -StepName $stepName -Description "피드백 요청 횟수"
+Set-RegistryIfDifferent -Path $feedbackPath -Name "PeriodInNanoSeconds" -Value 0 -StepName $stepName -Description "피드백 요청 기간"
 
 # 진단 서비스 비활성화
-$diagServices = @(
-    "DiagTrack",      # Connected User Experiences and Telemetry
-    "dmwappushservice" # Device Management WAP Push message Routing Service
-)
+$diagServices = @("DiagTrack", "dmwappushservice")
 foreach ($svc in $diagServices) {
-    $service = Get-Service -Name $svc -ErrorAction SilentlyContinue
-    if ($service) {
-        Stop-Service -Name $svc -Force -ErrorAction SilentlyContinue
-        Set-Service -Name $svc -StartupType Disabled -ErrorAction SilentlyContinue
-        Write-Host "  - $svc 서비스 비활성화" -ForegroundColor Green
-    }
+    Set-ServiceIfDifferent -ServiceName $svc -StartupType "Disabled" -StopService $true -StepName $stepName -Description $svc
 }
 
-# 진단 데이터 뷰어 비활성화
 $diagViewerPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Diagnostics\DiagTrack\EventTranscriptKey"
-if (!(Test-Path $diagViewerPath)) {
-    New-Item -Path $diagViewerPath -Force | Out-Null
-}
-Set-ItemProperty -Path $diagViewerPath -Name "EnableEventTranscript" -Value 0 -Type DWord -ErrorAction SilentlyContinue
-Write-Host "  - 진단 데이터 뷰어 비활성화" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $diagViewerPath -Name "EnableEventTranscript" -Value 0 -StepName $stepName -Description "진단 데이터 뷰어"
 
 # 오류 보고 비활성화
 $werPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting"
-if (!(Test-Path $werPath)) {
-    New-Item -Path $werPath -Force | Out-Null
-}
-Set-ItemProperty -Path $werPath -Name "Disabled" -Value 1 -Type DWord
-Set-ItemProperty -Path $werPath -Name "DontSendAdditionalData" -Value 1 -Type DWord
-Set-ItemProperty -Path $werPath -Name "LoggingDisabled" -Value 1 -Type DWord
-Write-Host "  - Windows 오류 보고 비활성화" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $werPath -Name "Disabled" -Value 1 -StepName $stepName -Description "오류 보고 비활성화"
+Set-RegistryIfDifferent -Path $werPath -Name "DontSendAdditionalData" -Value 1 -StepName $stepName -Description "추가 데이터 전송 안함"
+Set-RegistryIfDifferent -Path $werPath -Name "LoggingDisabled" -Value 1 -StepName $stepName -Description "로깅 비활성화"
 
 # 필기 및 타이핑 데이터 수집 비활성화
 $inkTypingPath = "HKCU:\Software\Microsoft\InputPersonalization"
-if (!(Test-Path $inkTypingPath)) {
-    New-Item -Path $inkTypingPath -Force | Out-Null
-}
-Set-ItemProperty -Path $inkTypingPath -Name "RestrictImplicitInkCollection" -Value 1 -Type DWord
-Set-ItemProperty -Path $inkTypingPath -Name "RestrictImplicitTextCollection" -Value 1 -Type DWord
-Write-Host "  - 필기/타이핑 데이터 수집 비활성화" -ForegroundColor Green
-
-$inkTypingPath2 = "HKCU:\Software\Microsoft\InputPersonalization\TrainedDataStore"
-if (!(Test-Path $inkTypingPath2)) {
-    New-Item -Path $inkTypingPath2 -Force | Out-Null
-}
-Set-ItemProperty -Path $inkTypingPath2 -Name "HarvestContacts" -Value 0 -Type DWord
-Write-Host "  - 연락처 수집 비활성화" -ForegroundColor Green
+Set-RegistryIfDifferent -Path $inkTypingPath -Name "RestrictImplicitInkCollection" -Value 1 -StepName $stepName -Description "필기 데이터 수집 제한"
+Set-RegistryIfDifferent -Path $inkTypingPath -Name "RestrictImplicitTextCollection" -Value 1 -StepName $stepName -Description "타이핑 데이터 수집 제한"
+Set-RegistryIfDifferent -Path "HKCU:\Software\Microsoft\InputPersonalization\TrainedDataStore" -Name "HarvestContacts" -Value 0 -StepName $stepName -Description "연락처 수집"
 
 
 # [3/7] 앱 권한 제한 (카메라, 마이크, 연락처 등)
@@ -521,10 +659,21 @@ Write-Host "  - 고객 환경 개선 프로그램 작업 비활성화" -Foregrou
 
 
 # 완료 메시지
+# 로그 저장
+Save-OptLog
+
+# Summary 출력
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "개인정보 보호 최적화가 완료되었습니다!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Summary:" -ForegroundColor Yellow
+Write-Host "  - 적용됨: $($global:AppliedCount) 개" -ForegroundColor Green
+Write-Host "  - 스킵됨: $($global:SkippedCount) 개 (이미 최적 설정)" -ForegroundColor Gray
+Write-Host "  - 실패: $($global:FailedCount) 개" -ForegroundColor Red
+Write-Host ""
+Write-Host "로그 파일: $($global:LogFilePath)" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "적용된 설정:" -ForegroundColor Yellow
 Write-Host "  - 위치 서비스 완전 비활성화" -ForegroundColor White

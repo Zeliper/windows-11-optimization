@@ -18,12 +18,14 @@ if ($null -eq $global:OrchestrateMode) {
 }
 
 # 스크립트 버전
-$scriptVersion = "1.1.0"
+$scriptVersion = "1.1.1"
 $scriptName = "022.advanced_gaming_optimization.ps1"
 
 # ===== 로깅 시스템 =====
 $logFileName = "Windows11Optimizer_022_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
-$global:LogFilePath = Join-Path ([Environment]::GetFolderPath('MyDocuments')) $logFileName
+$logDir = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "windows11-optimization-logs"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+$global:LogFilePath = Join-Path $logDir $logFileName
 $global:LogEntries = [System.Collections.ArrayList]@()
 $global:AppliedCount = 0
 $global:SkippedCount = 0
