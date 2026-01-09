@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.0"
+$scriptVersion = "1.1.1"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -798,8 +798,15 @@ function Invoke-ParallelScripts {
         $item = $global:ScriptItems | Where-Object { $_.Id -eq $id }
         $scriptUrl = "$global:ScriptBaseUrl/$($item.File)"
 
+        # ExperimentalOptions를 JSON으로 직렬화하여 전달 (Job 간 글로벌 변수 공유 불가)
+        $experimentalOptionsJson = if ($global:ExperimentalOptions) {
+            $global:ExperimentalOptions | ConvertTo-Json -Compress
+        } else {
+            "{}"
+        }
+
         $job = Start-Job -ScriptBlock {
-            param($url, $forceOverride)
+            param($url, $forceOverride, $experimentalJson)
             # UTF-8 인코딩 설정
             [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
             $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -807,6 +814,13 @@ function Invoke-ParallelScripts {
             # OrchestrateMode 및 ForceOverride 설정
             $global:OrchestrateMode = $true
             $global:ForceOverride = $forceOverride
+
+            # ExperimentalOptions 복원
+            try {
+                $global:ExperimentalOptions = $experimentalJson | ConvertFrom-Json -AsHashtable
+            } catch {
+                $global:ExperimentalOptions = @{}
+            }
 
             # 카운터 초기화
             $global:AppliedCount = 0
@@ -832,7 +846,7 @@ function Invoke-ParallelScripts {
                     FailedCount = 1
                 }
             }
-        } -ArgumentList $scriptUrl, $global:ForceOverride
+        } -ArgumentList $scriptUrl, $global:ForceOverride, $experimentalOptionsJson
 
         $jobs += @{ Job = $job; Id = $id }
     }

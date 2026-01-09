@@ -4,7 +4,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.1"
+$scriptVersion = "1.1.2"
 $scriptName = "006.software_install.ps1"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
@@ -124,6 +124,39 @@ function Test-SoftwareInstalled {
         }
     }
 
+    return $false
+}
+
+# 파일 연결이 특정 ProgId로 설정되어 있는지 확인하는 함수
+function Test-FileAssociation {
+    param(
+        [string]$Extension,
+        [string]$ExpectedProgId
+    )
+
+    # UserChoice에서 현재 연결된 ProgId 확인
+    $userChoicePath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$Extension\UserChoice"
+    $currentProgId = (Get-ItemProperty -Path $userChoicePath -Name "ProgId" -ErrorAction SilentlyContinue).ProgId
+
+    if ($currentProgId -and $currentProgId -like "*$ExpectedProgId*") {
+        return $true
+    }
+    return $false
+}
+
+# URL 프로토콜 연결 확인 함수
+function Test-ProtocolAssociation {
+    param(
+        [string]$Protocol,
+        [string]$ExpectedProgId
+    )
+
+    $userChoicePath = "HKCU:\SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\$Protocol\UserChoice"
+    $currentProgId = (Get-ItemProperty -Path $userChoicePath -Name "ProgId" -ErrorAction SilentlyContinue).ProgId
+
+    if ($currentProgId -and $currentProgId -like "*$ExpectedProgId*") {
+        return $true
+    }
     return $false
 }
 
@@ -565,47 +598,62 @@ if ((Test-Path $nppPath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) 
 
     # ProgId를 HKCU\SOFTWARE\Classes에 등록 (사용자별 설정)
     $progId = "Notepad++_file"
-    $hkcuClassesPath = "HKCU:\SOFTWARE\Classes\$progId"
 
-    try {
-        if (-not (Test-Path $hkcuClassesPath)) {
-            New-Item -Path $hkcuClassesPath -Force | Out-Null
-            New-Item -Path "$hkcuClassesPath\shell\open\command" -Force | Out-Null
+    # 이미 모든 확장자가 Notepad++로 연결되어 있는지 확인
+    $alreadySet = $true
+    foreach ($ext in $extensions) {
+        if (-not (Test-FileAssociation -Extension $ext -ExpectedProgId $progId)) {
+            $alreadySet = $false
+            break
         }
-        Set-ItemProperty -Path $hkcuClassesPath -Name "(Default)" -Value "Notepad++ Document" -Force
-        Set-ItemProperty -Path "$hkcuClassesPath\shell\open\command" -Name "(Default)" -Value "`"$nppPath`" `"%1`"" -Force
+    }
 
-        # OpenWithProgids 정리 및 ProgId 추가
-        foreach ($ext in $extensions) {
-            $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
-            $openWithProgids = "$fileExtPath\OpenWithProgids"
-            if (-not (Test-Path $openWithProgids)) {
-                New-Item -Path $openWithProgids -Force | Out-Null
+    if ($alreadySet) {
+        Write-Host "  - Notepad++ 파일 연결 : 이미 설정됨 (스킵)" -ForegroundColor Gray
+        Write-OptLog -Step "Notepad++ 파일 연결" -Status "스킵됨" -Message "이미 모든 확장자가 Notepad++로 연결됨"
+    } else {
+        $hkcuClassesPath = "HKCU:\SOFTWARE\Classes\$progId"
+
+        try {
+            if (-not (Test-Path $hkcuClassesPath)) {
+                New-Item -Path $hkcuClassesPath -Force | Out-Null
+                New-Item -Path "$hkcuClassesPath\shell\open\command" -Force | Out-Null
             }
-            # 기존 ProgId 제거
-            $existingProps = Get-ItemProperty -Path $openWithProgids -ErrorAction SilentlyContinue
-            if ($existingProps) {
-                foreach ($prop in $existingProps.PSObject.Properties) {
-                    if ($prop.Name -notlike "PS*") {
-                        Remove-ItemProperty -Path $openWithProgids -Name $prop.Name -ErrorAction SilentlyContinue
+            Set-ItemProperty -Path $hkcuClassesPath -Name "(Default)" -Value "Notepad++ Document" -Force
+            Set-ItemProperty -Path "$hkcuClassesPath\shell\open\command" -Name "(Default)" -Value "`"$nppPath`" `"%1`"" -Force
+
+            # OpenWithProgids 정리 및 ProgId 추가
+            foreach ($ext in $extensions) {
+                $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
+                $openWithProgids = "$fileExtPath\OpenWithProgids"
+                if (-not (Test-Path $openWithProgids)) {
+                    New-Item -Path $openWithProgids -Force | Out-Null
+                }
+                # 기존 ProgId 제거
+                $existingProps = Get-ItemProperty -Path $openWithProgids -ErrorAction SilentlyContinue
+                if ($existingProps) {
+                    foreach ($prop in $existingProps.PSObject.Properties) {
+                        if ($prop.Name -notlike "PS*") {
+                            Remove-ItemProperty -Path $openWithProgids -Name $prop.Name -ErrorAction SilentlyContinue
+                        }
                     }
                 }
+                # 우리 ProgId만 추가
+                New-ItemProperty -Path $openWithProgids -Name $progId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
             }
-            # 우리 ProgId만 추가
-            New-ItemProperty -Path $openWithProgids -Name $progId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
-        }
 
-        # SetUserFTA 순차 실행
-        $setCount = 0
-        foreach ($ext in $extensions) {
-            $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
-            if ($result -and $result.ExitCode -eq 0) { $setCount++ }
+            # SetUserFTA 순차 실행
+            $setCount = 0
+            foreach ($ext in $extensions) {
+                $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
+                if ($result -and $result.ExitCode -eq 0) { $setCount++ }
+            }
+            Write-Host "  - Notepad++ 파일 연결 : $setCount/$($extensions.Count)개 확장자 (적용됨)" -ForegroundColor Green
+            Write-OptLog -Step "Notepad++ 파일 연결" -Status "설치됨" -Message "$setCount/$($extensions.Count)개 확장자 연결됨"
+        } catch {
+            Write-Host "  - Notepad++ 파일 연결 : 실패 - $_" -ForegroundColor Red
+            Write-OptLog -Step "Notepad++ 파일 연결" -Status "실패" -Message "$_"
         }
-        Write-Host "  - Notepad++ 파일 연결 : $setCount/$($extensions.Count)개 확장자 (적용됨)" -ForegroundColor Green
-        Write-OptLog -Step "Notepad++ 파일 연결" -Status "설치됨" -Message "$setCount/$($extensions.Count)개 확장자 연결됨"
-    } catch {
-        Write-Host "  - Notepad++ 파일 연결 : 실패 - $_" -ForegroundColor Red
-        Write-OptLog -Step "Notepad++ 파일 연결" -Status "실패" -Message "$_"
     }
 } elseif (!(Test-Path $nppPath)) {
     Write-Host "  - Notepad++ 파일 연결 : 건너뜀 (Notepad++ 미설치)" -ForegroundColor Gray
@@ -652,67 +700,82 @@ try {
             ".psd", ".jfif", ".jpe", ".wdp", ".jxr"
         )
 
-        # OpenWithProgids 정리: Honeyview.{ext} ProgId만 남기고 경쟁 앱 모두 제거
+        # 이미 모든 이미지 확장자가 Honeyview로 연결되어 있는지 확인
+        $alreadySet = $true
         foreach ($ext in $imageExtensions) {
             $extWithoutDot = $ext.TrimStart(".")
-            $honeyviewProgId = "Honeyview.$extWithoutDot"
-
-            $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
-            $openWithProgids = "$fileExtPath\OpenWithProgids"
-
-            # OpenWithProgids 키가 없으면 생성
-            if (-not (Test-Path $openWithProgids)) {
-                New-Item -Path $openWithProgids -Force | Out-Null
+            if (-not (Test-FileAssociation -Extension $ext -ExpectedProgId "Honeyview.$extWithoutDot")) {
+                $alreadySet = $false
+                break
             }
+        }
 
-            # 기존 모든 ProgId 제거 (경쟁 앱 완전 제거)
-            $existingProps = Get-ItemProperty -Path $openWithProgids -ErrorAction SilentlyContinue
-            if ($existingProps) {
-                foreach ($prop in $existingProps.PSObject.Properties) {
-                    if ($prop.Name -notlike "PS*") {  # PowerShell 내부 속성 제외
-                        Remove-ItemProperty -Path $openWithProgids -Name $prop.Name -ErrorAction SilentlyContinue
+        if ($alreadySet) {
+            Write-Host "  - Honeyview 이미지 연결 : 이미 설정됨 (스킵)" -ForegroundColor Gray
+            Write-OptLog -Step "Honeyview 이미지 연결" -Status "스킵됨" -Message "이미 모든 이미지가 Honeyview로 연결됨"
+        } else {
+            # OpenWithProgids 정리: Honeyview.{ext} ProgId만 남기고 경쟁 앱 모두 제거
+            foreach ($ext in $imageExtensions) {
+                $extWithoutDot = $ext.TrimStart(".")
+                $honeyviewProgId = "Honeyview.$extWithoutDot"
+
+                $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
+                $openWithProgids = "$fileExtPath\OpenWithProgids"
+
+                # OpenWithProgids 키가 없으면 생성
+                if (-not (Test-Path $openWithProgids)) {
+                    New-Item -Path $openWithProgids -Force | Out-Null
+                }
+
+                # 기존 모든 ProgId 제거 (경쟁 앱 완전 제거)
+                $existingProps = Get-ItemProperty -Path $openWithProgids -ErrorAction SilentlyContinue
+                if ($existingProps) {
+                    foreach ($prop in $existingProps.PSObject.Properties) {
+                        if ($prop.Name -notlike "PS*") {  # PowerShell 내부 속성 제외
+                            Remove-ItemProperty -Path $openWithProgids -Name $prop.Name -ErrorAction SilentlyContinue
+                        }
+                    }
+                }
+
+                # Honeyview.{ext} ProgId만 추가 (Honeyview 설치 시 등록된 ProgId 사용)
+                New-ItemProperty -Path $openWithProgids -Name $honeyviewProgId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
+
+                # OpenWithList도 정리
+                $openWithList = "$fileExtPath\OpenWithList"
+                if (Test-Path $openWithList) {
+                    Remove-Item -Path $openWithList -Recurse -Force -ErrorAction SilentlyContinue
+                }
+
+                # UserChoice 키 삭제 (SetUserFTA가 새로 생성하도록)
+                $userChoice = "$fileExtPath\UserChoice"
+                if (Test-Path $userChoice) {
+                    try {
+                        $acl = Get-Acl -Path $userChoice
+                        $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
+                            [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
+                            "FullControl",
+                            "Allow"
+                        )
+                        $acl.SetAccessRule($rule)
+                        Set-Acl -Path $userChoice -AclObject $acl -ErrorAction SilentlyContinue
+                        Remove-Item -Path $userChoice -Recurse -Force -ErrorAction SilentlyContinue
+                    } catch {
+                        # 권한 변경 실패해도 계속 진행
                     }
                 }
             }
 
-            # Honeyview.{ext} ProgId만 추가 (Honeyview 설치 시 등록된 ProgId 사용)
-            New-ItemProperty -Path $openWithProgids -Name $honeyviewProgId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
-
-            # OpenWithList도 정리
-            $openWithList = "$fileExtPath\OpenWithList"
-            if (Test-Path $openWithList) {
-                Remove-Item -Path $openWithList -Recurse -Force -ErrorAction SilentlyContinue
+            # SetUserFTA로 각 확장자에 Honeyview.{ext} ProgId 연결
+            $setCount = 0
+            foreach ($ext in $imageExtensions) {
+                $extWithoutDot = $ext.TrimStart(".")
+                $honeyviewProgId = "Honeyview.$extWithoutDot"
+                $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $honeyviewProgId" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
+                if ($result -and $result.ExitCode -eq 0) { $setCount++ }
             }
-
-            # UserChoice 키 삭제 (SetUserFTA가 새로 생성하도록)
-            $userChoice = "$fileExtPath\UserChoice"
-            if (Test-Path $userChoice) {
-                try {
-                    $acl = Get-Acl -Path $userChoice
-                    $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
-                        [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
-                        "FullControl",
-                        "Allow"
-                    )
-                    $acl.SetAccessRule($rule)
-                    Set-Acl -Path $userChoice -AclObject $acl -ErrorAction SilentlyContinue
-                    Remove-Item -Path $userChoice -Recurse -Force -ErrorAction SilentlyContinue
-                } catch {
-                    # 권한 변경 실패해도 계속 진행
-                }
-            }
+            Write-Host "  - Honeyview 이미지 연결 : $setCount/$($imageExtensions.Count)개 확장자 (적용됨)" -ForegroundColor Green
+            Write-OptLog -Step "Honeyview 이미지 연결" -Status "설치됨" -Message "$setCount/$($imageExtensions.Count)개 확장자 연결됨"
         }
-
-        # SetUserFTA로 각 확장자에 Honeyview.{ext} ProgId 연결
-        $setCount = 0
-        foreach ($ext in $imageExtensions) {
-            $extWithoutDot = $ext.TrimStart(".")
-            $honeyviewProgId = "Honeyview.$extWithoutDot"
-            $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $honeyviewProgId" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
-            if ($result -and $result.ExitCode -eq 0) { $setCount++ }
-        }
-        Write-Host "  - Honeyview 이미지 연결 : $setCount/$($imageExtensions.Count)개 확장자 (적용됨)" -ForegroundColor Green
-        Write-OptLog -Step "Honeyview 이미지 연결" -Status "설치됨" -Message "$setCount/$($imageExtensions.Count)개 확장자 연결됨"
     } elseif (!(Test-Path $honeyviewPath)) {
         Write-Host "  - Honeyview 이미지 연결 : 건너뜀 (Honeyview 미설치)" -ForegroundColor Gray
         Write-OptLog -Step "Honeyview 이미지 연결" -Status "스킵됨" -Message "Honeyview 미설치"
@@ -745,68 +808,83 @@ if ((Test-Path $potPlayerPath) -and $setUserFtaPath -and (Test-Path $setUserFtaP
         # 전체 미디어 확장자
         $mediaExtensions = $videoExtensions + $audioExtensions
 
-        # OpenWithProgids 정리: PotPlayer64.{ext} ProgId만 남기고 경쟁 앱 모두 제거 (Honeyview 방식)
+        # 이미 모든 미디어 확장자가 PotPlayer로 연결되어 있는지 확인
+        $alreadySet = $true
         foreach ($ext in $mediaExtensions) {
             $extWithoutDot = $ext.TrimStart(".")
-            $potPlayerProgId = "PotPlayer64.$extWithoutDot"
-
-            $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
-            $openWithProgids = "$fileExtPath\OpenWithProgids"
-
-            # OpenWithProgids 키가 없으면 생성
-            if (-not (Test-Path $openWithProgids)) {
-                New-Item -Path $openWithProgids -Force | Out-Null
+            if (-not (Test-FileAssociation -Extension $ext -ExpectedProgId "PotPlayer64.$extWithoutDot")) {
+                $alreadySet = $false
+                break
             }
+        }
 
-            # 기존 모든 ProgId 제거 (경쟁 앱 완전 제거)
-            $existingProps = Get-ItemProperty -Path $openWithProgids -ErrorAction SilentlyContinue
-            if ($existingProps) {
-                foreach ($prop in $existingProps.PSObject.Properties) {
-                    if ($prop.Name -notlike "PS*") {
-                        Remove-ItemProperty -Path $openWithProgids -Name $prop.Name -ErrorAction SilentlyContinue
+        if ($alreadySet) {
+            Write-Host "  - PotPlayer 미디어 연결 : 이미 설정됨 (스킵)" -ForegroundColor Gray
+            Write-OptLog -Step "PotPlayer 미디어 연결" -Status "스킵됨" -Message "이미 모든 미디어가 PotPlayer로 연결됨"
+        } else {
+            # OpenWithProgids 정리: PotPlayer64.{ext} ProgId만 남기고 경쟁 앱 모두 제거 (Honeyview 방식)
+            foreach ($ext in $mediaExtensions) {
+                $extWithoutDot = $ext.TrimStart(".")
+                $potPlayerProgId = "PotPlayer64.$extWithoutDot"
+
+                $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
+                $openWithProgids = "$fileExtPath\OpenWithProgids"
+
+                # OpenWithProgids 키가 없으면 생성
+                if (-not (Test-Path $openWithProgids)) {
+                    New-Item -Path $openWithProgids -Force | Out-Null
+                }
+
+                # 기존 모든 ProgId 제거 (경쟁 앱 완전 제거)
+                $existingProps = Get-ItemProperty -Path $openWithProgids -ErrorAction SilentlyContinue
+                if ($existingProps) {
+                    foreach ($prop in $existingProps.PSObject.Properties) {
+                        if ($prop.Name -notlike "PS*") {
+                            Remove-ItemProperty -Path $openWithProgids -Name $prop.Name -ErrorAction SilentlyContinue
+                        }
+                    }
+                }
+
+                # PotPlayer64.{ext} ProgId만 추가 (PotPlayer 설치 시 등록된 ProgId 사용)
+                New-ItemProperty -Path $openWithProgids -Name $potPlayerProgId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
+
+                # OpenWithList도 정리
+                $openWithList = "$fileExtPath\OpenWithList"
+                if (Test-Path $openWithList) {
+                    Remove-Item -Path $openWithList -Recurse -Force -ErrorAction SilentlyContinue
+                }
+
+                # UserChoice 키 삭제 (SetUserFTA가 새로 생성하도록)
+                $userChoice = "$fileExtPath\UserChoice"
+                if (Test-Path $userChoice) {
+                    try {
+                        $acl = Get-Acl -Path $userChoice
+                        $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
+                            [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
+                            "FullControl",
+                            "Allow"
+                        )
+                        $acl.SetAccessRule($rule)
+                        Set-Acl -Path $userChoice -AclObject $acl -ErrorAction SilentlyContinue
+                        Remove-Item -Path $userChoice -Recurse -Force -ErrorAction SilentlyContinue
+                    } catch {
+                        # 권한 변경 실패해도 계속 진행
                     }
                 }
             }
 
-            # PotPlayer64.{ext} ProgId만 추가 (PotPlayer 설치 시 등록된 ProgId 사용)
-            New-ItemProperty -Path $openWithProgids -Name $potPlayerProgId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
-
-            # OpenWithList도 정리
-            $openWithList = "$fileExtPath\OpenWithList"
-            if (Test-Path $openWithList) {
-                Remove-Item -Path $openWithList -Recurse -Force -ErrorAction SilentlyContinue
+            # SetUserFTA로 각 확장자에 PotPlayer64.{ext} ProgId 연결
+            $setCount = 0
+            foreach ($ext in $mediaExtensions) {
+                $extWithoutDot = $ext.TrimStart(".")
+                $potPlayerProgId = "PotPlayer64.$extWithoutDot"
+                $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $potPlayerProgId" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
+                if ($result -and $result.ExitCode -eq 0) { $setCount++ }
             }
-
-            # UserChoice 키 삭제 (SetUserFTA가 새로 생성하도록)
-            $userChoice = "$fileExtPath\UserChoice"
-            if (Test-Path $userChoice) {
-                try {
-                    $acl = Get-Acl -Path $userChoice
-                    $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
-                        [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
-                        "FullControl",
-                        "Allow"
-                    )
-                    $acl.SetAccessRule($rule)
-                    Set-Acl -Path $userChoice -AclObject $acl -ErrorAction SilentlyContinue
-                    Remove-Item -Path $userChoice -Recurse -Force -ErrorAction SilentlyContinue
-                } catch {
-                    # 권한 변경 실패해도 계속 진행
-                }
-            }
+            Write-Host "  - PotPlayer 미디어 연결 : $setCount/$($mediaExtensions.Count)개 확장자 (적용됨)" -ForegroundColor Green
+            Write-Host "    - 동영상: $($videoExtensions.Count)개, 오디오: $($audioExtensions.Count)개" -ForegroundColor Gray
+            Write-OptLog -Step "PotPlayer 미디어 연결" -Status "설치됨" -Message "$setCount/$($mediaExtensions.Count)개 확장자 연결됨"
         }
-
-        # SetUserFTA로 각 확장자에 PotPlayer64.{ext} ProgId 연결
-        $setCount = 0
-        foreach ($ext in $mediaExtensions) {
-            $extWithoutDot = $ext.TrimStart(".")
-            $potPlayerProgId = "PotPlayer64.$extWithoutDot"
-            $result = Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $potPlayerProgId" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
-            if ($result -and $result.ExitCode -eq 0) { $setCount++ }
-        }
-        Write-Host "  - PotPlayer 미디어 연결 : $setCount/$($mediaExtensions.Count)개 확장자 (적용됨)" -ForegroundColor Green
-        Write-Host "    - 동영상: $($videoExtensions.Count)개, 오디오: $($audioExtensions.Count)개" -ForegroundColor Gray
-        Write-OptLog -Step "PotPlayer 미디어 연결" -Status "설치됨" -Message "$setCount/$($mediaExtensions.Count)개 확장자 연결됨"
     } catch {
         Write-Host "  - PotPlayer 미디어 연결 : 실패 - $_" -ForegroundColor Red
         Write-OptLog -Step "PotPlayer 미디어 연결" -Status "실패" -Message "$_"
@@ -831,8 +909,17 @@ if ((Test-Path $chromePath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath
         }
 
         if ($chromeProgId) {
-            # http/https 프로토콜 OpenWithProgids 정리 (Honeyview 방식 - 경쟁 앱 완전 제거)
-            foreach ($protocol in @("http", "https")) {
+            # 이미 Chrome이 기본 브라우저로 설정되어 있는지 확인
+            $httpAlreadySet = Test-ProtocolAssociation -Protocol "http" -ExpectedProgId "ChromeHTML"
+            $httpsAlreadySet = Test-ProtocolAssociation -Protocol "https" -ExpectedProgId "ChromeHTML"
+            $htmlAlreadySet = Test-FileAssociation -Extension ".html" -ExpectedProgId "ChromeHTML"
+
+            if ($httpAlreadySet -and $httpsAlreadySet -and $htmlAlreadySet) {
+                Write-Host "  - Chrome 기본 브라우저 : 이미 설정됨 (스킵)" -ForegroundColor Gray
+                Write-OptLog -Step "Chrome 기본 브라우저" -Status "스킵됨" -Message "이미 Chrome이 기본 브라우저로 설정됨"
+            } else {
+                # http/https 프로토콜 OpenWithProgids 정리 (Honeyview 방식 - 경쟁 앱 완전 제거)
+                foreach ($protocol in @("http", "https")) {
                 $urlAssocPath = "HKCU:\SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\$protocol"
                 $openWithProgids = "$urlAssocPath\OpenWithProgids"
 
@@ -961,14 +1048,15 @@ if ((Test-Path $chromePath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath
 
             $totalSuccess = $fileSuccessCount + $protocolSuccessCount
             $totalAssocs = $fileAssocs.Count + $protocolAssocs.Count
-            if ($totalSuccess -eq $totalAssocs) {
-                Write-Host "  - Chrome 기본 브라우저 : 설정 완료 ($totalSuccess/$totalAssocs)" -ForegroundColor Green
-                Write-OptLog -Step "Chrome 기본 브라우저" -Status "설치됨" -Message "$totalSuccess/$totalAssocs 연결 완료"
-            } else {
-                Write-Host "  - Chrome 기본 브라우저 : 일부 설정 완료 ($totalSuccess/$totalAssocs)" -ForegroundColor Yellow
-                Write-Host "  - 수동 설정 필요: 설정 > 앱 > 기본 앱 > Google Chrome" -ForegroundColor Cyan
-                Start-Process "ms-settings:defaultapps" -ErrorAction SilentlyContinue
-                Write-OptLog -Step "Chrome 기본 브라우저" -Status "설치됨" -Message "$totalSuccess/$totalAssocs 연결 완료 (일부 실패)"
+                if ($totalSuccess -eq $totalAssocs) {
+                    Write-Host "  - Chrome 기본 브라우저 : 설정 완료 ($totalSuccess/$totalAssocs)" -ForegroundColor Green
+                    Write-OptLog -Step "Chrome 기본 브라우저" -Status "설치됨" -Message "$totalSuccess/$totalAssocs 연결 완료"
+                } else {
+                    Write-Host "  - Chrome 기본 브라우저 : 일부 설정 완료 ($totalSuccess/$totalAssocs)" -ForegroundColor Yellow
+                    Write-Host "  - 수동 설정 필요: 설정 > 앱 > 기본 앱 > Google Chrome" -ForegroundColor Cyan
+                    Start-Process "ms-settings:defaultapps" -ErrorAction SilentlyContinue
+                    Write-OptLog -Step "Chrome 기본 브라우저" -Status "설치됨" -Message "$totalSuccess/$totalAssocs 연결 완료 (일부 실패)"
+                }
             }
         } else {
             Write-Host "  - Chrome 기본 브라우저 : ChromeHTML ProgId 없음" -ForegroundColor Yellow

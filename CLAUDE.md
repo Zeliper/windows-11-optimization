@@ -260,16 +260,16 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 
 | 번호 | 파일명 | 버전 | 설명 |
 |------|--------|------|------|
-| 000 | orchestrate.ps1 | v1.1.0 | **통합 원클릭 스크립트** (대화형 메뉴, 프리셋, 재부팅 관리, **ForceOverride**, **Summary 로깅**) |
+| 000 | orchestrate.ps1 | v1.1.1 | **통합 원클릭 스크립트** (대화형 메뉴, 프리셋, 재부팅 관리, **ForceOverride**, **Summary 로깅**, **ExperimentalOptions 병렬 전달**) |
 | 001 | disable_update.ps1 | v1.1.1 | Windows Update 수동 설정, UAC 프롬프트 비활성화 |
-| 002 | power_network.ps1 | v1.1.1 | 전원 관리, 네트워크 최적화, 텔레메트리 비활성화 |
+| 002 | power_network.ps1 | v1.1.2 | 전원 관리, 네트워크 최적화, 텔레메트리 비활성화 (**균형 모드 fallback 추가**) |
 | 003 | defender_onedrive_firewall.ps1 | v1.1.1 | Defender 보호 기능 비활성화, OneDrive 삭제, 방화벽 해제 |
-| 004 | taskbar.ps1 | v1.1.1 | 작업 표시줄 정리, 컨텍스트 메뉴 복원 |
+| 004 | taskbar.ps1 | v1.1.2 | 작업 표시줄 정리, 컨텍스트 메뉴 복원 (**위젯 정책 권한 처리 개선**) |
 | 005 | bloatware.ps1 | v1.1.1 | 블로트웨어 앱 및 기능 제거 |
-| 006 | software_install.ps1 | v1.1.1 | 필수 소프트웨어 자동 설치 (Notepad++, Chrome, 7-Zip, ShareX, Honeyview, PotPlayer, Everything) |
+| 006 | software_install.ps1 | v1.1.2 | 필수 소프트웨어 자동 설치 (**파일 연결 스킵 로직 추가**) |
 | 008 | common_optimization.ps1 | v1.1.1 | 공통 최적화 (디스크 정리, DNS, 서비스, 부팅) |
 | 009 | gaming_optimization.ps1 | v1.1.1 | 게임용 PC 최적화 (VBS, GPU, 시각효과) |
-| 010 | game_server.ps1 | v1.1.1 | 게임 서버 최적화 (TCP/UDP, NVMe, QoS) |
+| 010 | game_server.ps1 | v1.1.2 | 게임 서버 최적화 (**RxTxEnabled 열거자 수정**) |
 | 011 | web_server.ps1 | v1.1.1 | 웹 서버 IIS 최적화 (압축, 캐싱, TLS) |
 | 012 | ai_features.ps1 | v1.1.1 | **25H2 AI 기능 비활성화** (Recall, Copilot, AI Actions, Search AI, Spotlight 등 14단계) |
 | 013 | privacy_optimization.ps1 | v1.1.1 | 개인정보 보호 강화 (위치 서비스, 권한 설정, 동기화 비활성화) |

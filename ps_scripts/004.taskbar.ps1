@@ -6,7 +6,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.1"
+$scriptVersion = "1.1.2"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -173,10 +173,26 @@ Write-Host "[3/9] 위젯 버튼 숨기기..." -ForegroundColor Yellow
 Set-RegistryIfDifferent -Path $advancedPath -Name "TaskbarDa" -Value 0 `
     -StepName "위젯 버튼 숨김"
 
-# 위젯 정책 비활성화
+# 위젯 정책 비활성화 (HKLM 권한 문제 가능 - 별도 처리)
 $dshPolicyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Dsh"
-Set-RegistryIfDifferent -Path $dshPolicyPath -Name "AllowNewsAndInterests" -Value 0 `
-    -StepName "위젯 정책 비활성화"
+try {
+    if (!(Test-Path $dshPolicyPath)) {
+        New-Item -Path $dshPolicyPath -Force -ErrorAction Stop | Out-Null
+    }
+    $currentValue = (Get-ItemProperty -Path $dshPolicyPath -Name "AllowNewsAndInterests" -ErrorAction SilentlyContinue).AllowNewsAndInterests
+    if (-not $global:ForceOverride -and $currentValue -eq 0) {
+        Write-Host "  - 위젯 정책 비활성화 : 이미 적용됨 (스킵)" -ForegroundColor Gray
+        Write-OptLog -Message "위젯 정책 비활성화 : 이미 적용됨 (AllowNewsAndInterests = 0)" -Status "Skipped"
+    } else {
+        Set-ItemProperty -Path $dshPolicyPath -Name "AllowNewsAndInterests" -Value 0 -Type DWord -ErrorAction Stop
+        Write-Host "  - 위젯 정책 비활성화 : 적용됨" -ForegroundColor Green
+        Write-OptLog -Message "위젯 정책 비활성화 : 적용됨 (AllowNewsAndInterests = 0)" -Status "Applied"
+    }
+} catch {
+    # 권한 문제 시 스킵 (위젯 버튼 숨김은 HKCU에서 이미 처리됨)
+    Write-Host "  - 위젯 정책 비활성화 : 권한 부족으로 스킵 (위젯 버튼 숨김은 적용됨)" -ForegroundColor Yellow
+    Write-OptLog -Message "위젯 정책 비활성화 : 권한 부족 스킵 - $($_.Exception.Message)" -Status "Skipped"
+}
 
 # Windows Web Experience Pack 제거
 Remove-AppxPackageIfExists -PackageName "MicrosoftWindows.Client.WebExperience" `

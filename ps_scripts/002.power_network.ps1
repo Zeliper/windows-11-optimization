@@ -4,7 +4,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.1"
+$scriptVersion = "1.1.2"
 $scriptName = "002.power_network.ps1"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
@@ -259,16 +259,21 @@ $currentSchemeGuid = Get-PowerSchemeGuid -Line $activeSchemeOutput
 # 고성능 또는 최고 성능 GUID 확인
 $highPerfGuid = $null
 $ultimatePerfGuid = $null
+$balancedGuid = $null
 
 $allSchemes = powercfg -list
 $highPerf = $allSchemes | Select-String "고성능|High performance" | Select-Object -First 1
 $ultimatePerf = $allSchemes | Select-String "최고 성능|Ultimate Performance" | Select-Object -First 1
+$balanced = $allSchemes | Select-String "균형|Balanced" | Select-Object -First 1
 
 if ($ultimatePerf) {
     $ultimatePerfGuid = Get-PowerSchemeGuid -Line $ultimatePerf.Line
 }
 if ($highPerf) {
     $highPerfGuid = Get-PowerSchemeGuid -Line $highPerf.Line
+}
+if ($balanced) {
+    $balancedGuid = Get-PowerSchemeGuid -Line $balanced.Line
 }
 
 # 현재 구성표가 이미 고성능/최고 성능인지 확인
@@ -289,17 +294,26 @@ if (-not $global:ForceOverride -and $isAlreadyHighPerf) {
         }
     }
 
-    # 최고 성능 또는 고성능으로 설정
-    $targetGuid = if ($ultimatePerfGuid) { $ultimatePerfGuid } else { $highPerfGuid }
-    $targetName = if ($ultimatePerfGuid) { "최고 성능" } else { "고성능" }
+    # 최고 성능 > 고성능 > 균형 순서로 시도
+    $targetGuid = if ($ultimatePerfGuid) { $ultimatePerfGuid }
+                  elseif ($highPerfGuid) { $highPerfGuid }
+                  else { $balancedGuid }
+    $targetName = if ($ultimatePerfGuid) { "최고 성능" }
+                  elseif ($highPerfGuid) { "고성능" }
+                  else { "균형 성능" }
 
     if ($targetGuid) {
         powercfg -setactive $targetGuid
-        Write-Host "  - 전원 옵션: $targetName 활성화 (적용됨)" -ForegroundColor Green
-        Write-OptLog -Step $powerStep -Status "적용됨" -Message "$targetName 전원 옵션 활성화"
+        if (-not $highPerfGuid -and -not $ultimatePerfGuid) {
+            Write-Host "  - 전원 옵션: 고성능/최고 성능 없음, $targetName 사용 (적용됨)" -ForegroundColor Yellow
+            Write-OptLog -Step $powerStep -Status "적용됨" -Message "$targetName 전원 옵션 활성화 (노트북: 고성능 없음)"
+        } else {
+            Write-Host "  - 전원 옵션: $targetName 활성화 (적용됨)" -ForegroundColor Green
+            Write-OptLog -Step $powerStep -Status "적용됨" -Message "$targetName 전원 옵션 활성화"
+        }
     } else {
-        Write-Host "  - 전원 옵션: 고성능 옵션을 찾을 수 없음" -ForegroundColor Red
-        Write-OptLog -Step $powerStep -Status "실패" -Message "고성능 옵션 없음"
+        Write-Host "  - 전원 옵션: 사용 가능한 전원 프로필 없음 (스킵)" -ForegroundColor Yellow
+        Write-OptLog -Step $powerStep -Status "스킵됨" -Message "사용 가능한 전원 프로필 없음"
     }
 }
 

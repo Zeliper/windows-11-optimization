@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.1"
+$scriptVersion = "1.1.2"
 $scriptName = "010.game_server"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
@@ -396,9 +396,9 @@ Write-Host "[10/$totalSteps] 추가 네트워크 최적화 중..." -ForegroundCo
 
 foreach ($adapter in $adapters) {
     try {
-        # UDP/TCP Checksum Offload 활성화
-        Set-NetAdapterChecksumOffload -Name $adapter.Name -UdpIPv4 TxRxEnabled -UdpIPv6 TxRxEnabled -ErrorAction SilentlyContinue
-        Set-NetAdapterChecksumOffload -Name $adapter.Name -TcpIPv4 TxRxEnabled -TcpIPv6 TxRxEnabled -ErrorAction SilentlyContinue
+        # UDP/TCP Checksum Offload 활성화 (RxTxEnabled가 올바른 열거자)
+        Set-NetAdapterChecksumOffload -Name $adapter.Name -UdpIPv4 RxTxEnabled -UdpIPv6 RxTxEnabled -ErrorAction SilentlyContinue
+        Set-NetAdapterChecksumOffload -Name $adapter.Name -TcpIPv4 RxTxEnabled -TcpIPv6 RxTxEnabled -ErrorAction SilentlyContinue
         Write-OptLog -Step "10/12" -Status "Applied" -Message "$($adapter.Name) : 체크섬 오프로드 활성화"
 
         # Large Send Offload 활성화
