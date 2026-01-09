@@ -23,7 +23,7 @@ if ($null -eq $global:ForceOverride) {
 }
 
 # 스크립트 버전
-$scriptVersion = "1.1.0"
+$scriptVersion = "1.1.1"
 $scriptName = "019.search_optimization.ps1"
 
 # ===== 로깅 시스템 =====
@@ -149,9 +149,9 @@ Write-Host "=== Windows 11 Windows Search 최적화 v$scriptVersion ===" -Foregr
 Write-Host "인덱싱 최적화, 클라우드 검색 비활성화, WSearch 서비스 설정을 수행합니다." -ForegroundColor White
 Write-Host ""
 
-$totalSteps = 6
+$totalSteps = 7
 
-# [1/6] Windows Search 현재 상태 분석
+# [1/7] Windows Search 현재 상태 분석
 Write-Host "[1/$totalSteps] Windows Search 현재 상태 분석 중..." -ForegroundColor Yellow
 
 $wsearchService = Get-Service -Name "WSearch" -ErrorAction SilentlyContinue
@@ -175,7 +175,7 @@ if (Test-Path $indexPath) {
     Write-Host "  - 인덱스 폴더를 찾을 수 없습니다" -ForegroundColor Gray
 }
 
-# [2/6] 인덱싱 정책 최적화
+# [2/7] 인덱싱 정책 최적화
 Write-Host ""
 Write-Host "[2/$totalSteps] 인덱싱 정책 최적화 중..." -ForegroundColor Yellow
 
@@ -185,7 +185,7 @@ Set-RegistryIfDifferent -Path $searchPolicyPath -Name "PreventIndexingLowDiskSpa
 Set-RegistryIfDifferent -Path $searchPolicyPath -Name "PreventIndexingEncryptedStores" -Value 1 -Type DWord -StepName "암호화된 파일 인덱싱 비활성화"
 Set-RegistryIfDifferent -Path $searchPolicyPath -Name "PreventIndexingOutlook" -Value 1 -Type DWord -StepName "Outlook 오프라인 파일 인덱싱 비활성화"
 
-# [3/6] 클라우드 검색 및 검색 기록 비활성화
+# [3/7] 클라우드 검색 및 검색 기록 비활성화
 Write-Host ""
 Write-Host "[3/$totalSteps] 클라우드 검색 및 검색 기록 비활성화 중..." -ForegroundColor Yellow
 
@@ -196,7 +196,7 @@ Set-RegistryIfDifferent -Path $searchSettingsPath -Name "IsAADCloudSearchEnabled
 Set-RegistryIfDifferent -Path $searchSettingsPath -Name "IsMSACloudSearchEnabled" -Value 0 -Type DWord -StepName "Microsoft 계정 클라우드 검색 비활성화"
 Set-RegistryIfDifferent -Path $searchSettingsPath -Name "SafeSearchMode" -Value 0 -Type DWord -StepName "Safe Search 필터링 비활성화"
 
-# [4/6] 백그라운드 인덱싱 활동 관리
+# [4/7] 백그라운드 인덱싱 활동 관리
 Write-Host ""
 Write-Host "[4/$totalSteps] 백그라운드 인덱싱 활동 관리 중..." -ForegroundColor Yellow
 
@@ -205,7 +205,7 @@ Set-RegistryIfDifferent -Path $searchPolicyPath -Name "DisableBackOff" -Value 0 
 Set-RegistryIfDifferent -Path $searchPolicyPath -Name "DisableRemovableDriveIndexing" -Value 1 -Type DWord -StepName "이동식 드라이브 인덱싱 비활성화"
 Set-RegistryIfDifferent -Path $searchPolicyPath -Name "PreventIndexingNetworkDrives" -Value 1 -Type DWord -StepName "네트워크 드라이브 인덱싱 비활성화"
 
-# [5/6] WSearch 서비스 최적화
+# [5/7] WSearch 서비스 최적화
 Write-Host ""
 Write-Host "[5/$totalSteps] WSearch 서비스 최적화 중..." -ForegroundColor Yellow
 
@@ -236,7 +236,7 @@ switch ($wsearchChoice) {
 
 Write-Host "  - 참고: SearchIndexer.exe는 시스템 유휴 시에만 인덱싱 수행" -ForegroundColor Gray
 
-# [6/6] 검색 인덱스 재구축 옵션
+# [6/7] 검색 인덱스 재구축 옵션
 Write-Host ""
 Write-Host "[6/$totalSteps] 검색 인덱스 관리..." -ForegroundColor Yellow
 
@@ -277,6 +277,32 @@ if ($rebuildIndex -eq "Y" -or $rebuildIndex -eq "y") {
 $cortanaSearchPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search"
 Set-RegistryIfDifferent -Path $cortanaSearchPath -Name "BingSearchEnabled" -Value 0 -Type DWord -StepName "Bing 웹 검색 비활성화"
 Set-RegistryIfDifferent -Path $cortanaSearchPath -Name "CortanaConsent" -Value 0 -Type DWord -StepName "Cortana 동의 비활성화"
+
+# [7/7] Microsoft Store 검색 제안 비활성화 (25H2)
+Write-Host ""
+Write-Host "[7/$totalSteps] Microsoft Store 검색 제안 비활성화 중..." -ForegroundColor Yellow
+
+# Store 앱 검색 결과 비활성화
+Set-RegistryIfDifferent -Path $cortanaSearchPath -Name "AllowStoreResults" -Value 0 -Type DWord -StepName "Store 검색 결과 비활성화"
+
+# Search Highlights (검색 하이라이트) 비활성화
+Set-RegistryIfDifferent -Path $cortanaSearchPath -Name "SearchboxTaskbarMode" -Value 1 -Type DWord -StepName "검색 상자 아이콘만 표시"
+
+# Store 추천 콘텐츠 비활성화
+$cdmPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+Set-RegistryIfDifferent -Path $cdmPath -Name "SubscribedContent-338388Enabled" -Value 0 -Type DWord -StepName "시작 메뉴 추천 비활성화"
+Set-RegistryIfDifferent -Path $cdmPath -Name "SubscribedContent-338389Enabled" -Value 0 -Type DWord -StepName "설정 추천 비활성화"
+Set-RegistryIfDifferent -Path $cdmPath -Name "SubscribedContent-353694Enabled" -Value 0 -Type DWord -StepName "동기화 제공자 추천 비활성화"
+Set-RegistryIfDifferent -Path $cdmPath -Name "SubscribedContent-353696Enabled" -Value 0 -Type DWord -StepName "시작 메뉴 가끔 추천 비활성화"
+
+# DisableWebSearch 정책 (웹 검색 완전 비활성화)
+Set-RegistryIfDifferent -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "DisableWebSearch" -Value 1 -Type DWord -StepName "웹 검색 정책 비활성화"
+Set-RegistryIfDifferent -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "ConnectedSearchUseWeb" -Value 0 -Type DWord -StepName "연결된 검색 웹 사용 비활성화"
+Set-RegistryIfDifferent -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "ConnectedSearchUseWebOverMeteredConnections" -Value 0 -Type DWord -StepName "요금제 연결에서 웹 검색 비활성화"
+
+Write-Host ""
+Write-Host "  [참고] 25H2에서 Store 검색 제안을 완전히 제거하려면" -ForegroundColor Yellow
+Write-Host "        Microsoft Store를 제거해야 합니다 (005.bloatware.ps1 참조)" -ForegroundColor Yellow
 
 # 로그 저장
 Save-OptLog

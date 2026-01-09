@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.1"
+$scriptVersion = "1.1.2"
 $scriptName = "012.ai_features.ps1"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
@@ -368,7 +368,8 @@ Write-Host "[7/$totalSteps] AI 관련 텔레메트리 비활성화 중..." -Fore
 
 $stepName = "7. AI 텔레메트리"
 Set-RegistryIfDifferent -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Diagnostics\DiagTrack" -Name "AIDataCollection" -Value 0 -StepName $stepName -Description "AI 진단 데이터 수집"
-Set-RegistryIfDifferent -Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer" -Name "DisableSearchBoxSuggestions" -Value 1 -StepName $stepName -Description "검색 상자 AI 제안"
+# DisableSearchBoxSuggestions 제거됨 - 시스템 검색 기능(Windows 기능 켜기/끄기 등)에 영향을 줌
+# 웹 검색은 019.search_optimization.ps1의 ConnectedSearchUseWeb=0으로 비활성화
 Set-RegistryIfDifferent -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "DisableCloudOptimizedContent" -Value 1 -StepName $stepName -Description "클라우드 최적화 콘텐츠"
 
 

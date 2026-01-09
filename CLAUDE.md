@@ -271,14 +271,14 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 | 009 | gaming_optimization.ps1 | v1.1.1 | 게임용 PC 최적화 (VBS, GPU, 시각효과) |
 | 010 | game_server.ps1 | v1.1.2 | 게임 서버 최적화 (**RxTxEnabled 열거자 수정**) |
 | 011 | web_server.ps1 | v1.1.1 | 웹 서버 IIS 최적화 (압축, 캐싱, TLS) |
-| 012 | ai_features.ps1 | v1.1.1 | **25H2 AI 기능 비활성화** (Recall, Copilot, AI Actions, Search AI, Spotlight 등 14단계) |
+| 012 | ai_features.ps1 | v1.1.2 | **25H2 AI 기능 비활성화** (Recall, Copilot, AI Actions, Search AI, Spotlight 등 14단계, **DisableSearchBoxSuggestions 제거**) |
 | 013 | privacy_optimization.ps1 | v1.1.1 | 개인정보 보호 강화 (위치 서비스, 권한 설정, 동기화 비활성화) |
 | 014 | storage_optimization.ps1 | v1.1.1 | Storage Sense 활성화, 자동 정리 설정 |
 | 015 | startup_optimization.ps1 | v1.1.1 | 부팅 시간 단축, 시작 프로그램 최적화 |
 | 016 | accessibility_cleanup.ps1 | v1.1.1 | 접근성 단축키 정리 (Windows 키 + U, Shift 5회 등) |
 | 017 | mouse_input_optimization.ps1 | v1.1.1 | 마우스/입력 장치 최적화 (가속 비활성화, 키보드 속도, 입력 지연) |
 | 018 | memory_optimization.ps1 | v1.1.1 | 메모리 최적화 (드라이브 감지, SysMain/Prefetch 자동화, 페이지 파일, 로깅) |
-| 019 | search_optimization.ps1 | v1.1.0 | Windows Search 최적화 (인덱싱, 클라우드 검색 비활성화) |
+| 019 | search_optimization.ps1 | v1.1.1 | Windows Search 최적화 (인덱싱, 클라우드 검색 비활성화, **Store 검색 제안 비활성화**) |
 | 020 | registry_tweaks.ps1 | v1.1.0 | 레지스트리 미세 조정 (MenuShowDelay, IRPStackSize, LongPaths) |
 | 021 | ntfs_ssd_optimization.ps1 | v1.1.0 | NTFS/SSD 최적화 (8.3 파일명, Last Access Time, Native NVMe 드라이버) |
 | 022 | advanced_gaming_optimization.ps1 | v1.1.1 | 고급 게임 최적화 (Game Bar/DVR, DWM, Power Throttling, GPU 우선순위, 로깅) |
