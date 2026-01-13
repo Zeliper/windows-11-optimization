@@ -166,8 +166,8 @@ Write-Host ""
 
 $tempDir = $env:TEMP
 
-# [1/22] Notepad++ 설치 (winget - GitHub API rate limit 회피)
-Write-Host "[1/22] Notepad++ 설치 중 (winget)..." -ForegroundColor Yellow
+# [1/21] Notepad++ 설치 (winget - GitHub API rate limit 회피)
+Write-Host "[1/21] Notepad++ 설치 중 (winget)..." -ForegroundColor Yellow
 $nppPaths = @(
     "${env:ProgramFiles}\Notepad++\notepad++.exe",
     "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe"
@@ -191,8 +191,8 @@ if (Test-SoftwareInstalled -Name "Notepad++" -Paths $nppPaths -WingetId "Notepad
     }
 }
 
-# [2/22] Notepad++ 설치 확인
-Write-Host "[2/22] Notepad++ 설치 확인..." -ForegroundColor Yellow
+# [2/21] Notepad++ 설치 확인
+Write-Host "[2/21] Notepad++ 설치 확인..." -ForegroundColor Yellow
 $nppPath = "${env:ProgramFiles}\Notepad++\notepad++.exe"
 if (Test-Path $nppPath) {
     Write-Host "  - Notepad++ 설치 확인됨" -ForegroundColor Green
@@ -200,8 +200,8 @@ if (Test-Path $nppPath) {
     Write-Host "  - Notepad++ 경로 없음 (설치 지연 가능)" -ForegroundColor Yellow
 }
 
-# [3/22] Chrome 다운로드 및 설치
-Write-Host "[3/22] Chrome 다운로드 중..." -ForegroundColor Yellow
+# [3/21] Chrome 다운로드 및 설치
+Write-Host "[3/21] Chrome 다운로드 중..." -ForegroundColor Yellow
 $chromePaths = @(
     "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe",
     "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
@@ -223,8 +223,8 @@ if (Test-SoftwareInstalled -Name "Chrome" -Paths $chromePaths) {
     }
 }
 
-# [4/22] Chrome 설치
-Write-Host "[4/22] Chrome 설치 중..." -ForegroundColor Yellow
+# [4/21] Chrome 설치
+Write-Host "[4/21] Chrome 설치 중..." -ForegroundColor Yellow
 if (Test-SoftwareInstalled -Name "Chrome" -Paths $chromePaths) {
     Write-Host "  - Chrome : 이미 설치됨 (스킵)" -ForegroundColor Gray
     Write-OptLog -Step "Chrome 설치" -Status "스킵됨" -Message "이미 설치됨"
@@ -250,8 +250,8 @@ if (Test-SoftwareInstalled -Name "Chrome" -Paths $chromePaths) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [5/22] 7-Zip 다운로드 및 설치
-Write-Host "[5/22] 7-Zip 다운로드 중..." -ForegroundColor Yellow
+# [5/21] 7-Zip 다운로드 및 설치
+Write-Host "[5/21] 7-Zip 다운로드 중..." -ForegroundColor Yellow
 $sevenZipPaths = @(
     "${env:ProgramFiles}\7-Zip\7z.exe",
     "${env:ProgramFiles(x86)}\7-Zip\7z.exe"
@@ -273,8 +273,8 @@ if (Test-SoftwareInstalled -Name "7-Zip" -Paths $sevenZipPaths) {
     }
 }
 
-# [6/22] 7-Zip 설치
-Write-Host "[6/22] 7-Zip 설치 중..." -ForegroundColor Yellow
+# [6/21] 7-Zip 설치
+Write-Host "[6/21] 7-Zip 설치 중..." -ForegroundColor Yellow
 if (Test-SoftwareInstalled -Name "7-Zip" -Paths $sevenZipPaths) {
     Write-Host "  - 7-Zip : 이미 설치됨 (스킵)" -ForegroundColor Gray
     Write-OptLog -Step "7-Zip 설치" -Status "스킵됨" -Message "이미 설치됨"
@@ -292,8 +292,8 @@ if (Test-SoftwareInstalled -Name "7-Zip" -Paths $sevenZipPaths) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [7/22] ShareX 설치 (winget - GitHub API rate limit 회피)
-Write-Host "[7/22] ShareX 설치 중 (winget)..." -ForegroundColor Yellow
+# [7/21] ShareX 설치 (winget - GitHub API rate limit 회피)
+Write-Host "[7/21] ShareX 설치 중 (winget)..." -ForegroundColor Yellow
 $shareXPaths = @(
     "${env:ProgramFiles}\ShareX\ShareX.exe"
 )
@@ -316,8 +316,8 @@ if (Test-SoftwareInstalled -Name "ShareX" -Paths $shareXPaths -WingetId "ShareX.
     }
 }
 
-# [8/22] ShareX 설정 파일 적용 (업로드 기능 비활성화)
-Write-Host "[8/22] ShareX 설정 파일 적용 중..." -ForegroundColor Yellow
+# [8/21] ShareX 설정 파일 적용 (업로드 기능 비활성화)
+Write-Host "[8/21] ShareX 설정 파일 적용 중..." -ForegroundColor Yellow
 $shareXConfigDir = "$env:USERPROFILE\Documents\ShareX"
 $shareXConfigPath = "$shareXConfigDir\ApplicationConfig.json"
 if (Test-Path $shareXConfigPath) {
@@ -342,8 +342,8 @@ if (Test-Path $shareXConfigPath) {
     }
 }
 
-# [9/22] ShareX 컨텍스트 메뉴 제거
-Write-Host "[9/22] ShareX 컨텍스트 메뉴 제거 중..." -ForegroundColor Yellow
+# [9/21] ShareX 컨텍스트 메뉴 제거
+Write-Host "[9/21] ShareX 컨텍스트 메뉴 제거 중..." -ForegroundColor Yellow
 try {
     # ShareX 컨텍스트 메뉴 레지스트리 키 삭제 (모든 파일용)
     $contextMenuPaths = @(
@@ -381,8 +381,8 @@ try {
     Write-OptLog -Step "ShareX 컨텍스트 메뉴" -Status "실패" -Message "$_"
 }
 
-# [10/22] ShareX 시작 시 트레이 모드 설정
-Write-Host "[10/22] ShareX 시작 프로그램 등록 중..." -ForegroundColor Yellow
+# [10/21] ShareX 시작 시 트레이 모드 설정
+Write-Host "[10/21] ShareX 시작 프로그램 등록 중..." -ForegroundColor Yellow
 $shareXExe = "${env:ProgramFiles}\ShareX\ShareX.exe"
 $startupKey = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
 $currentShareXStartup = (Get-ItemProperty -Path $startupKey -Name "ShareX" -ErrorAction SilentlyContinue).ShareX
@@ -407,8 +407,8 @@ if (Test-Path $shareXExe) {
     Write-OptLog -Step "ShareX 시작 프로그램" -Status "스킵됨" -Message "ShareX 미설치"
 }
 
-# [11/22] Honeyview 설치 (winget)
-Write-Host "[11/22] Honeyview 설치 중 (winget)..." -ForegroundColor Yellow
+# [11/21] Honeyview 설치 (winget)
+Write-Host "[11/21] Honeyview 설치 중 (winget)..." -ForegroundColor Yellow
 $honeyviewPaths = @(
     "${env:ProgramFiles}\Honeyview\Honeyview.exe"
 )
@@ -431,8 +431,8 @@ if (Test-SoftwareInstalled -Name "Honeyview" -Paths $honeyviewPaths -WingetId "B
     }
 }
 
-# [12/22] Honeyview 설정 적용 (작은 이미지 늘리기, 제목표시줄/컨트롤바 고정 해제)
-Write-Host "[12/22] Honeyview 설정 적용 중..." -ForegroundColor Yellow
+# [12/21] Honeyview 설정 적용 (작은 이미지 늘리기, 제목표시줄/컨트롤바 고정 해제)
+Write-Host "[12/21] Honeyview 설정 적용 중..." -ForegroundColor Yellow
 $honeyviewRegPath = "HKCU:\Software\Honeyview"
 $hvCurrentStretch = (Get-ItemProperty -Path $honeyviewRegPath -Name "bStretchWhenSmall" -ErrorAction SilentlyContinue).bStretchWhenSmall
 
@@ -463,8 +463,8 @@ if ($hvCurrentStretch -eq 1) {
     }
 }
 
-# [13/22] PotPlayer 다운로드 및 설치
-Write-Host "[13/22] PotPlayer 다운로드 중..." -ForegroundColor Yellow
+# [13/21] PotPlayer 다운로드 및 설치
+Write-Host "[13/21] PotPlayer 다운로드 중..." -ForegroundColor Yellow
 $potPlayerPaths = @(
     "${env:ProgramFiles}\DAUM\PotPlayer\PotPlayerMini64.exe"
 )
@@ -485,8 +485,8 @@ if (Test-SoftwareInstalled -Name "PotPlayer" -Paths $potPlayerPaths) {
     }
 }
 
-# [14/22] PotPlayer 설치
-Write-Host "[14/22] PotPlayer 설치 중..." -ForegroundColor Yellow
+# [14/21] PotPlayer 설치
+Write-Host "[14/21] PotPlayer 설치 중..." -ForegroundColor Yellow
 if (Test-SoftwareInstalled -Name "PotPlayer" -Paths $potPlayerPaths) {
     Write-Host "  - PotPlayer : 이미 설치됨 (스킵)" -ForegroundColor Gray
     Write-OptLog -Step "PotPlayer 설치" -Status "스킵됨" -Message "이미 설치됨"
@@ -504,8 +504,8 @@ if (Test-SoftwareInstalled -Name "PotPlayer" -Paths $potPlayerPaths) {
     Write-Host "  - 건너뜀 (다운로드 실패)" -ForegroundColor Red
 }
 
-# [15/22] PotPlayer 설정 적용
-Write-Host "[15/22] PotPlayer 설정 적용 중..." -ForegroundColor Yellow
+# [15/21] PotPlayer 설정 적용
+Write-Host "[15/21] PotPlayer 설정 적용 중..." -ForegroundColor Yellow
 $potRegPath = "HKCU:\Software\DAUM\PotPlayerMini64"
 $potCurrentUseIni = (Get-ItemProperty -Path $potRegPath -Name "UseIni" -ErrorAction SilentlyContinue).UseIni
 
@@ -563,10 +563,10 @@ if ($potCurrentUseIni -eq 1) {
     }
 }
 
-# [16/22] SetUserFTA 다운로드 (파일 연결 도구)
+# [16/21] SetUserFTA 다운로드 (파일 연결 도구)
 # SetUserFTA by Christoph Kolbicz - Personal Edition (비상업적/테스트 목적)
 # 라이선스: https://github.com/Zeliper/windows-11-optimization/blob/main/LICENSES/SetUserFTA.md
-Write-Host "[16/22] SetUserFTA 다운로드 중..." -ForegroundColor Yellow
+Write-Host "[16/21] SetUserFTA 다운로드 중..." -ForegroundColor Yellow
 $setUserFtaPath = Join-Path $tempDir "SetUserFTA.exe"
 $setUserFtaUrl = "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Utils/SetUserFTA.exe"
 
@@ -584,8 +584,8 @@ try {
     $setUserFtaPath = $null
 }
 
-# [17/22] Notepad++ 파일 연결 설정 (SetUserFTA 병렬 실행)
-Write-Host "[17/22] Notepad++ 파일 연결 설정 중..." -ForegroundColor Yellow
+# [17/21] Notepad++ 파일 연결 설정 (SetUserFTA 병렬 실행)
+Write-Host "[17/21] Notepad++ 파일 연결 설정 중..." -ForegroundColor Yellow
 $nppPath = "${env:ProgramFiles}\Notepad++\notepad++.exe"
 if ((Test-Path $nppPath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
     # 연결할 확장자 목록 (실행 스크립트 제외: .bat, .cmd, .ps1, .vbs 등)
@@ -663,8 +663,8 @@ if ((Test-Path $nppPath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) 
     Write-OptLog -Step "Notepad++ 파일 연결" -Status "스킵됨" -Message "SetUserFTA 없음"
 }
 
-# [18/22] Honeyview 이미지 파일 연결 설정 (Honeyview.{ext} ProgId 사용)
-Write-Host "[18/22] Honeyview 이미지 파일 연결 설정 중..." -ForegroundColor Yellow
+# [18/21] Honeyview 이미지 파일 연결 설정 (Honeyview.{ext} ProgId 사용)
+Write-Host "[18/21] Honeyview 이미지 파일 연결 설정 중..." -ForegroundColor Yellow
 try {
     # Windows 사진 앱 제거 (파일 연결 충돌 방지)
     $photosApp = Get-AppxPackage -Name "Microsoft.Windows.Photos" -ErrorAction SilentlyContinue
@@ -788,8 +788,8 @@ try {
     Write-OptLog -Step "Honeyview 이미지 연결" -Status "실패" -Message "$_"
 }
 
-# [19/22] PotPlayer 동영상/오디오 파일 연결 (SetUserFTA 사용, PotPlayer 자체 ProgId 활용)
-Write-Host "[19/22] PotPlayer 동영상/오디오 파일 연결 설정 중..." -ForegroundColor Yellow
+# [19/21] PotPlayer 동영상/오디오 파일 연결 (SetUserFTA 사용, PotPlayer 자체 ProgId 활용)
+Write-Host "[19/21] PotPlayer 동영상/오디오 파일 연결 설정 중..." -ForegroundColor Yellow
 $potPlayerPath = "${env:ProgramFiles}\DAUM\PotPlayer\PotPlayerMini64.exe"
 if ((Test-Path $potPlayerPath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
     try {
@@ -897,8 +897,8 @@ if ((Test-Path $potPlayerPath) -and $setUserFtaPath -and (Test-Path $setUserFtaP
     Write-OptLog -Step "PotPlayer 미디어 연결" -Status "스킵됨" -Message "SetUserFTA 없음"
 }
 
-# [20/22] Chrome 기본 브라우저 설정 (SetUserFTA 사용)
-Write-Host "[20/22] Chrome 기본 브라우저 설정 중..." -ForegroundColor Yellow
+# [20/21] Chrome 기본 브라우저 설정 (SetUserFTA 사용)
+Write-Host "[20/21] Chrome 기본 브라우저 설정 중..." -ForegroundColor Yellow
 $chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
 if ((Test-Path $chromePath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath)) {
     try {
@@ -1076,44 +1076,8 @@ if ((Test-Path $chromePath) -and $setUserFtaPath -and (Test-Path $setUserFtaPath
     Write-OptLog -Step "Chrome 기본 브라우저" -Status "스킵됨" -Message "SetUserFTA 없음"
 }
 
-# [21/22] Windows 배경화면 기본 설정 (Spotlight 제거)
-Write-Host "[21/22] Windows 배경화면 기본 설정 중..." -ForegroundColor Yellow
-$currentWallpaper = (Get-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "Wallpaper" -ErrorAction SilentlyContinue).Wallpaper
-$defaultWallpaper = "C:\Windows\Web\Wallpaper\Windows\img0.jpg"
-
-if ($currentWallpaper -eq $defaultWallpaper) {
-    Write-Host "  - 배경화면 : 이미 기본 설정됨 (스킵)" -ForegroundColor Gray
-    Write-OptLog -Step "배경화면 설정" -Status "스킵됨" -Message "이미 기본 설정됨"
-} elseif (Test-Path $defaultWallpaper) {
-    try {
-        # 레지스트리에서 배경화면 설정
-        Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "Wallpaper" -Value $defaultWallpaper -Force
-        Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "WallpaperStyle" -Value "10" -Force  # Fill
-
-        # SystemParametersInfo로 즉시 적용
-        Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class Wallpaper {
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
-    public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
-}
-"@
-        [Wallpaper]::SystemParametersInfo(0x0014, 0, $defaultWallpaper, 0x01 -bor 0x02) | Out-Null
-
-        Write-Host "  - 배경화면 : 기본 배경화면으로 변경됨 (적용됨)" -ForegroundColor Green
-        Write-OptLog -Step "배경화면 설정" -Status "설치됨" -Message "기본 배경화면으로 변경됨"
-    } catch {
-        Write-Host "  - 배경화면 : 설정 실패 - $_" -ForegroundColor Red
-        Write-OptLog -Step "배경화면 설정" -Status "실패" -Message "$_"
-    }
-} else {
-    Write-Host "  - 배경화면 : 기본 배경화면 파일 없음 (스킵)" -ForegroundColor Yellow
-    Write-OptLog -Step "배경화면 설정" -Status "스킵됨" -Message "기본 배경화면 파일 없음"
-}
-
-# [22/22] Everything 설치 (winget)
-Write-Host "[22/22] Everything 설치 중 (winget)..." -ForegroundColor Yellow
+# [21/21] Everything 설치 (winget)
+Write-Host "[21/21] Everything 설치 중 (winget)..." -ForegroundColor Yellow
 $everythingPaths = @(
     "${env:ProgramFiles}\Everything\Everything.exe",
     "${env:ProgramFiles(x86)}\Everything\Everything.exe"

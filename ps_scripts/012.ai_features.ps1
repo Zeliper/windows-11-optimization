@@ -421,7 +421,7 @@ Write-Host "[11/$totalSteps] AI 자동 설치 방지 정책 설정 중..." -Fore
 $stepName = "11. AI 자동 설치 방지"
 $cdmPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
 Set-RegistryIfDifferent -Path $cdmPath -Name "SilentInstalledAppsEnabled" -Value 0 -StepName $stepName -Description "자동 앱 설치"
-Set-RegistryIfDifferent -Path $cdmPath -Name "ContentDeliveryAllowed" -Value 0 -StepName $stepName -Description "콘텐츠 전달"
+# ContentDeliveryAllowed는 배경 설정 UI 로딩에 필요하므로 비활성화하지 않음
 Set-RegistryIfDifferent -Path $cdmPath -Name "OemPreInstalledAppsEnabled" -Value 0 -StepName $stepName -Description "OEM 앱 설치"
 Set-RegistryIfDifferent -Path $cdmPath -Name "PreInstalledAppsEnabled" -Value 0 -StepName $stepName -Description "사전 설치 앱"
 Set-RegistryIfDifferent -Path $cdmPath -Name "PreInstalledAppsEverEnabled" -Value 0 -StepName $stepName -Description "사전 설치 앱 기록"

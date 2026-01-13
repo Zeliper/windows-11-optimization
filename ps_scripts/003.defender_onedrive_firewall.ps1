@@ -253,15 +253,29 @@ if (-not $global:ForceOverride -and $defenderAlreadyDisabled) {
     try {
         $osVersion = [System.Environment]::OSVersion.Version
         if ($osVersion.Build -ge 22631) {
-            Set-MpPreference -EnableDevDriveProtection $false -ErrorAction Stop
-            Write-Host "    - 개발자 드라이브 보호 비활성화 완료" -ForegroundColor Green
-            Write-OptLog -Message "개발자 드라이브 보호 비활성화" -Status "Applied"
+            # Dev Drive 존재 여부 확인
+            $devDriveExists = $false
+            try {
+                $fsutilOutput = & fsutil devdrv query 2>$null
+                if ($fsutilOutput -and $fsutilOutput -notmatch "Developer volumes are not enabled") {
+                    $devDriveExists = $true
+                }
+            } catch { }
+
+            if ($devDriveExists) {
+                Set-MpPreference -EnableDevDriveProtection $false -ErrorAction Stop
+                Write-Host "    - 개발자 드라이브 보호 비활성화 완료" -ForegroundColor Green
+                Write-OptLog -Message "개발자 드라이브 보호 비활성화" -Status "Applied"
+            } else {
+                Write-Host "    - 개발자 드라이브가 없음 - 설정 스킵" -ForegroundColor Yellow
+                Write-OptLog -Message "개발자 드라이브 보호 - Dev Drive 없음" -Status "Skipped"
+            }
         } else {
             Write-Host "    - 개발자 드라이브 보호는 Windows 11 23H2+ 에서만 지원" -ForegroundColor Yellow
             Write-OptLog -Message "개발자 드라이브 보호 - OS 버전 미지원" -Status "Skipped"
         }
     } catch {
-        Write-Host "    - 개발자 드라이브 보호 비활성화 실패" -ForegroundColor Red
+        Write-Host "    - 개발자 드라이브 보호 비활성화 실패: $_" -ForegroundColor Red
         Write-OptLog -Message "개발자 드라이브 보호 비활성화 실패" -Status "Failed"
     }
 
