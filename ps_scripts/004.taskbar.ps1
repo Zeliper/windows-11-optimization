@@ -6,7 +6,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.3"
+$scriptVersion = "1.1.4"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -412,14 +412,16 @@ Set-RegistryIfDifferent -Path $advancedPath -Name "Hidden" -Value 1 `
 # 로그 저장
 Save-OptLog
 
-# Explorer 재시작하여 변경사항 적용
-Write-Host ""
-Write-Host "변경사항을 적용하기 위해 Explorer를 재시작합니다..." -ForegroundColor Yellow
-Start-Sleep -Seconds 2
+# Explorer 재시작하여 변경사항 적용 (OrchestrateMode에서는 중앙 관리)
+if (-not $global:OrchestrateMode) {
+    Write-Host ""
+    Write-Host "변경사항을 적용하기 위해 Explorer를 재시작합니다..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 2
 
-Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 2
-Start-Process explorer
+    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    Start-Process explorer
+}
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan

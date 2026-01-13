@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.1"
+$scriptVersion = "1.1.2"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -209,7 +209,7 @@ $bloatwareApps = @(
 
 
 # 1. UWP 앱 제거 (현재 사용자)
-Write-Host "[1/6] 현재 사용자 블로트웨어 앱 제거 중..." -ForegroundColor Yellow
+Write-Host "[1/5] 현재 사용자 블로트웨어 앱 제거 중..." -ForegroundColor Yellow
 
 # 한 번의 호출로 모든 패키지 가져오기 (성능 최적화)
 $allPackages = Get-AppxPackage -ErrorAction SilentlyContinue
@@ -246,7 +246,7 @@ if ($removedCount -eq 0) {
 
 # 2. 모든 사용자에서 앱 제거
 Write-Host ""
-Write-Host "[2/6] 모든 사용자 블로트웨어 앱 제거 중..." -ForegroundColor Yellow
+Write-Host "[2/5] 모든 사용자 블로트웨어 앱 제거 중..." -ForegroundColor Yellow
 
 # 한 번의 호출로 모든 AllUsers 패키지 가져오기 (성능 최적화)
 $allUsersPackages = Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue
@@ -278,7 +278,7 @@ if ($allUsersRemoved -gt 0) {
 
 # 3. 프로비저닝된 앱 제거 (새 사용자 계정에 설치 방지)
 Write-Host ""
-Write-Host "[3/6] 프로비저닝된 패키지 제거 중 (새 사용자 설치 방지)..." -ForegroundColor Yellow
+Write-Host "[3/5] 프로비저닝된 패키지 제거 중 (새 사용자 설치 방지)..." -ForegroundColor Yellow
 
 $provisionedRemoved = 0
 $provisionedPackages = Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
@@ -309,7 +309,7 @@ if ($provisionedRemoved -eq 0) {
 
 # 4. Windows 선택적 기능 제거
 Write-Host ""
-Write-Host "[4/6] 불필요한 Windows 기능 제거 중..." -ForegroundColor Yellow
+Write-Host "[4/5] 불필요한 Windows 기능 제거 중..." -ForegroundColor Yellow
 
 $features = @(
     "MathRecognizer"           # 수학 인식기
@@ -366,7 +366,7 @@ if ($featureRemoved -eq 0) {
 
 # 5. 시작 메뉴 고정 앱 제거
 Write-Host ""
-Write-Host "[5/6] 시작 메뉴 고정 앱 제거 중..." -ForegroundColor Yellow
+Write-Host "[5/5] 시작 메뉴 고정 앱 제거 중..." -ForegroundColor Yellow
 
 # Windows 11 시작 메뉴 레이아웃 초기화 (고정 앱 제거)
 $startMenuPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\CloudStore\Store\Cache\DefaultAccount"
@@ -407,12 +407,16 @@ if (Test-Path $start2BinPath) {
     Write-OptLog -Message "시작 메뉴 레이아웃: 파일 없음" -Status "Skipped"
 }
 
-# Explorer 재시작으로 시작 메뉴 변경사항 즉시 적용
-Write-Host "  - Explorer 재시작 중..." -ForegroundColor Yellow
-Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 2
-Start-Process explorer
-Write-Host "  - 시작 메뉴 변경사항 적용됨" -ForegroundColor Green
+# Explorer 재시작으로 시작 메뉴 변경사항 즉시 적용 (OrchestrateMode에서는 중앙 관리)
+if (-not $global:OrchestrateMode) {
+    Write-Host "  - Explorer 재시작 중..." -ForegroundColor Yellow
+    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    Start-Process explorer
+    Write-Host "  - 시작 메뉴 변경사항 적용됨" -ForegroundColor Green
+} else {
+    Write-Host "  - Explorer 재시작 예약됨 (Orchestrate 종료 시)" -ForegroundColor Gray
+}
 
 # Microsoft Teams 관련 추가 정리
 $teamsPath = "$env:LOCALAPPDATA\Microsoft\Teams"
@@ -450,49 +454,6 @@ if ($teamsReg1 -or $teamsReg2) {
 } else {
     Write-Host "  - Teams 자동 시작 없음 (스킵)" -ForegroundColor Gray
     Write-OptLog -Message "Teams 자동 시작: 없음" -Status "Skipped"
-}
-
-
-# 6. 바탕화면 검은색으로 설정
-Write-Host ""
-Write-Host "[6/6] 바탕화면을 검은색으로 설정 중..." -ForegroundColor Yellow
-
-# 바탕화면 배경 레지스트리 경로
-$desktopPath = "HKCU:\Control Panel\Desktop"
-$colorsPath = "HKCU:\Control Panel\Colors"
-
-# 현재 값 확인
-$currentWallpaper = (Get-ItemProperty -Path $desktopPath -Name "WallPaper" -ErrorAction SilentlyContinue).WallPaper
-$currentBgColor = (Get-ItemProperty -Path $colorsPath -Name "Background" -ErrorAction SilentlyContinue).Background
-
-if (-not $global:ForceOverride -and $currentWallpaper -eq "" -and $currentBgColor -eq "0 0 0") {
-    Write-Host "  - 바탕화면 이미 검은색 (스킵)" -ForegroundColor Gray
-    Write-OptLog -Message "바탕화면: 이미 검은색" -Status "Skipped"
-} else {
-    # 배경색을 단색으로 설정 (WallpaperStyle: 0 = 단색)
-    Set-ItemProperty -Path $desktopPath -Name "WallPaper" -Value "" -Type String
-    Set-ItemProperty -Path $desktopPath -Name "WallpaperStyle" -Value "0" -Type String
-    Write-Host "  - 바탕화면 배경 이미지 제거됨" -ForegroundColor Green
-    Write-OptLog -Message "바탕화면 배경 이미지 제거" -Status "Applied"
-
-    # 배경색을 검은색으로 설정 (RGB: 0 0 0)
-    Set-ItemProperty -Path $colorsPath -Name "Background" -Value "0 0 0" -Type String
-    Write-Host "  - 배경색 검은색으로 설정됨" -ForegroundColor Green
-    Write-OptLog -Message "배경색 검은색 설정" -Status "Applied"
-
-    # 바탕화면 새로고침 (SystemParametersInfo 호출)
-    Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class Wallpaper {
-    [DllImport("user32.dll", CharSet = CharSet.Auto)]
-    public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
-}
-"@
-
-    # SPI_SETDESKWALLPAPER = 0x0014, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE = 0x03
-    [Wallpaper]::SystemParametersInfo(0x0014, 0, "", 0x03) | Out-Null
-    Write-Host "  - 바탕화면 설정 적용됨" -ForegroundColor Green
 }
 
 

@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.3"
+$scriptVersion = "1.1.4"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -902,6 +902,15 @@ function Start-OptimizationProcess {
         $completedItems.AddRange($State.CompletedItems)
     }
 
+    # Explorer 종료 (최적화 중 반복 재시작 방지)
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "Explorer 종료 중 (최적화 중 재시작 방지)..." -ForegroundColor Yellow
+    Write-Host "========================================" -ForegroundColor Cyan
+    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    Write-Host "  - Explorer 종료됨" -ForegroundColor Green
+
     # 재부팅 불필요 항목과 필요 항목 분리
     $noRebootItems = @()
     $rebootItems = @()
@@ -989,6 +998,15 @@ function Start-OptimizationProcess {
     } else {
         Write-Host "  - 총 $removedCount 개 바로가기 삭제 완료" -ForegroundColor Green
     }
+
+    # Explorer 재시작
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "Explorer 재시작 중..." -ForegroundColor Yellow
+    Write-Host "========================================" -ForegroundColor Cyan
+    Start-Process explorer
+    Start-Sleep -Seconds 3
+    Write-Host "  - Explorer 재시작됨" -ForegroundColor Green
 
     # 전체 Summary 출력 및 로그 저장
     Show-OrchestrateSummary -CompletedItems ([array]$completedItems) -FailedItems ([array]$failedItems)

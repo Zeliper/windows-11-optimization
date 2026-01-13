@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.1"
+$scriptVersion = "1.1.2"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -145,6 +145,63 @@ function Set-ServiceIfDifferent {
             Write-Host "  - $StepName : 실패 - $($_.Exception.Message)" -ForegroundColor Red
             Write-OptLog -Message "$StepName : 실패 - $($_.Exception.Message)" -Status "Failed"
         }
+        return $false
+    }
+}
+
+# 레지스트리 키 소유권 획득 함수 (보호된 서비스 레지스트리 수정용)
+function Take-RegistryOwnership {
+    param(
+        [string]$RegistryPath  # 예: "HKLM:\SYSTEM\CurrentControlSet\Services\WdFilter"
+    )
+
+    try {
+        # HKLM:\ 형식을 레지스트리 API용 경로로 변환
+        $keyPath = $RegistryPath -replace "^HKLM:\\", ""
+
+        # 레지스트리 키 열기 (TakeOwnership 권한으로)
+        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
+            $keyPath,
+            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
+            [System.Security.AccessControl.RegistryRights]::TakeOwnership
+        )
+
+        if ($null -eq $key) {
+            return $false
+        }
+
+        # 현재 ACL 가져오기
+        $acl = $key.GetAccessControl()
+
+        # Administrators 그룹을 소유자로 설정
+        $adminSid = [System.Security.Principal.SecurityIdentifier]::new("S-1-5-32-544")  # BUILTIN\Administrators
+        $acl.SetOwner($adminSid)
+        $key.SetAccessControl($acl)
+
+        # 키 다시 열기 (ChangePermissions 권한으로)
+        $key.Close()
+        $key = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey(
+            $keyPath,
+            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree,
+            [System.Security.AccessControl.RegistryRights]::ChangePermissions
+        )
+
+        # Full Control 권한 부여
+        $acl = $key.GetAccessControl()
+        $rule = New-Object System.Security.AccessControl.RegistryAccessRule(
+            $adminSid,
+            "FullControl",
+            "ContainerInherit,ObjectInherit",
+            "None",
+            "Allow"
+        )
+        $acl.AddAccessRule($rule)
+        $key.SetAccessControl($acl)
+        $key.Close()
+
+        return $true
+    } catch {
+        Write-Host "    - 소유권 획득 실패: $($_.Exception.Message)" -ForegroundColor Yellow
         return $false
     }
 }
@@ -421,10 +478,18 @@ Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction SilentlyContinue
         }
     }
 
-    # SecurityHealthService 비활성화
+    # SecurityHealthService 비활성화 (소유권 획득 후 시도)
+    if (Test-Path $securityHealthPath) {
+        $ownershipSH = Take-RegistryOwnership -RegistryPath $securityHealthPath
+        if ($ownershipSH) { Write-Host "    - SecurityHealthService 소유권 획득 성공" -ForegroundColor Cyan }
+    }
     Set-RegistryIfDifferent -Path $securityHealthPath -Name "Start" -Value 4 -StepName "SecurityHealthService 비활성화"
 
-    # wscsvc (Security Center) 비활성화
+    # wscsvc (Security Center) 비활성화 (소유권 획득 후 시도)
+    if (Test-Path $wscsvcPath) {
+        $ownershipWS = Take-RegistryOwnership -RegistryPath $wscsvcPath
+        if ($ownershipWS) { Write-Host "    - wscsvc 소유권 획득 성공" -ForegroundColor Cyan }
+    }
     Set-RegistryIfDifferent -Path $wscsvcPath -Name "Start" -Value 4 -StepName "wscsvc (Security Center) 비활성화"
 
     # WinDefend 서비스 중지 시도
@@ -476,6 +541,11 @@ Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction SilentlyContinue
     foreach ($driver in $defenderDrivers) {
         $driverPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$($driver.Name)"
         if (Test-Path $driverPath) {
+            # 먼저 소유권 획득 시도 (보호된 레지스트리 키 수정을 위해)
+            $ownershipResult = Take-RegistryOwnership -RegistryPath $driverPath
+            if ($ownershipResult) {
+                Write-Host "    - $($driver.Name) 소유권 획득 성공" -ForegroundColor Cyan
+            }
             Set-RegistryIfDifferent -Path $driverPath -Name "Start" -Value 4 `
                 -StepName "$($driver.Name)" -Description $driver.Desc
         }

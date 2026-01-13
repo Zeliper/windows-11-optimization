@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.1"
+$scriptVersion = "1.1.2"
 $scriptName = "014.storage_optimization.ps1"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
@@ -160,14 +160,18 @@ if (Test-Path $softDistPath) {
     Write-Host "  - Windows Update 다운로드 캐시 정리 완료" -ForegroundColor Green
 }
 
-# 썸네일 캐시 정리
+# 썸네일 캐시 정리 (Explorer 종료/재시작은 OrchestrateMode에서 중앙 관리)
 $thumbCachePath = "$env:LOCALAPPDATA\Microsoft\Windows\Explorer"
 if (Test-Path $thumbCachePath) {
-    Stop-Process -Name "explorer" -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 2
+    if (-not $global:OrchestrateMode) {
+        Stop-Process -Name "explorer" -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+    }
     Remove-Item -Path "$thumbCachePath\thumbcache_*.db" -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$thumbCachePath\iconcache_*.db" -Force -ErrorAction SilentlyContinue
-    Start-Process "explorer.exe"
+    if (-not $global:OrchestrateMode) {
+        Start-Process "explorer.exe"
+    }
     Write-Host "  - 썸네일/아이콘 캐시 정리 완료" -ForegroundColor Green
 }
 

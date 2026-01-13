@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.1"
+$scriptVersion = "1.1.2"
 $scriptName = "013.privacy_optimization.ps1"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
@@ -509,10 +509,12 @@ Write-Host "  - 점프 목록 비활성화" -ForegroundColor Green
 
 # 파일 탐색기 개인 정보 보호 설정 (폴더 옵션) - 강화 버전
 
-# 1. 탐색기 먼저 종료 (파일 잠금 해제 및 설정 즉시 반영)
-Write-Host "  - 파일 탐색기 종료 중..." -ForegroundColor Yellow
-Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 2
+# 1. 탐색기 먼저 종료 (파일 잠금 해제 및 설정 즉시 반영) - OrchestrateMode에서는 중앙 관리
+if (-not $global:OrchestrateMode) {
+    Write-Host "  - 파일 탐색기 종료 중..." -ForegroundColor Yellow
+    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+}
 
 # 2. 그룹 정책 레지스트리 추가 (강제 적용)
 $policyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer"
@@ -558,10 +560,14 @@ foreach ($path in $recentPaths) {
 }
 Write-Host "  - 최근 파일 히스토리 삭제 완료" -ForegroundColor Green
 
-# 7. 탐색기 재시작
-Start-Sleep -Seconds 1
-Start-Process explorer
-Write-Host "  - 파일 탐색기 재시작 완료" -ForegroundColor Green
+# 7. 탐색기 재시작 (OrchestrateMode에서는 중앙 관리)
+if (-not $global:OrchestrateMode) {
+    Start-Sleep -Seconds 1
+    Start-Process explorer
+    Write-Host "  - 파일 탐색기 재시작 완료" -ForegroundColor Green
+} else {
+    Write-Host "  - 파일 탐색기 재시작 예약됨 (Orchestrate 종료 시)" -ForegroundColor Gray
+}
 
 
 # [7/7] 광고 추적 비활성화 강화
