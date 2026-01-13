@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.4"
+$scriptVersion = "1.1.5"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -907,9 +907,29 @@ function Start-OptimizationProcess {
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host "Explorer 종료 중 (최적화 중 재시작 방지)..." -ForegroundColor Yellow
     Write-Host "========================================" -ForegroundColor Cyan
-    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 2
-    Write-Host "  - Explorer 종료됨" -ForegroundColor Green
+
+    # Explorer 강제 종료 (Windows 자동 재시작 방지를 위해 반복 시도)
+    $maxAttempts = 5
+    for ($i = 1; $i -le $maxAttempts; $i++) {
+        $explorerProc = Get-Process -Name explorer -ErrorAction SilentlyContinue
+        if ($null -eq $explorerProc) {
+            Write-Host "  - Explorer 종료됨" -ForegroundColor Green
+            break
+        }
+
+        Write-Host "  - Explorer 종료 시도 $i/$maxAttempts..." -ForegroundColor Yellow
+        taskkill /F /IM explorer.exe 2>$null | Out-Null
+        Start-Sleep -Seconds 1
+
+        if ($i -eq $maxAttempts) {
+            $explorerProc = Get-Process -Name explorer -ErrorAction SilentlyContinue
+            if ($null -eq $explorerProc) {
+                Write-Host "  - Explorer 종료됨" -ForegroundColor Green
+            } else {
+                Write-Host "  - Explorer 종료 실패 (자동 재시작됨) - 계속 진행" -ForegroundColor Yellow
+            }
+        }
+    }
 
     # 재부팅 불필요 항목과 필요 항목 분리
     $noRebootItems = @()

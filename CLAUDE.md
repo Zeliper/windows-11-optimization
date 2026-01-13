@@ -260,7 +260,7 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 
 | 번호 | 파일명 | 버전 | 설명 |
 |------|--------|------|------|
-| 000 | orchestrate.ps1 | v1.1.4 | **통합 원클릭 스크립트** (대화형 메뉴, 프리셋, 재부팅 관리, **Explorer 중앙 관리 추가**) |
+| 000 | orchestrate.ps1 | v1.1.5 | **통합 원클릭 스크립트** (대화형 메뉴, 프리셋, 재부팅 관리, **Explorer 강제 종료 로직 개선**) |
 | 001 | disable_update.ps1 | v1.1.1 | Windows Update 수동 설정, UAC 프롬프트 비활성화 |
 | 002 | power_network.ps1 | v1.1.2 | 전원 관리, 네트워크 최적화, 텔레메트리 비활성화 (**균형 모드 fallback 추가**) |
 | 003 | defender_onedrive_firewall.ps1 | v1.1.2 | Defender 보호 기능 비활성화, OneDrive 삭제, 방화벽 해제 (**레지스트리 소유권 획득 로직 추가**) |
