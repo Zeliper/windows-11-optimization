@@ -265,10 +265,10 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 | 002 | power_network.ps1 | v1.1.2 | 전원 관리, 네트워크 최적화, 텔레메트리 비활성화 (**균형 모드 fallback 추가**) |
 | 003 | defender_onedrive_firewall.ps1 | v1.1.2 | Defender 보호 기능 비활성화, OneDrive 삭제, 방화벽 해제 (**레지스트리 소유권 획득 로직 추가**) |
 | 004 | taskbar.ps1 | v1.1.4 | 작업 표시줄 정리, 컨텍스트 메뉴 복원 (**OrchestrateMode Explorer 체크 추가**) |
-| 005 | bloatware.ps1 | v1.1.2 | 블로트웨어 앱 및 기능 제거 (**검은 배경 설정 삭제, OrchestrateMode Explorer 체크**) |
+| 005 | bloatware.ps1 | v1.1.3 | 블로트웨어 앱 및 기능 제거 (**AllUsers 앱 제거 타임아웃 추가**) |
 | 006 | software_install.ps1 | v1.1.2 | 필수 소프트웨어 자동 설치 (**파일 연결 스킵 로직 추가**) |
 | 008 | common_optimization.ps1 | v1.1.1 | 공통 최적화 (디스크 정리, DNS, 서비스, 부팅) |
-| 009 | gaming_optimization.ps1 | v1.1.1 | 게임용 PC 최적화 (VBS, GPU, 시각효과) |
+| 009 | gaming_optimization.ps1 | v1.1.2 | 게임용 PC 최적화 (VBS, GPU, **DragFullWindows 제거 - 전체 창 끌기 유지**) |
 | 010 | game_server.ps1 | v1.1.2 | 게임 서버 최적화 (**RxTxEnabled 열거자 수정**) |
 | 011 | web_server.ps1 | v1.1.1 | 웹 서버 IIS 최적화 (압축, 캐싱, TLS) |
 | 012 | ai_features.ps1 | v1.1.2 | **25H2 AI 기능 비활성화** (Recall, Copilot, AI Actions, Search AI, Spotlight 등 14단계, **DisableSearchBoxSuggestions 제거**) |
@@ -281,4 +281,4 @@ irm https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_sc
 | 019 | search_optimization.ps1 | v1.1.1 | Windows Search 최적화 (인덱싱, 클라우드 검색 비활성화, **Store 검색 제안 비활성화**) |
 | 020 | registry_tweaks.ps1 | v1.1.0 | 레지스트리 미세 조정 (MenuShowDelay, IRPStackSize, LongPaths) |
 | 021 | ntfs_ssd_optimization.ps1 | v1.1.1 | NTFS/SSD 최적화 (8.3 파일명, Last Access Time, **Native NVMe 실험적 기능 조건부 실행**) |
-| 022 | advanced_gaming_optimization.ps1 | v1.1.2 | 고급 게임 최적화 (Game Bar/DVR, DWM, Power Throttling, **Game Mode 중복 제거**) |
+| 022 | advanced_gaming_optimization.ps1 | v1.1.3 | 고급 게임 최적화 (Game Bar/DVR, Power Throttling, **DWM OverlayTestMode 제거 - Explorer 새로고침 호환성**) |

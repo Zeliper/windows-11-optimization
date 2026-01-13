@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.2"
+$scriptVersion = "1.1.3"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -244,23 +244,41 @@ if ($removedCount -eq 0) {
 }
 
 
-# 2. 모든 사용자에서 앱 제거
+# 2. 모든 사용자에서 앱 제거 (타임아웃 적용)
 Write-Host ""
 Write-Host "[2/5] 모든 사용자 블로트웨어 앱 제거 중..." -ForegroundColor Yellow
 
 # 한 번의 호출로 모든 AllUsers 패키지 가져오기 (성능 최적화)
 $allUsersPackages = Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue
 $allUsersRemoved = 0
+$timeoutSeconds = 30
 
 foreach ($app in $bloatwareApps) {
     $matched = $allUsersPackages | Where-Object { $_.Name -like "*$app*" }
     if (-not $matched) { continue }
     foreach ($package in $matched) {
+        $pkgName = $package.Name
         try {
-            $package | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
-            Write-Host "  - $($package.Name) 제거됨 (AllUsers)" -ForegroundColor Green
-            Write-OptLog -Message "앱 제거 (AllUsers): $($package.Name)" -Status "Applied"
-            $allUsersRemoved++
+            # Start-Job으로 타임아웃 적용 (시스템 앱 무한 대기 방지)
+            $job = Start-Job -ScriptBlock {
+                param($pkg)
+                $pkg | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
+            } -ArgumentList $package
+
+            $completed = Wait-Job -Job $job -Timeout $timeoutSeconds
+
+            if ($null -eq $completed) {
+                # 타임아웃 발생
+                Stop-Job -Job $job -ErrorAction SilentlyContinue
+                Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+                Write-Host "  - $pkgName 제거 타임아웃 (스킵)" -ForegroundColor Yellow
+                Write-OptLog -Message "앱 제거 타임아웃 (AllUsers): $pkgName" -Status "Skipped"
+            } else {
+                Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+                Write-Host "  - $pkgName 제거됨 (AllUsers)" -ForegroundColor Green
+                Write-OptLog -Message "앱 제거 (AllUsers): $pkgName" -Status "Applied"
+                $allUsersRemoved++
+            }
         }
         catch {
             # 일부 앱은 AllUsers에서 제거 불가

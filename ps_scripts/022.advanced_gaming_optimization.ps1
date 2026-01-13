@@ -18,7 +18,7 @@ if ($null -eq $global:OrchestrateMode) {
 }
 
 # 스크립트 버전
-$scriptVersion = "1.1.2"
+$scriptVersion = "1.1.3"
 $scriptName = "022.advanced_gaming_optimization.ps1"
 
 # ===== 로깅 시스템 =====
@@ -438,21 +438,11 @@ Set-RegistryIfDifferent -Path $gamesTaskPath -Name "Scheduling Category" -Value 
 Set-RegistryIfDifferent -Path $gamesTaskPath -Name "SFIO Priority" -Value "High" -Type String -StepName $gameBarStep -Description "Games SFIO Priority"
 
 
-# [10/10] DWM (Desktop Window Manager) 최적화
+# [10/10] DWM (Desktop Window Manager) 최적화 - OverlayTestMode 제거됨 (Explorer 새로고침 문제 원인)
 Write-Host ""
 Write-Host "[10/$totalSteps] DWM 최적화 중..." -ForegroundColor Yellow
-
-$dwmStep = "DWM 최적화"
-$dwmPath = "HKCU:\Software\Microsoft\Windows\DWM"
-
-# OverlayTestMode: 5 = DWM 버퍼링 최소화
-Set-RegistryIfDifferent -Path $dwmPath -Name "OverlayTestMode" -Value 5 -StepName $dwmStep -Description "OverlayTestMode (버퍼링 최소화)"
-
-# 시스템 DWM 설정 (선택적)
-$dwmSystemPath = "HKLM:\SOFTWARE\Microsoft\Windows\DWM"
-if (Test-Path $dwmSystemPath) {
-    Set-RegistryIfDifferent -Path $dwmSystemPath -Name "OverlayTestMode" -Value 5 -StepName $dwmStep -Description "System OverlayTestMode"
-}
+Write-Host "  - DWM OverlayTestMode: 제거됨 (Explorer 자동 새로고침 호환성)" -ForegroundColor Gray
+Write-OptLog -Step "DWM 최적화" -Status "스킵됨" -Message "OverlayTestMode 제거됨 (Explorer 호환성)"
 
 
 # ===== 로그 저장 =====
@@ -475,7 +465,6 @@ Write-Host "  - Power Throttling: 비활성화" -ForegroundColor White
 Write-Host "  - 시스템 타이머: 최적화 (일관된 프레임 타이밍)" -ForegroundColor White
 Write-Host "  - Game Bar/DVR: 완전 비활성화" -ForegroundColor White
 Write-Host "  - 전체화면 최적화: 비활성화 (입력 지연 감소)" -ForegroundColor White
-Write-Host "  - DWM: 버퍼링 최소화 (창 모드 지연 감소)" -ForegroundColor White
 Write-Host "  - Games 작업: GPU/CPU 우선순위 High" -ForegroundColor White
 Write-Host ""
 Write-Host "로그 파일: $global:LogFilePath" -ForegroundColor Cyan

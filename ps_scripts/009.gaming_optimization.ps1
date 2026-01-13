@@ -5,7 +5,7 @@
 #Requires -RunAsAdministrator
 
 # 스크립트 버전
-$scriptVersion = "1.1.1"
+$scriptVersion = "1.1.2"
 $scriptName = "009.gaming_optimization.ps1"
 
 # UTF-8 인코딩 설정 (irm | iex 실행 시 한글 출력용)
@@ -281,10 +281,11 @@ Set-RegistryIfDifferent -Path $visualEffectsPath -Name "VisualFXSetting" -Value 
 $personalizePath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize"
 Set-RegistryIfDifferent -Path $personalizePath -Name "EnableTransparency" -Value 0 -StepName $visualStep -Description "투명 효과"
 
-# 애니메이션 효과 비활성화
+# 애니메이션 효과 비활성화 (DragFullWindows는 유지)
 $desktopPath = "HKCU:\Control Panel\Desktop"
 $currentUserPrefs = (Get-ItemProperty -Path $desktopPath -Name "UserPreferencesMask" -ErrorAction SilentlyContinue).UserPreferencesMask
-$targetUserPrefs = [byte[]](0x90,0x12,0x03,0x80,0x10,0x00,0x00,0x00)
+# 0x92: 비트1 활성화 = 전체 창 끌기 유지
+$targetUserPrefs = [byte[]](0x92,0x12,0x03,0x80,0x10,0x00,0x00,0x00)
 if ($null -eq $currentUserPrefs -or ($currentUserPrefs -join ",") -ne ($targetUserPrefs -join ",")) {
     Set-ItemProperty -Path $desktopPath -Name "UserPreferencesMask" -Value $targetUserPrefs -Type Binary
     Write-Host "  - UserPreferencesMask : 적용됨 (적용됨)" -ForegroundColor Green
@@ -295,7 +296,7 @@ if ($null -eq $currentUserPrefs -or ($currentUserPrefs -join ",") -ne ($targetUs
 }
 
 Set-RegistryIfDifferent -Path $desktopPath -Name "MinAnimate" -Value "0" -Type "String" -StepName $visualStep -Description "창 최소화 애니메이션"
-Set-RegistryIfDifferent -Path $desktopPath -Name "DragFullWindows" -Value "0" -Type "String" -StepName $visualStep -Description "전체 창 끌기"
+# DragFullWindows 제거: 사용자가 창 드래그 시 전체 창 표시를 선호
 Set-RegistryIfDifferent -Path $desktopPath -Name "MenuShowDelay" -Value "0" -Type "String" -StepName $visualStep -Description "메뉴 표시 지연"
 
 # 작업 표시줄 애니메이션 비활성화
