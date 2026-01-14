@@ -531,28 +531,41 @@ $steps = @(
                 
                 # UserChoice 초기화 (기존 유저 강제 적용을 위해)
                 Write-Debug-Log "Resetting UserChoice for target extensions..."
-                Write-Host "  - 기존 파일 연결 초기화 중 (UserChoice 삭제)..." -ForegroundColor Yellow
+                Write-Host "  - 기존 파일 연결 초기화 및 OpenWith 등록 중..." -ForegroundColor Yellow
                 
                 foreach ($assoc in $script:associationsTemp) {
                     $ext = $assoc.Identifier
+                    $progId = $assoc.ProgId
+                    
+                    # 1. UserChoice 삭제 (Hash 보호 우회 시도)
                     $userChoicePath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext\UserChoice"
                     if (Test-Path $userChoicePath) {
                         try {
-                            # 권한 문제로 실패할 수 있으나 시도함
                             Remove-Item -Path $userChoicePath -Force -ErrorAction SilentlyContinue
                         } catch {
-                            Write-Debug-Log "Failed to remove UserChoice for $ext"
+                             Write-Debug-Log "Failed to remove UserChoice for $ext"
                         }
                     }
+                    
+                    # 2. OpenWithProgids에 등록 (UserChoice 삭제 후 1순위 후보가 되도록)
+                    $openWithKey = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext\OpenWithProgids"
+                    if (-not (Test-Path $openWithKey)) { New-Item -Path $openWithKey -Force | Out-Null }
+                    
+                    # 해당 ProgID를 OpenWithProgids에 추가 (값은 비어있어도 됨)
+                    try {
+                        if (-not (Get-ItemProperty -Path $openWithKey -Name $progId -ErrorAction SilentlyContinue)) {
+                            New-ItemProperty -Path $openWithKey -Name $progId -Value ([byte[]]@()) -PropertyType Binary -Force -ErrorAction SilentlyContinue | Out-Null
+                        }
+                    } catch {}
                 }
-                Write-Host "  - 기존 파일 연결 초기화 완료" -ForegroundColor Gray
+                Write-Host "  - 기존 파일 연결 초기화 및 OpenWith 등록 완료" -ForegroundColor Gray
 
             } else {
                 Write-Host "  - 설정할 파일 연결 없음" -ForegroundColor Gray
             }
             $script:associationsTemp = $null
 
-            Write-Debug-Log "[END] 파일 연결 설정 (Registry Policy)"
+            Write-Debug-Log "[END] 파일 연결 설정 (Registry Policy + OpenWith)"
         }
     }
 )
