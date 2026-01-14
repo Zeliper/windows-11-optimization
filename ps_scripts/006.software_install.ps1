@@ -522,13 +522,19 @@ $steps = @(
                     # GPUpdate 트리거 (선택 사항, 즉시 적용 시도)
                     Start-Process -FilePath "gpupdate.exe" -ArgumentList "/force" -NoNewWindow -Wait
                     
-                    Write-Host "  - 앱 연결 정책 설정 완료 (재로그인 시 적용)" -ForegroundColor Green
+                Write-Host "  - 앱 연결 정책 설정 완료 (재로그인 시 적용)" -ForegroundColor Green
                     Write-OptLog -Step "FileAssoc" -Status "완료" -Message "Policy Set: $xmlPath"
                 } catch {
                     Write-Host "  - 정책 설정 실패: $_" -ForegroundColor Red
                     Write-OptLog -Step "FileAssoc" -Status "실패" -Message "Policy Error: $_"
                 }
-                
+
+                # DISM Import (현재 세션 즉시 적용 보완)
+                # Policy만으로는 재부팅/재로그인이 필수인 경우가 많아 DISM으로도 밀어넣음
+                Write-Host "  - 현재 사용자 기본값 적용 시도 (DISM)..." -ForegroundColor Yellow
+                $dismArgs = "/Online", "/Import-DefaultAppAssociations:`"$xmlPath`""
+                Start-Process -FilePath "dism.exe" -ArgumentList $dismArgs -Wait -NoNewWindow -ErrorAction SilentlyContinue
+
                 # UserChoice 초기화 (기존 유저 강제 적용을 위해)
                 Write-Debug-Log "Resetting UserChoice for target extensions..."
                 Write-Host "  - 기존 파일 연결 초기화 및 OpenWith 등록 중..." -ForegroundColor Yellow
