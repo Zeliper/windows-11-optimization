@@ -43,6 +43,9 @@ $setUserFtaPath = Join-Path $tempDir "SetUserFTA.exe" # Will be set during execu
 # Security Protocol Fix
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+# Disable progress bar to prevent console hanging
+$ProgressPreference = 'SilentlyContinue'
+
 $steps = @(
     # --- Notepad++ ---
     # --- Notepad++ ---
@@ -60,7 +63,7 @@ $steps = @(
                 
                 Write-Host "  - [로그] 다운로드 시작: $url" -ForegroundColor DarkGray
                 try {
-                    Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing -TimeoutSec 120 -Verbose
+                    Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing -TimeoutSec 120
                 } catch {
                     Write-Host "  - [오류] 다운로드 실패: $_" -ForegroundColor Red
                     throw $_
