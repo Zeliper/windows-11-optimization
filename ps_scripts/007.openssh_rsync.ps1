@@ -16,27 +16,50 @@ Init-OptimizationLog -ScriptName "007.openssh_rsync.ps1" -ScriptVersion "1.2.0"
 $steps = @(
     @{
         Name = "OpenSSH 서버/클라이언트 설치"
-        Action = {
+            # Ensure Windows Update service is running (Required for Capability installation)
+            $wuService = Get-Service "wuauserv" -ErrorAction SilentlyContinue
+            if ($wuService.Status -ne "Running") {
+                Write-Host "  - Windows Update 서비스 시작 중 (기능 설치 필수)..." -ForegroundColor Yellow
+                Start-Service "wuauserv" -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 2
+            }
+
+            # Helper function for installing capability
+            function Install-Cap ($Name, $DisplayName) {
+                 Write-Host "  - $DisplayName 설치 시도 중..." -ForegroundColor Yellow
+                 try {
+                     # Try direct installation (Fastest)
+                     Add-WindowsCapability -Online -Name $Name -ErrorAction Stop
+                     Write-OptLog -Step "OpenSSH" -Status "설치됨" -Message "$DisplayName 설치 완료"
+                     return $true
+                 } catch {
+                     Write-Host "  - 직접 설치 실패, 이름 검색으로 재시도..." -ForegroundColor Yellow
+                     # Fallback to search (Slower but safer)
+                     $cap = Get-WindowsCapability -Online | Where-Object { $_.Name -like "$($Name.Split('~')[0])*"} | Select-Object -First 1
+                     if ($cap -and $cap.State -ne 'Installed') {
+                         Add-WindowsCapability -Online -Name $cap.Name -ErrorAction Stop
+                         Write-OptLog -Step "OpenSSH" -Status "설치됨" -Message "$DisplayName 설치 완료 (검색)"
+                         return $true
+                     }
+                 }
+                 return $false
+            }
+
             # Fast check for SSH Server (Service based)
             if (Get-Service "sshd" -ErrorAction SilentlyContinue) {
                 Write-Host "  - OpenSSH Server가 이미 설치 되어 있습니다. (Service Check)" -ForegroundColor Green
-                Write-OptLog -Step "OpenSSH" -Status "스킵됨" -Message "OpenSSH.Server 이미 설치됨 (Service Check)"
+                Write-OptLog -Step "OpenSSH" -Status "스킵됨" -Message "OpenSSH.Server 이미 설치됨"
             } else {
-                 Write-Host "  - OpenSSH Server 설치 중... (시간이 소요될 수 있습니다)" -ForegroundColor Yellow
-                 Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 -ErrorAction SilentlyContinue
-                 Write-OptLog -Step "OpenSSH" -Status "설치됨" -Message "OpenSSH.Server 설치 완료"
+                 Install-Cap -Name "OpenSSH.Server~~~~0.0.1.0" -DisplayName "OpenSSH Server" | Out-Null
             }
 
             # Fast check for SSH Client (Command based)
             if (Get-Command "ssh.exe" -ErrorAction SilentlyContinue) {
                 Write-Host "  - OpenSSH Client가 이미 설치 되어 있습니다. (Command Check)" -ForegroundColor Green
-                Write-OptLog -Step "OpenSSH" -Status "스킵됨" -Message "OpenSSH.Client 이미 설치됨 (Command Check)"
+                Write-OptLog -Step "OpenSSH" -Status "스킵됨" -Message "OpenSSH.Client 이미 설치됨"
             } else {
-                 Write-Host "  - OpenSSH Client 설치 중..." -ForegroundColor Yellow
-                 Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0 -ErrorAction SilentlyContinue
-                 Write-OptLog -Step "OpenSSH" -Status "설치됨" -Message "OpenSSH.Client 설치 완료"
+                 Install-Cap -Name "OpenSSH.Client~~~~0.0.1.0" -DisplayName "OpenSSH Client" | Out-Null
             }
-        }
     },
     @{
         Name = "SSH 서비스 설정 (sshd, ssh-agent)"
@@ -146,5 +169,6 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "OpenSSH 및 rsync 설정" -Steps $steps
+
 
 
