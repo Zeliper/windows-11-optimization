@@ -4,24 +4,72 @@
 #Requires -RunAsAdministrator
 
 # Script Version
-$scriptVersion = "1.2.0"
+$scriptVersion = "1.2.1"
 
 # UTF-8 Encoding
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
-# Ensure PSScriptRoot is defined
-if ([string]::IsNullOrEmpty($PSScriptRoot)) {
-    if ($MyInvocation.MyCommand.Path) {
-        $PSScriptRoot = Split-Path $MyInvocation.MyCommand.Path -Parent
-    } else {
-        $PSScriptRoot = Get-Location | Select-Object -ExpandProperty Path
+# Disable Progress Bar
+$ProgressPreference = 'SilentlyContinue'
+
+# --- Resolve Execution Path ---
+# Determine if running locally (with scripts present) or remotely (IRM | IEX)
+$localMode = $false
+$execRoot = ""
+
+if (-not [string]::IsNullOrEmpty($PSScriptRoot)) {
+    # PSScriptRoot is defined. Check if core.ps1 is here.
+    if (Test-Path (Join-Path $PSScriptRoot "core.ps1")) {
+        $localMode = $true
+        $execRoot = $PSScriptRoot
     }
 }
 
-# Disable Progress Bar
-$ProgressPreference = 'SilentlyContinue'
+if (-not $localMode) {
+    # Fallback checks
+    if ($MyInvocation.MyCommand.Path) {
+        $candidate = Split-Path $MyInvocation.MyCommand.Path -Parent
+        if (Test-Path (Join-Path $candidate "core.ps1")) {
+            $localMode = $true
+            $execRoot = $candidate
+        }
+    }
+}
+
+if (-not $localMode) {
+    # Assume current directory if scripts are there
+    $current = Get-Location | Select-Object -ExpandProperty Path
+    if (Test-Path (Join-Path $current "core.ps1")) {
+        $localMode = $true
+        $execRoot = $current
+    }
+}
+
+# Define Base URL for remote download if needed
+$global:ScriptBaseUrl = "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/ps_scripts"
+
+# If still not local, prepare temp directory for download execution
+if (-not $localMode) {
+    Write-Host "Remote execution detected (or core.ps1 not found locally)." -ForegroundColor Yellow
+    $execRoot = Join-Path $env:TEMP "Windows11Optimization_$(Get-Random)"
+    New-Item -Path $execRoot -ItemType Directory -Force | Out-Null
+    Write-Host "Preparing environment at: $execRoot" -ForegroundColor Gray
+    
+    # Download core.ps1 immediately as it is critical
+    try {
+        Invoke-WebRequest "$global:ScriptBaseUrl/core.ps1" -OutFile (Join-Path $execRoot "core.ps1") -UseBasicParsing
+    } catch {
+        Write-Error "Failed to download core module. Check internet connection."
+        exit
+    }
+}
+
+# Expose execution root globally for helper functions
+$global:OptimizationRoot = $execRoot
+$global:IsRemoteTemp = -not $localMode
+
 
 # Global State
 $global:OrchestrateMode = $true
@@ -33,9 +81,6 @@ $global:OrchestrateLogDir = Join-Path ([Environment]::GetFolderPath('MyDocuments
 if (-not (Test-Path $global:OrchestrateLogDir)) { New-Item -Path $global:OrchestrateLogDir -ItemType Directory -Force | Out-Null }
 $global:OrchestrateLogFile = Join-Path $global:OrchestrateLogDir "Windows11Optimizer_ORCHESTRATE_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
 $global:ScriptResults = [System.Collections.ArrayList]@()
-
-# Load Core Module (for logging definitions if needed, though Orchestrate uses its own summary)
-# Note: Helper scripts will load core.ps1 themselves.
 
 # System Info Collection (for Log)
 function Get-SystemInfoForLog {
@@ -152,12 +197,35 @@ function Invoke-OptimizationScript {
     
     $start = Get-Date
     try {
-        $localPath = Join-Path $PSScriptRoot $item.File
-        if (Test-Path $localPath) {
-            . $localPath
+        $targetFile = Join-Path $global:OptimizationRoot $item.File
+        
+        # Determine execution method
+        if (Test-Path $targetFile) {
+            # File exists (local or already downloaded)
+            # IMPORTANT: Dot sourcing uses the caller's PSScriptRoot in some contexts if not careful.
+            # But here we are executing from specific file path.
+            # To ensure the script finds core.ps1 (which is in same folder), we push-location.
+            Push-Location $global:OptimizationRoot
+            try {
+                . $targetFile
+            } finally {
+                Pop-Location
+            }
         } else {
-            Write-Warning "File not found: $localPath"
-            throw "File not found"
+            # File not found
+            if ($global:IsRemoteTemp) {
+                Write-Host "Downloading $($item.File)..." -ForegroundColor Gray
+                Invoke-WebRequest "$global:ScriptBaseUrl/$($item.File)" -OutFile $targetFile -UseBasicParsing
+                
+                Push-Location $global:OptimizationRoot
+                try {
+                    . $targetFile
+                } finally {
+                    Pop-Location
+                }
+            } else {
+                throw "File not found: $targetFile"
+            }
         }
         
         $dur = "{0:mm\:ss}" -f ((Get-Date) - $start)
@@ -172,24 +240,12 @@ function Invoke-OptimizationScript {
     }
 }
 
-# Parallel Execution (Simplified to Sequential for reliability in this refactor, or preserve parallel if needed)
-# Since core.ps1 uses global log entries, parallel execution within the SAME process is dangerous unless we use jobs.
-# The original script used Start-Job. That creates a separate process, which is good.
-# But jobs need to know about core.ps1 too.
-# If we dot-source local files in jobs, we need to ensure they can find core.ps1.
-# The simpler approach for the user is sequential execution to see the output clearly, OR carefully managed jobs.
-# Given complexity, I will stick to SEQUENTIAL execution for reliability in this version, unless speed is critical.
-# Parallel is nice but complex to debug.
-# I will implement Sequential for now to ensure stability.
 
 function Start-OptimizationProcess {
     param($State)
     $pending = $State.PendingItems
     $completed = @()
     $failed = @()
-    
-    # Check Reboot items vs Non-Reboot?
-    # Simple sort by ID is usually fine, but grouping by reboot requirement is good.
     
     $rebootItems = @()
     $noRebootItems = @()
@@ -217,6 +273,11 @@ function Start-OptimizationProcess {
     Write-Host "적용: $($stats.TotalApplied) | 실패: $($stats.TotalFailed)" -ForegroundColor Yellow
     Write-Host "로그: $global:OrchestrateLogFile" -ForegroundColor Gray
     
+    if ($global:IsRemoteTemp) {
+        Write-Host "임시 파일 정리 중..." -ForegroundColor Gray
+        Remove-Item $global:OptimizationRoot -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
     if ($rebootItems.Count -gt 0) {
         Write-Host "`n재부팅이 필요한 항목이 있습니다." -ForegroundColor Red
         if ((Read-Host "지금 재부팅하시겠습니까? (Y/N)") -eq 'Y') {
@@ -231,6 +292,9 @@ function Show-Menu {
     Clear-Host
     Write-Host "Windows 11 Optimization Orchestrator v$scriptVersion" -ForegroundColor Cyan
     Write-Host "--------------------------------------------------" -ForegroundColor Gray
+    if ($global:IsRemoteTemp) {
+         Write-Host "[Remote Mode] Scripts will be downloaded to temporary execution environment." -ForegroundColor Yellow
+    }
     foreach ($item in $global:ScriptItems) {
         $mark = if ($Selected[$item.Id]) { "[X]" } else { "[ ]" }
         $col = if ($Selected[$item.Id]) { "Green" } else { "White" }
@@ -252,13 +316,15 @@ while ($true) {
         "B" { $selected.Clear(); $global:Presets["기본"] | ForEach-Object { $selected[$_] = $true } }
         "G" { $selected.Clear(); $global:Presets["게임"] | ForEach-Object { $selected[$_] = $true } }
         "S" { $selected.Clear(); $global:Presets["서버"] | ForEach-Object { $selected[$_] = $true } }
-        "Q" { exit }
+        "Q" { 
+            if ($global:IsRemoteTemp) { Remove-Item $global:OptimizationRoot -Recurse -Force -ErrorAction SilentlyContinue }
+            exit 
+        }
         "R" {
             if ($selected.Count -eq 0) { continue }
             
             # Experimental
             if ($selected[21]) {
-                # Ask NVMe
                  if ((Read-Host "Enable Native NVMe (Experimental)? (Y/N)") -eq 'Y') {
                      $global:ExperimentalOptions["EnableNativeNVMe"] = $true
                  }
