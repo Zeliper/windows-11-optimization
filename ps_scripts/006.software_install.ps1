@@ -40,6 +40,9 @@ function Test-FileAssociation {
 $tempDir = $env:TEMP
 $setUserFtaPath = Join-Path $tempDir "SetUserFTA.exe" # Will be set during execution
 
+# Security Protocol Fix
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 $steps = @(
     # --- Notepad++ ---
     # --- Notepad++ ---
@@ -57,7 +60,7 @@ $steps = @(
                 
                 Write-Host "  - [로그] 다운로드 시작: $url" -ForegroundColor DarkGray
                 try {
-                    Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing -TimeoutSec 120
+                    Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing -TimeoutSec 120 -Verbose
                 } catch {
                     Write-Host "  - [오류] 다운로드 실패: $_" -ForegroundColor Red
                     throw $_
