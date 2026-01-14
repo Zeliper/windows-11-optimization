@@ -4,7 +4,7 @@
 #Requires -RunAsAdministrator
 
 # Script Version
-$scriptVersion = "1.2.1"
+$scriptVersion = "1.2.2"
 
 # UTF-8 Encoding
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
