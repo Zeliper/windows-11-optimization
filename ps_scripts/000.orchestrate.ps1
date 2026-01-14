@@ -11,6 +11,15 @@ $scriptVersion = "1.2.0"
 $OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
+# Ensure PSScriptRoot is defined
+if ([string]::IsNullOrEmpty($PSScriptRoot)) {
+    if ($MyInvocation.MyCommand.Path) {
+        $PSScriptRoot = Split-Path $MyInvocation.MyCommand.Path -Parent
+    } else {
+        $PSScriptRoot = Get-Location | Select-Object -ExpandProperty Path
+    }
+}
+
 # Disable Progress Bar
 $ProgressPreference = 'SilentlyContinue'
 
