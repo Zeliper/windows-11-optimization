@@ -106,6 +106,37 @@ $steps = @(
         }
     },
 
+    # --- Everything ---
+    @{
+        Name = "Everything 설치"
+        Action = {
+            $paths = @("${env:ProgramFiles}\Everything\Everything.exe", "${env:ProgramFiles(x86)}\Everything\Everything.exe")
+            if (Test-SoftwareInstalled -Name "Everything" -Paths $paths -WingetId "voidtools.Everything") {
+                Write-Host "  - Everything 이미 설치됨 (스킵)" -ForegroundColor Gray
+                Write-OptLog -Step "Everything" -Status "스킵됨" -Message "이미 설치됨"
+            } else {
+                Write-Host "  - winget으로 설치 중..." -ForegroundColor Yellow
+                $res = winget install voidtools.Everything --source winget --silent --accept-package-agreements --accept-source-agreements 2>&1
+                if ($LASTEXITCODE -eq 0 -or $res -match "already installed") {
+                    Write-OptLog -Step "Everything" -Status "설치됨" -Message "설치 완료"
+                    
+                    # Auto Start
+                    $installedPath = if (Test-Path $paths[0]) { $paths[0] } else { $paths[1] }
+                    if ($installedPath) {
+                        Set-Registry -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "Everything" -Value "`"$installedPath`" -startup" -Type String
+                    }
+                } else {
+                    Write-Host "  - winget 실패, 직접 다운로드 시도..." -ForegroundColor Yellow
+                    $installer = Join-Path $tempDir "Everything.exe"
+                    Invoke-WebRequest "https://www.voidtools.com/Everything-1.4.1.1024.x64-Setup.exe" -OutFile $installer -UseBasicParsing
+                    Start-Process -FilePath $installer -ArgumentList "/S" -Wait -NoNewWindow
+                    Remove-Item $installer -Force -ErrorAction SilentlyContinue
+                    Write-OptLog -Step "Everything" -Status "설치됨" -Message "직접 설치 완료"
+                }
+            }
+        }
+    },
+
     # --- ShareX ---
     @{
         Name = "ShareX 설치 및 설정"
@@ -246,8 +277,8 @@ $steps = @(
             if (Test-Path $hv) {
                 $imgs = @(".jpg", ".png", ".gif", ".bmp", ".webp", ".heic")
                 foreach ($ext in $imgs) {
-                    $pid = "Honeyview" + $ext.TrimStart('.')
-                    Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $pid" -NoNewWindow -Wait
+                    $honeyviewProgId = "Honeyview" + $ext.TrimStart('.')
+                    Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $honeyviewProgId" -NoNewWindow -Wait
                 }
                 Write-Host "  - Honeyview 이미지 연결 완료" -ForegroundColor Green
             }
@@ -256,4 +287,5 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "필수 소프트웨어 설치" -Steps $steps
+
 
