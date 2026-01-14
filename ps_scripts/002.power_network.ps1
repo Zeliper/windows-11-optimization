@@ -1,4 +1,4 @@
-# Windows 11 Power & Network Optimization Script
+﻿# Windows 11 Power & Network Optimization Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -171,5 +171,6 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "전원 및 네트워크 최적화" -Steps $steps
+
 
 

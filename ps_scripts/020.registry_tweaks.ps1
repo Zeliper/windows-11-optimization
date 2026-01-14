@@ -1,4 +1,4 @@
-# Windows 11 Registry Tweaks Script
+﻿# Windows 11 Registry Tweaks Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -55,5 +55,6 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "레지스트리 미세 조정" -Steps $steps
+
 
 

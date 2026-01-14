@@ -1,4 +1,4 @@
-# Windows 11 Gaming Optimization Script
+﻿# Windows 11 Gaming Optimization Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -128,5 +128,6 @@ if (-not $global:OrchestrateMode) {
 }
 
 Run-OptimizationSteps -Title "게임 성능 최적화" -Steps $steps
+
 
 

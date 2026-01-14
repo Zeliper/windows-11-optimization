@@ -1,4 +1,4 @@
-# Windows 11 IIS Web Server Optimization Script
+﻿# Windows 11 IIS Web Server Optimization Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -115,5 +115,6 @@ if (-not $global:OrchestrateMode) {
 }
 
 Run-OptimizationSteps -Title "IIS 웹 서버 최적화" -Steps $steps
+
 
 

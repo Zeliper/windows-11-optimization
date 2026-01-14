@@ -1,4 +1,4 @@
-# Windows 11 Software Installation Script
+﻿# Windows 11 Software Installation Script
 # Refactored to use Winget with detailed logging
 
 #Requires -RunAsAdministrator
@@ -465,5 +465,6 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "필수 소프트웨어 설치" -Steps $steps
+
 
 

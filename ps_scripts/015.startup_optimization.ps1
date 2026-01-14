@@ -1,4 +1,4 @@
-# Windows 11 Startup Optimization Script
+﻿# Windows 11 Startup Optimization Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -107,5 +107,6 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "시작 프로그램 및 부팅 최적화" -Steps $steps
+
 
 

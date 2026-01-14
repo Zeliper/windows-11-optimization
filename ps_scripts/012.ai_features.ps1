@@ -1,4 +1,4 @@
-# Windows 11 AI Features Disable Script
+﻿# Windows 11 AI Features Disable Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -88,5 +88,6 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "AI 기능 비활성화" -Steps $steps
+
 
 

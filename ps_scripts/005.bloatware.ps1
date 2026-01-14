@@ -1,4 +1,4 @@
-# Windows 11 Bloatware Removal Script
+﻿# Windows 11 Bloatware Removal Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -153,5 +153,6 @@ if (-not $global:OrchestrateMode) {
     Start-Sleep 1
     Start-Process explorer
 }
+
 
 

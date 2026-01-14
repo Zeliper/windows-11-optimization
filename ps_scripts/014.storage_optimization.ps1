@@ -1,4 +1,4 @@
-# Windows 11 Storage Optimization Script
+﻿# Windows 11 Storage Optimization Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -122,5 +122,6 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "저장소 최적화" -Steps $steps
+
 
 

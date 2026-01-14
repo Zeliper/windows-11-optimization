@@ -1,4 +1,4 @@
-# Windows 11 Mouse/Input Optimization Script
+﻿# Windows 11 Mouse/Input Optimization Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -64,5 +64,6 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "마우스/입력 장치 최적화" -Steps $steps
+
 
 
