@@ -256,8 +256,23 @@ function Start-OptimizationProcess {
     
     
     # Stop Explorer for clean environment
-    Write-Host "Explorer를 종료합니다..." -ForegroundColor Yellow
-    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+    Write-Host "Explorer를 종료합니다 (자동 재시작 방지 적용)..." -ForegroundColor Yellow
+    
+    # 1. Prevent Auto-Restart
+    $regWinlogon = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+    Set-ItemProperty -Path $regWinlogon -Name "AutoRestartShell" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+
+    # 2. Kill Explorer Loop (Ensure it's dead)
+    $maxRetries = 5
+    do {
+        $explorer = Get-Process -Name explorer -ErrorAction SilentlyContinue
+        if ($explorer) {
+            Stop-Process -InputObject $explorer -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 1
+        }
+        $maxRetries--
+    } while ((Get-Process -Name explorer -ErrorAction SilentlyContinue) -and $maxRetries -gt 0)
+    
     Start-Sleep -Seconds 2
 
     # Execute NoReboot first
@@ -274,6 +289,10 @@ function Start-OptimizationProcess {
 
     # Restart Explorer
     Write-Host "Explorer를 시작합니다..." -ForegroundColor Yellow
+    
+    # Restore Auto-Restart
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "AutoRestartShell" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+    
     if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) {
         Start-Process explorer
     }
