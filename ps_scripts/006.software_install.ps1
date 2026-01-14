@@ -371,8 +371,14 @@ $steps = @(
 
             # 1. Notepad++
             Write-Debug-Log "Setting up Notepad++ file associations..."
-            $npp = "${env:ProgramFiles}\Notepad++\notepad++.exe"
-            if (Test-Path $npp) {
+            $nppCandidate = @(
+                "${env:ProgramFiles}\Notepad++\notepad++.exe",
+                "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe"
+            )
+            $npp = $null
+            foreach ($p in $nppCandidate) { if (Test-Path $p) { $npp = $p; break } }
+
+            if ($npp) {
                 $exts = @(".txt", ".ini", ".log", ".md", ".json", ".xml", ".yaml", ".sql", ".sh", ".cfg", ".conf", ".properties")
                 $progId = "Notepad++_file"
 
@@ -400,6 +406,8 @@ $steps = @(
                     Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -Wait
                 }
                 Write-Host "  - Notepad++ 파일 연결 완료" -ForegroundColor Green
+            } else {
+                Write-Debug-Log "Notepad++ not found in common locations, skipping associations."
             }
 
             # 2. Honeyview (Images)
@@ -408,8 +416,14 @@ $steps = @(
             Get-AppxProvisionedPackage -Online | Where-Object { $_.PackageName -like "*Photos*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
 
             Write-Debug-Log "Setting up Honeyview file associations..."
-            $hv = "${env:ProgramFiles}\Honeyview\Honeyview.exe"
-            if (Test-Path $hv) {
+            $hvCandidate = @(
+                "${env:ProgramFiles}\Honeyview\Honeyview.exe",
+                "${env:ProgramFiles(x86)}\Honeyview\Honeyview.exe"
+            )
+            $hv = $null
+            foreach ($p in $hvCandidate) { if (Test-Path $p) { $hv = $p; break } }
+
+            if ($hv) {
                 $imgs = @(
                     ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".ico", ".webp",
                     ".tiff", ".tif", ".heic", ".heif", ".avif",
@@ -445,6 +459,8 @@ $steps = @(
                     Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -Wait
                 }
                 Write-Host "  - Honeyview 이미지 연결 완료" -ForegroundColor Green
+            } else {
+                 Write-Debug-Log "Honeyview not found in common locations, skipping associations."
             }
 
             # 3. PotPlayer (Video & Audio)
@@ -501,6 +517,7 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "필수 소프트웨어 설치" -Steps $steps
+
 
 
 
