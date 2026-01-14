@@ -30,7 +30,16 @@ $steps = @(
             $dirs = @("$env:TEMP", "$env:TMP", "$env:WINDIR\Temp", "$env:WINDIR\SoftwareDistribution\Download")
             foreach ($d in $dirs) {
                 if (Test-Path $d) {
-                    Get-ChildItem $d -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+                    # Avoid deleting the current running script directory if it's in Temp (Remote Mode)
+                    if ($global:OptimizationRoot -and $d -like "*$global:OptimizationRoot*") {
+                        continue
+                    }
+                    # Also exclude the parent temp dir if we are in it
+                    if ($global:OptimizationRoot -and (Split-Path $global:OptimizationRoot -Parent) -eq $d) {
+                         Get-ChildItem $d -Recurse -Force -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notlike "$global:OptimizationRoot*" } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+                    } else {
+                         Get-ChildItem $d -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+                    }
                 }
             }
             Write-Host "  - 임시 폴더 및 업데이트 캐시 정리됨" -ForegroundColor Green
@@ -46,12 +55,20 @@ $steps = @(
         Action = {
             $paths = @("$env:SystemDrive\Windows.old", "$env:SystemDrive\`$Windows.~BT", "$env:SystemDrive\`$Windows.~WS")
             foreach ($p in $paths) {
+            foreach ($p in $paths) {
                 if (Test-Path $p) {
                     Write-Host "  - $p 삭제 중..." -ForegroundColor Yellow
-                    cmd /c "takeown /F `"$p`" /R /A /D Y" 2>$null | Out-Null
-                    cmd /c "icacls `"$p`" /grant Administrators:F /T /Q" 2>$null | Out-Null
-                    Remove-Item -Path $p -Recurse -Force -ErrorAction SilentlyContinue
-                    Write-Host "  - $p 삭제 시도 완료" -ForegroundColor Green
+                    try {
+                        # Take Ownership
+                        Start-Process cmd -ArgumentList "/c takeown /F `"$p`" /R /A /D Y" -NoNewWindow -Wait -ErrorAction SilentlyContinue
+                        # Grant Permissions
+                        Start-Process cmd -ArgumentList "/c icacls `"$p`" /grant Administrators:F /T /Q" -NoNewWindow -Wait -ErrorAction SilentlyContinue
+                        # Remove
+                        Remove-Item -Path $p -Recurse -Force -ErrorAction Stop
+                        Write-Host "  - $p 삭제 완료" -ForegroundColor Green
+                    } catch {
+                        Write-Host "  - 삭제 실패 (권한 부족 또는 사용 중): $_" -ForegroundColor Gray
+                    }
                 }
             }
         }
@@ -63,7 +80,9 @@ $steps = @(
             if ($drive) {
                 $sizeGB = [math]::Round($drive.Size / 1GB * 0.05)
                 if ($sizeGB -gt 10) { $sizeGB = 10 }
-                cmd /c "vssadmin resize shadowstorage /for=$env:SystemDrive /on=$env:SystemDrive /maxsize=${sizeGB}GB" 2>$null | Out-Null
+                if ($sizeGB -gt 10) { $sizeGB = 10 }
+                $vssCommand = "vssadmin resize shadowstorage /for=$env:SystemDrive /on=$env:SystemDrive /maxsize=${sizeGB}GB"
+                Start-Process cmd -ArgumentList "/c $vssCommand" -NoNewWindow -Wait -ErrorAction SilentlyContinue
                 Write-Host "  - 복원 포인트 용량 ${sizeGB}GB 제한" -ForegroundColor Green
                 
                 # Delete oldest

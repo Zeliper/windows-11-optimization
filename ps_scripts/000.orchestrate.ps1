@@ -7,9 +7,14 @@
 $scriptVersion = "1.2.3"
 
 # UTF-8 Encoding
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$OutputEncoding = [System.Text.Encoding]::UTF8
-chcp 65001 | Out-Null
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+    # Suppress chcp output and error
+    chcp 65001 >$null 2>&1
+} catch {
+    # Ignore encoding errors in non-console environments
+}
 
 # Disable Progress Bar
 $ProgressPreference = 'SilentlyContinue'
