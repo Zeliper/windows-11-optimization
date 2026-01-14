@@ -198,7 +198,7 @@ function Set-Service {
         }
 
         if ($currentStartType -ne $StartupType) {
-            Set-Service -Name $Name -StartupType $StartupType
+            Microsoft.PowerShell.Management\Set-Service -Name $Name -StartupType $StartupType
             Write-Host "  - $dispName : $currentStartType → $StartupType (적용됨)" -ForegroundColor Green
             Write-OptLog -Step $stepName -Status "적용됨" -Message "시작 유형 변경됨" -PreviousValue $currentStartType -NewValue $StartupType
         } elseif ($Stop) {
@@ -284,4 +284,5 @@ function Run-OptimizationSteps {
     Write-Host "로그: $global:LogFilePath" -ForegroundColor Cyan
     Write-Host "========================================" -ForegroundColor Cyan
 }
+
 

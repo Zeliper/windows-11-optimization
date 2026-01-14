@@ -254,6 +254,12 @@ function Start-OptimizationProcess {
         if ($item.RequiresReboot) { $rebootItems += $id } else { $noRebootItems += $id }
     }
     
+    
+    # Stop Explorer for clean environment
+    Write-Host "Explorer를 종료합니다..." -ForegroundColor Yellow
+    Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+
     # Execute NoReboot first
     foreach ($id in $noRebootItems) {
         $res = Invoke-OptimizationScript -ScriptId $id
@@ -265,6 +271,13 @@ function Start-OptimizationProcess {
         $res = Invoke-OptimizationScript -ScriptId $id
         if ($res.Success) { $completed += $id } else { $failed += $id }
     }
+
+    # Restart Explorer
+    Write-Host "Explorer를 시작합니다..." -ForegroundColor Yellow
+    if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) {
+        Start-Process explorer
+    }
+
     
     # Summary
     $stats = Save-OrchestrateSummary -CompletedItems $completed -FailedItems $failed
@@ -340,4 +353,5 @@ while ($true) {
         }
     }
 }
+
 
