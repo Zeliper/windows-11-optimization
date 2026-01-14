@@ -470,6 +470,8 @@ $steps = @(
             if ($chromePath) {
                 # Ensure ChromeHTML ProgID exists (usually does, but for safety)
                 $chromeProgId = "ChromeHTML"
+                
+                # HKLM
                 $chromeKey = "HKLM:\SOFTWARE\Classes\$chromeProgId"
                 if (!(Test-Path $chromeKey)) {
                     New-Item "$chromeKey\shell\open\command" -Force | Out-Null
