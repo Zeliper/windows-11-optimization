@@ -1,4 +1,4 @@
-# Windows 11 Memory Optimization Script
+﻿# Windows 11 Memory Optimization Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -112,3 +112,4 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "메모리 최적화" -Steps $steps
+

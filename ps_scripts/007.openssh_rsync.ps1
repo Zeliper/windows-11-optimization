@@ -1,4 +1,4 @@
-# Windows 11 OpenSSH & Rsync Setup Script
+﻿# Windows 11 OpenSSH & Rsync Setup Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -139,3 +139,4 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "OpenSSH 및 rsync 설정" -Steps $steps
+

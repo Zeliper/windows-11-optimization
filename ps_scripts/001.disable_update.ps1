@@ -1,4 +1,4 @@
-# Windows 11 Pro Update Settings Script
+﻿# Windows 11 Pro Update Settings Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -63,3 +63,4 @@ $steps = @(
 
 # Execute
 Run-OptimizationSteps -Title "Windows Update 및 보안 설정" -Steps $steps
+

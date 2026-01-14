@@ -1,4 +1,4 @@
-# Windows 11 25H2 One-Click Optimization Script
+﻿# Windows 11 25H2 One-Click Optimization Script
 # Orchestrator for individual optimization scripts
 
 #Requires -RunAsAdministrator
@@ -340,3 +340,4 @@ while ($true) {
         }
     }
 }
+

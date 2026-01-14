@@ -1,4 +1,4 @@
-# Windows 11 Accessibility Cleanup Script
+﻿# Windows 11 Accessibility Cleanup Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -66,3 +66,4 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "접근성 기능 정리" -Steps $steps
+

@@ -1,4 +1,4 @@
-# Windows 11 Common Optimization Script
+﻿# Windows 11 Common Optimization Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -174,3 +174,4 @@ if (-not $global:OrchestrateMode) {
 }
 
 Run-OptimizationSteps -Title "공통 시스템 최적화" -Steps $steps
+
