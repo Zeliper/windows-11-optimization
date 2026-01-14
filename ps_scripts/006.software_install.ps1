@@ -537,28 +537,38 @@ $steps = @(
                     $ext = $assoc.Identifier
                     $progId = $assoc.ProgId
                     
-                    # 1. UserChoice 삭제 (Hash 보호 우회 시도)
-                    $userChoicePath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext\UserChoice"
-                    if (Test-Path $userChoicePath) {
-                        try {
-                            Remove-Item -Path $userChoicePath -Force -ErrorAction SilentlyContinue
-                        } catch {
-                             Write-Debug-Log "Failed to remove UserChoice for $ext"
-                        }
+                    $fileExtKey = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
+                    
+                    # 1. UserChoice 삭제
+                    if (Test-Path "$fileExtKey\UserChoice") {
+                        try { Remove-Item -Path "$fileExtKey\UserChoice" -Force -ErrorAction SilentlyContinue } catch {}
                     }
                     
-                    # 2. OpenWithProgids에 등록 (UserChoice 삭제 후 1순위 후보가 되도록)
-                    $openWithKey = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext\OpenWithProgids"
+                    # 2. OpenWithList 삭제 (과거 실행 기록 제거하여 선택창 방지)
+                    if (Test-Path "$fileExtKey\OpenWithList") {
+                        try { Remove-Item -Path "$fileExtKey\OpenWithList" -Recurse -Force -ErrorAction SilentlyContinue } catch {}
+                    }
+                    
+                    # 3. OpenWithProgids 정리 (타사 앱 제거, 목표 앱만 남기기 시도)
+                    $openWithKey = "$fileExtKey\OpenWithProgids"
                     if (-not (Test-Path $openWithKey)) { New-Item -Path $openWithKey -Force | Out-Null }
                     
-                    # 해당 ProgID를 OpenWithProgids에 추가 (값은 비어있어도 됨)
                     try {
-                        if (-not (Get-ItemProperty -Path $openWithKey -Name $progId -ErrorAction SilentlyContinue)) {
-                            New-ItemProperty -Path $openWithKey -Name $progId -Value ([byte[]]@()) -PropertyType Binary -Force -ErrorAction SilentlyContinue | Out-Null
+                        # 기존 항목 모두 삭제 (선택창 방지 핵심)
+                        $props = Get-ItemProperty -Path $openWithKey -ErrorAction SilentlyContinue
+                        if ($props) {
+                             foreach ($p in $props.PSObject.Properties) {
+                                 if ($p.Name -ne "(default)" -and $p.Name -ne "PSPath" -and $p.Name -ne "PSParentPath" -and $p.Name -ne "PSChildName" -and $p.Name -ne "PSDrive" -and $p.Name -ne "PSProvider") {
+                                     Remove-ItemProperty -Path $openWithKey -Name $p.Name -ErrorAction SilentlyContinue
+                                 }
+                             }
                         }
+                        
+                        # 목표 ProgID만 등록
+                        New-ItemProperty -Path $openWithKey -Name $progId -Value ([byte[]]@()) -PropertyType Binary -Force -ErrorAction SilentlyContinue | Out-Null
                     } catch {}
                 }
-                Write-Host "  - 기존 파일 연결 초기화 및 OpenWith 등록 완료" -ForegroundColor Gray
+                Write-Host "  - 기존 파일 연결 정밀 초기화 완료" -ForegroundColor Gray
 
             } else {
                 Write-Host "  - 설정할 파일 연결 없음" -ForegroundColor Gray
