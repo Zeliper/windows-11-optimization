@@ -42,6 +42,7 @@ $setUserFtaPath = Join-Path $tempDir "SetUserFTA.exe" # Will be set during execu
 
 $steps = @(
     # --- Notepad++ ---
+    # --- Notepad++ ---
     @{
         Name = "Notepad++ 설치"
         Action = {
@@ -50,13 +51,14 @@ $steps = @(
                 Write-Host "  - Notepad++ 이미 설치됨 (스킵)" -ForegroundColor Gray
                 Write-OptLog -Step "Notepad++" -Status "스킵됨" -Message "이미 설치됨"
             } else {
-                Write-Host "  - winget으로 설치 중..." -ForegroundColor Yellow
-                $res = winget install Notepad++.Notepad++ --source winget --silent --accept-package-agreements --accept-source-agreements 2>&1
-                if ($LASTEXITCODE -eq 0 -or $res -match "already installed") {
-                    Write-OptLog -Step "Notepad++" -Status "설치됨" -Message "설치 완료"
-                } else {
-                    throw "설치 실패: $res"
-                }
+                Write-Host "  - 다운로드 및 설치 중 (Direct)..." -ForegroundColor Yellow
+                $installer = Join-Path $tempDir "npp_installer.exe"
+                # Using specific version 8.7.5 for stability
+                Invoke-WebRequest -Uri "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.7.5/npp.8.7.5.Installer.x64.exe" -OutFile $installer -UseBasicParsing
+                
+                Start-Process -FilePath $installer -ArgumentList "/S" -Wait -NoNewWindow
+                Remove-Item $installer -Force -ErrorAction SilentlyContinue
+                Write-OptLog -Step "Notepad++" -Status "설치됨" -Message "설치 완료"
             }
         }
     },
@@ -115,24 +117,19 @@ $steps = @(
                 Write-Host "  - Everything 이미 설치됨 (스킵)" -ForegroundColor Gray
                 Write-OptLog -Step "Everything" -Status "스킵됨" -Message "이미 설치됨"
             } else {
-                Write-Host "  - winget으로 설치 중..." -ForegroundColor Yellow
-                $res = winget install voidtools.Everything --source winget --silent --accept-package-agreements --accept-source-agreements 2>&1
-                if ($LASTEXITCODE -eq 0 -or $res -match "already installed") {
-                    Write-OptLog -Step "Everything" -Status "설치됨" -Message "설치 완료"
-                    
-                    # Auto Start
-                    $installedPath = if (Test-Path $paths[0]) { $paths[0] } else { $paths[1] }
-                    if ($installedPath) {
-                        Set-Registry -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "Everything" -Value "`"$installedPath`" -startup" -Type String
-                    }
-                } else {
-                    Write-Host "  - winget 실패, 직접 다운로드 시도..." -ForegroundColor Yellow
-                    $installer = Join-Path $tempDir "Everything.exe"
-                    Invoke-WebRequest "https://www.voidtools.com/Everything-1.4.1.1024.x64-Setup.exe" -OutFile $installer -UseBasicParsing
-                    Start-Process -FilePath $installer -ArgumentList "/S" -Wait -NoNewWindow
-                    Remove-Item $installer -Force -ErrorAction SilentlyContinue
-                    Write-OptLog -Step "Everything" -Status "설치됨" -Message "직접 설치 완료"
+                Write-Host "  - 다운로드 및 설치 중 (Direct)..." -ForegroundColor Yellow
+                $installer = Join-Path $tempDir "Everything.exe"
+                # Direct download is faster and more reliable
+                Invoke-WebRequest "https://www.voidtools.com/Everything-1.4.1.1024.x64-Setup.exe" -OutFile $installer -UseBasicParsing
+                Start-Process -FilePath $installer -ArgumentList "/S" -Wait -NoNewWindow
+                Remove-Item $installer -Force -ErrorAction SilentlyContinue
+                
+                # Auto Start
+                $installedPath = if (Test-Path $paths[0]) { $paths[0] } else { $paths[1] }
+                if ($installedPath) {
+                    Set-Registry -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "Everything" -Value "`"$installedPath`" -startup" -Type String
                 }
+                Write-OptLog -Step "Everything" -Status "설치됨" -Message "설치 완료"
             }
         }
     },
@@ -146,8 +143,12 @@ $steps = @(
             if (Test-SoftwareInstalled -Name "ShareX" -Paths $paths -WingetId "ShareX.ShareX") {
                 Write-Host "  - ShareX 이미 설치됨" -ForegroundColor Gray
             } else {
-                Write-Host "  - ShareX 설치 중 (winget)..." -ForegroundColor Yellow
-                winget install ShareX.ShareX --source winget --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+                Write-Host "  - 다운로드 및 설치 중 (Direct)..." -ForegroundColor Yellow
+                $installer = Join-Path $tempDir "ShareX_setup.exe"
+                # Using v16.1.0
+                Invoke-WebRequest -Uri "https://github.com/ShareX/ShareX/releases/download/v16.1.0/ShareX-16.1.0-setup.exe" -OutFile $installer -UseBasicParsing
+                Start-Process -FilePath $installer -ArgumentList "/VERYSILENT /NORESTART" -Wait -NoNewWindow
+                Remove-Item $installer -Force -ErrorAction SilentlyContinue
                 Write-OptLog -Step "ShareX" -Status "설치됨" -Message "설치 완료"
             }
 
@@ -184,8 +185,11 @@ $steps = @(
             if (Test-SoftwareInstalled -Name "Honeyview" -Paths $paths -WingetId "Bandisoft.Honeyview") {
                 Write-Host "  - Honeyview 이미 설치됨" -ForegroundColor Gray
             } else {
-                Write-Host "  - 설치 중 (winget)..." -ForegroundColor Yellow
-                winget install Bandisoft.Honeyview --source winget --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+                Write-Host "  - 다운로드 및 설치 중 (Direct)..." -ForegroundColor Yellow
+                $installer = Join-Path $tempDir "HONEYVIEW-SETUP.exe"
+                Invoke-WebRequest -Uri "https://dl.bandisoft.com/honeyview/HONEYVIEW-SETUP-KR.EXE" -OutFile $installer -UseBasicParsing
+                Start-Process -FilePath $installer -ArgumentList "/S" -Wait -NoNewWindow
+                Remove-Item $installer -Force -ErrorAction SilentlyContinue
                 Write-OptLog -Step "Honeyview" -Status "설치됨" -Message "설치 완료"
             }
 
