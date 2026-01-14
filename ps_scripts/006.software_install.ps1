@@ -158,10 +158,46 @@ $steps = @(
         Name = "Chrome 설치"
         Action = {
             Write-Debug-Log "[START] Chrome installation step"
-            Install-WithWinget -Name "Chrome" -WingetId "Google.Chrome" -CheckPaths @(
+            $paths = @(
                 "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe",
                 "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
             )
+            
+            # Check if installed
+            $isInstalled = $false
+            foreach ($p in $paths) { if (Test-Path $p) { $isInstalled = $true; break } }
+
+            if ($isInstalled) {
+                Write-Host "  - Chrome 이미 설치됨 (스킵)" -ForegroundColor Gray
+                Write-OptLog -Step "Chrome" -Status "스킵됨" -Message "이미 설치됨"
+            } else {
+                Write-Host "  - Chrome 다운로드 중 (Direct MSI)..." -ForegroundColor Yellow
+                $msi = Join-Path $env:TEMP "ChromeSetup.msi"
+                $url = "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi"
+                
+                try {
+                    Invoke-WebRequest -Uri $url -OutFile $msi -UseBasicParsing -TimeoutSec 300
+                    
+                    if (Test-Path $msi) {
+                        Write-Host "  - Chrome 설치 중..." -ForegroundColor Yellow
+                        Write-Debug-Log "Running: msiexec /i $msi /qn /norestart"
+                        $proc = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$msi`" /qn /norestart" -Wait -PassThru
+                        
+                        if ($proc.ExitCode -eq 0) {
+                            Write-Host "  - Chrome 설치 완료" -ForegroundColor Green
+                            Write-OptLog -Step "Chrome" -Status "설치됨" -Message "설치 완료 (Direct)"
+                        } else {
+                            Write-Host "  - Chrome 설치 실패 (ExitCode: $($proc.ExitCode))" -ForegroundColor Red
+                            Write-OptLog -Step "Chrome" -Status "실패" -Message "ExitCode: $($proc.ExitCode)"
+                        }
+                        Remove-Item $msi -Force -ErrorAction SilentlyContinue
+                    }
+                } catch {
+                     Write-Host "  - Chrome 다운로드 실패: $_" -ForegroundColor Red
+                     Write-OptLog -Step "Chrome" -Status "실패" -Message "다운로드 오류"
+                }
+            }
+
             # Disable default browser check
             Set-Registry -Path "HKLM:\SOFTWARE\Policies\Google\Chrome" -Name "DefaultBrowserSettingEnabled" -Value 0
             Write-Debug-Log "[END] Chrome installation step"
@@ -465,6 +501,7 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "필수 소프트웨어 설치" -Steps $steps
+
 
 
 
