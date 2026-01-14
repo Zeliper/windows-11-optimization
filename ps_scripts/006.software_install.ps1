@@ -228,8 +228,20 @@ $steps = @(
             $pos = "HKCU:\Software\DAUM\PotPlayer64\Positions"
             Set-Registry -Path $pos -Name "ChatWindowVisible" -Value 0
             Set-Registry -Path $pos -Name "PlayListWindowVisible" -Value 0
+            Set-Registry -Path $pos -Name "BroadcastListWindowVisible" -Value 0
+
+            # 4. Shortcuts (Restored from history)
+            $sc = "HKCU:\Software\DAUM\PotPlayer64\MainShortCutList"
+            # F1~F4 Bookmark, F5 Open, Ctrl+W Exit
+            Set-Registry -Path $sc -Name "0" -Value "112,6,10281,1" -Type String
+            Set-Registry -Path $sc -Name "1" -Value "113,6,10282,1" -Type String
+            Set-Registry -Path $sc -Name "2" -Value "114,6,10283,1" -Type String
+            Set-Registry -Path $sc -Name "3" -Value "115,6,10284,1" -Type String
+            Set-Registry -Path $sc -Name "4" -Value "116,6,10285,1" -Type String
+            Set-Registry -Path $sc -Name "5" -Value "87,2,57665,0" -Type String
+            Set-Registry -Path $sc -Name "6" -Value "" -Type String
             
-            # 4. INI File
+            # 5. INI File
             $confDir = "$env:APPDATA\PotPlayerMini64"
             if (!(Test-Path $confDir)) { New-Item -Path $confDir -ItemType Directory -Force | Out-Null }
             Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Configs/PotPlayer/PotPlayerMini64.ini" -OutFile "$confDir\PotPlayerMini64.ini" -UseBasicParsing
@@ -254,7 +266,7 @@ $steps = @(
             # 1. Notepad++
             $npp = "${env:ProgramFiles}\Notepad++\notepad++.exe"
             if (Test-Path $npp) {
-                $exts = @(".txt", ".ini", ".log", ".md", ".json", ".xml", ".yaml", ".sql", ".sh")
+                $exts = @(".txt", ".ini", ".log", ".md", ".json", ".xml", ".yaml", ".sql", ".sh", ".cfg", ".conf", ".properties")
                 $progId = "Notepad++_file"
                 
                 # Register ProgID in Registry
@@ -264,23 +276,85 @@ $steps = @(
                 Set-ItemProperty "$hkcu\shell\open\command" -Name "(Default)" -Value "`"$npp`" `"%1`"" -Force
                 
                 foreach ($ext in $exts) {
+                    # Aggressive Cleanup to prevent prompts
+                    $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
+                    $openWith = "$fileExtPath\OpenWithProgids"
+                    if (!(Test-Path $openWith)) { New-Item -Path $openWith -Force | Out-Null }
+                    
+                    # Clear existing
+                    $props = Get-ItemProperty -Path $openWith -ErrorAction SilentlyContinue
+                    if ($props) {
+                        foreach ($p in $props.PSObject.Properties) {
+                            if ($p.Name -notlike "PS*") { Remove-ItemProperty -Path $openWith -Name $p.Name -ErrorAction SilentlyContinue }
+                        }
+                    }
+                    # Add Ours
+                    New-ItemProperty -Path $openWith -Name $progId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
+                    
+                    # Clear OpenWithList & UserChoice
+                    Remove-Item "$fileExtPath\OpenWithList" -Recurse -Force -ErrorAction SilentlyContinue
+                    try { Remove-Item "$fileExtPath\UserChoice" -Recurse -Force -ErrorAction SilentlyContinue } catch {}
+                    
+                    # Set Association
                     Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -Wait
                 }
-                Write-Host "  - Notepad++ 파일 연결 완료" -ForegroundColor Green
+                Write-Host "  - Notepad++ 파일 연결 완료 (강제 적용)" -ForegroundColor Green
             }
 
             # 2. Honeyview (Images)
-            # Remove Photos App first to avoid conflict
+            # Remove Photos App first to avoid conflict and ensure Honeyview takes precedence
             Get-AppxPackage *Photos* | Remove-AppxPackage -ErrorAction SilentlyContinue
+            Get-AppxProvisionedPackage -Online | Where-Object { $_.PackageName -like "*Photos*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
             
             $hv = "${env:ProgramFiles}\Honeyview\Honeyview.exe"
             if (Test-Path $hv) {
-                $imgs = @(".jpg", ".png", ".gif", ".bmp", ".webp", ".heic")
+                # Detailed Image Extensions List
+                $imgs = @(
+                    ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".ico", ".webp",
+                    ".tiff", ".tif", ".heic", ".heif", ".avif",
+                    ".cr2", ".nef", ".arw", ".dng", ".orf", ".rw2",
+                    ".psd", ".jfif", ".jpe", ".wdp", ".jxr"
+                )
+                
                 foreach ($ext in $imgs) {
-                    $honeyviewProgId = "Honeyview" + $ext.TrimStart('.')
-                    Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $honeyviewProgId" -NoNewWindow -Wait
+                    $extNoDot = $ext.TrimStart('.')
+                    $progId = "Honeyview.$extNoDot"
+                    
+                    # 1. Clean OpenWithProgids (remove competitors)
+                    $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
+                    $openWithProgids = "$fileExtPath\OpenWithProgids"
+                    if (!(Test-Path $openWithProgids)) { New-Item -Path $openWithProgids -Force | Out-Null }
+                    
+                    # Remove all existing
+                    $props = Get-ItemProperty -Path $openWithProgids -ErrorAction SilentlyContinue
+                    if ($props) {
+                        foreach ($p in $props.PSObject.Properties) {
+                            if ($p.Name -notlike "PS*") { Remove-ItemProperty -Path $openWithProgids -Name $p.Name -ErrorAction SilentlyContinue }
+                        }
+                    }
+                    # Add Honeyview ProgID
+                    New-ItemProperty -Path $openWithProgids -Name $progId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
+                    
+                    # 2. Clean OpenWithList
+                    $openWithList = "$fileExtPath\OpenWithList"
+                    if (Test-Path $openWithList) { Remove-Item -Path $openWithList -Recurse -Force -ErrorAction SilentlyContinue }
+                    
+                    # 3. Clean UserChoice (Force New Hashing by SetUserFTA)
+                    $userChoice = "$fileExtPath\UserChoice"
+                    if (Test-Path $userChoice) {
+                        # Try to correct permission then delete
+                        try {
+                           $acl = Get-Acl $userChoice
+                           # This might fail due to system protection, but SetUserFTA often handles overwrite if key is missing or hashes mismatch
+                           # We attempt deletion to be safe
+                           Remove-Item -Path $userChoice -Recurse -Force -ErrorAction SilentlyContinue
+                        } catch {}
+                    }
+                    
+                    # 4. Set Association
+                    Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -Wait
                 }
-                Write-Host "  - Honeyview 이미지 연결 완료" -ForegroundColor Green
+                Write-Host "  - Honeyview 이미지 연결 완료 (강제 적용)" -ForegroundColor Green
             }
 
             # 3. PotPlayer (Video & Audio)
@@ -298,10 +372,31 @@ $steps = @(
                 )
                 
                 $allMedia = $vids + $auds
-
+                
+                # PotPlayer Logic: also aggressive cleanup
                 foreach ($ext in $allMedia) {
                     $extNoDot = $ext.TrimStart('.')
                     $progId = "PotPlayer64.$extNoDot"
+                    
+                    # 1. OpenWithProgids
+                    $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
+                    $openWith = "$fileExtPath\OpenWithProgids"
+                    if (!(Test-Path $openWith)) { New-Item -Path $openWith -Force | Out-Null }
+                    
+                    # Clear existing
+                    $props = Get-ItemProperty -Path $openWith -ErrorAction SilentlyContinue
+                    if ($props) {
+                        foreach ($p in $props.PSObject.Properties) {
+                            if ($p.Name -notlike "PS*") { Remove-ItemProperty -Path $openWith -Name $p.Name -ErrorAction SilentlyContinue }
+                        }
+                    }
+                    # Add Ours
+                    New-ItemProperty -Path $openWith -Name $progId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
+                    
+                    # 2. Cleanup Lists
+                    Remove-Item "$fileExtPath\OpenWithList" -Recurse -Force -ErrorAction SilentlyContinue
+                    try { Remove-Item "$fileExtPath\UserChoice" -Recurse -Force -ErrorAction SilentlyContinue } catch {}
+
                     Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -Wait
                 }
                 Write-Host "  - PotPlayer 미디어 연결 완료 (동영상 & 오디오)" -ForegroundColor Green

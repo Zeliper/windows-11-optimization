@@ -56,6 +56,18 @@ $steps = @(
             $taskband = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Taskband"
             Remove-ItemProperty -Path $taskband -Name "Favorites" -ErrorAction SilentlyContinue
             Remove-ItemProperty -Path $taskband -Name "Pinned" -ErrorAction SilentlyContinue
+
+            # Clear AutomaticDestinations & CustomDestinations (Jump Lists & Quick Access)
+            $recentPath = "$env:APPDATA\Microsoft\Windows\Recent"
+            $destinations = @("AutomaticDestinations", "CustomDestinations")
+            
+            foreach ($dest in $destinations) {
+                $path = Join-Path $recentPath $dest
+                if (Test-Path $path) {
+                    Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+                    Write-Host "  - $dest 초기화 완료" -ForegroundColor Green
+                }
+            }
         }
     },
     @{
