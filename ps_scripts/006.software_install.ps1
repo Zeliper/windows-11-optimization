@@ -367,21 +367,33 @@ $steps = @(
             }
             $script:associationsTemp = @()
 
-            # 1. Notepad++ (.txt, .log, .xml, script files, etc.)
-            if ((Test-Path "${env:ProgramFiles}\Notepad++\notepad++.exe") -Or (Test-Path "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe")) {
+            # 1. Notepad++
+            $nppPath = $null
+            if (Test-Path "${env:ProgramFiles}\Notepad++\notepad++.exe") { $nppPath = "${env:ProgramFiles}\Notepad++\notepad++.exe" }
+            elseif (Test-Path "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe") { $nppPath = "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe" }
+
+            if ($nppPath) {
+                # Ensure ProgID exists
+                $progId = "Notepad++_file"
+                $hkcu = "HKCU:\SOFTWARE\Classes\$progId"
+                if (!(Test-Path $hkcu)) { 
+                    New-Item "$hkcu\shell\open\command" -Force | Out-Null 
+                    Set-ItemProperty $hkcu -Name "(Default)" -Value "Notepad++ Document" -Force
+                    Set-ItemProperty "$hkcu\shell\open\command" -Name "(Default)" -Value "`"$nppPath`" `"%1`"" -Force
+                }
+
                 $nppExts = @(
                     ".txt", ".ini", ".log", ".md", ".json", ".xml", ".yaml", ".sql", ".sh", ".cfg", ".conf", ".properties",
                     ".inf", ".scp", ".wtx", ".ps1", ".psd1", ".psm1", ".css", ".js", ".ts", ".bat", ".cmd", ".vbs", ".reg"
                 )
                 foreach ($ext in $nppExts) { 
-                    Add-Assoc -Ext $ext -ProgId "Notepad++_file" -AppName "Notepad++"
+                    Add-Assoc -Ext $ext -ProgId $progId -AppName "Notepad++"
                 }
                 Write-Host "  - Notepad++ 확장자 목록 준비 완료" -ForegroundColor Gray
             }
 
             # 2. Honeyview (Images)
-            # Remove Photos app first to reduce conflicts
-            Write-Debug-Log "Removing Photos app..."
+            # Remove Photos app
             Get-AppxPackage *Photos* | Remove-AppxPackage -ErrorAction SilentlyContinue
             Get-AppxProvisionedPackage -Online | Where-Object { $_.PackageName -like "*Photos*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
 
@@ -393,7 +405,9 @@ $steps = @(
                 )
                 foreach ($ext in $hvExts) { 
                     $cleanExt = $ext.TrimStart('.')
-                    Add-Assoc -Ext $ext -ProgId "Honeyview.$cleanExt" -AppName "Honeyview"
+                    # ProgId가 Honeyview.png 형태이므로 별도 등록 불필요(앱이 등록함)하나 안전장치 고려 가능
+                    # 여기서는 앱이 등록한 ProgID를 그대로 사용한다고 가정
+                    Add-Assoc -Ext $ext -ProgId "Honeyview.$cleanExt" -AppName "꿀뷰"
                 }
                 Write-Host "  - Honeyview 확장자 목록 준비 완료" -ForegroundColor Gray
             }
@@ -406,7 +420,8 @@ $steps = @(
                 )
                 foreach ($ext in $mediaExts) {
                     $cleanExt = $ext.TrimStart('.')
-                    Add-Assoc -Ext $ext -ProgId "PotPlayerMini64.$cleanExt" -AppName "PotPlayer"
+                    # 64비트 버전 ProgId: PotPlayer64.ext
+                    Add-Assoc -Ext $ext -ProgId "PotPlayer64.$cleanExt" -AppName "팟플레이어(64 비트)"
                 }
                 Write-Host "  - PotPlayer 확장자 목록 준비 완료" -ForegroundColor Gray
             }
