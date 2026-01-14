@@ -14,6 +14,7 @@ if (Test-Path $corePath) {
 Init-OptimizationLog -ScriptName "005.bloatware.ps1" -ScriptVersion "1.2.0"
 
 # List of apps to remove
+$bloatwareApps = @(
     "Microsoft.3DBuilder", "Microsoft.549981C3F5F10", "Microsoft.BingNews", "Microsoft.BingWeather",
     "Microsoft.BingFinance", "Microsoft.BingSports", "Microsoft.BingTranslator", "Microsoft.BingTravel",
     "Microsoft.BingFoodAndDrink", "Microsoft.BingHealthAndFitness", "Microsoft.GetHelp", "Microsoft.Getstarted",
