@@ -1,5 +1,5 @@
-﻿# Windows 11 Software Installation Script
-# Refactored to use core.ps1
+# Windows 11 Software Installation Script
+# Refactored to use Winget with detailed logging
 
 #Requires -RunAsAdministrator
 
@@ -11,109 +11,160 @@ if (Test-Path $corePath) {
     Write-Warning "Core module not found at $corePath."
 }
 
-Init-OptimizationLog -ScriptName "006.software_install.ps1" -ScriptVersion "1.2.0"
+Init-OptimizationLog -ScriptName "006.software_install.ps1" -ScriptVersion "1.3.0"
 
-# --- Helper Functions ---
-function Test-SoftwareInstalled {
-    param(
-        [string]$Name,
-        [string[]]$Paths,
-        [string]$WingetId = ""
-    )
-    foreach ($path in $Paths) {
-        if (Test-Path $path) { return $true }
-    }
-    if ($WingetId) {
-        $wingetResult = winget list --id $WingetId 2>$null
-        if ($LASTEXITCODE -eq 0 -and $wingetResult -notmatch "No installed package") { return $true }
-    }
-    return $false
+# Disable progress bar globally
+$ProgressPreference = 'SilentlyContinue'
+
+# --- Debug Helper ---
+function Write-Debug-Log {
+    param([string]$Message)
+    $timestamp = Get-Date -Format "HH:mm:ss"
+    Write-Host "  [$timestamp] $Message" -ForegroundColor DarkGray
 }
 
-function Test-FileAssociation {
-    param([string]$Extension, [string]$ExpectedProgId)
-    $path = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$Extension\UserChoice"
-    $curr = (Get-ItemProperty -Path $path -Name "ProgId" -ErrorAction SilentlyContinue).ProgId
-    return ($curr -and $curr -like "*$ExpectedProgId*")
+# --- Winget Install Helper ---
+function Install-WithWinget {
+    param(
+        [string]$Name,
+        [string]$WingetId,
+        [string[]]$CheckPaths = @()
+    )
+
+    Write-Debug-Log "Checking if $Name is installed..."
+
+    # Check by path first (faster)
+    foreach ($path in $CheckPaths) {
+        if (Test-Path $path) {
+            Write-Host "  - $Name 이미 설치됨 (스킵)" -ForegroundColor Gray
+            Write-OptLog -Step $Name -Status "스킵됨" -Message "이미 설치됨"
+            return $true
+        }
+    }
+
+    # Check via winget
+    Write-Debug-Log "Path check failed, checking winget list..."
+    $wingetCheck = winget list --id $WingetId --accept-source-agreements 2>&1
+    if ($LASTEXITCODE -eq 0 -and $wingetCheck -notmatch "No installed package") {
+        Write-Host "  - $Name 이미 설치됨 (스킵)" -ForegroundColor Gray
+        Write-OptLog -Step $Name -Status "스킵됨" -Message "이미 설치됨 (winget)"
+        return $true
+    }
+
+    # Install
+    Write-Host "  - $Name 설치 중 (winget)..." -ForegroundColor Yellow
+    Write-Debug-Log "Running: winget install --id $WingetId"
+
+    $process = Start-Process -FilePath "winget" -ArgumentList @(
+        "install",
+        "--id", $WingetId,
+        "--silent",
+        "--accept-package-agreements",
+        "--accept-source-agreements",
+        "--disable-interactivity"
+    ) -NoNewWindow -Wait -PassThru
+
+    Write-Debug-Log "Winget exit code: $($process.ExitCode)"
+
+    if ($process.ExitCode -eq 0) {
+        Write-Host "  - $Name 설치 완료" -ForegroundColor Green
+        Write-OptLog -Step $Name -Status "설치됨" -Message "winget 설치 완료"
+        return $true
+    } else {
+        Write-Host "  - $Name 설치 실패 (ExitCode: $($process.ExitCode))" -ForegroundColor Red
+        Write-OptLog -Step $Name -Status "실패" -Message "ExitCode: $($process.ExitCode)"
+        return $false
+    }
+}
+
+# --- Direct Download Install Helper (for software not in winget) ---
+function Install-Direct {
+    param(
+        [string]$Name,
+        [string]$Url,
+        [string]$InstallerName,
+        [string]$Arguments,
+        [string[]]$CheckPaths = @()
+    )
+
+    Write-Debug-Log "Checking if $Name is installed..."
+
+    foreach ($path in $CheckPaths) {
+        if (Test-Path $path) {
+            Write-Host "  - $Name 이미 설치됨 (스킵)" -ForegroundColor Gray
+            Write-OptLog -Step $Name -Status "스킵됨" -Message "이미 설치됨"
+            return $true
+        }
+    }
+
+    $installer = Join-Path $env:TEMP $InstallerName
+
+    Write-Host "  - $Name 다운로드 중..." -ForegroundColor Yellow
+    Write-Debug-Log "Downloading from: $Url"
+
+    try {
+        Invoke-WebRequest -Uri $Url -OutFile $installer -UseBasicParsing -TimeoutSec 120
+        Write-Debug-Log "Download complete: $installer"
+    } catch {
+        Write-Host "  - 다운로드 실패: $_" -ForegroundColor Red
+        return $false
+    }
+
+    if (-not (Test-Path $installer)) {
+        Write-Host "  - 다운로드 파일 없음" -ForegroundColor Red
+        return $false
+    }
+
+    Write-Host "  - $Name 설치 중..." -ForegroundColor Yellow
+    Write-Debug-Log "Running: $installer $Arguments"
+
+    $proc = Start-Process -FilePath $installer -ArgumentList $Arguments -NoNewWindow -PassThru
+    $proc | Wait-Process -Timeout 300 -ErrorAction SilentlyContinue
+
+    if (-not $proc.HasExited) {
+        Write-Host "  - 설치 타임아웃, 강제 종료" -ForegroundColor Red
+        $proc | Stop-Process -Force -ErrorAction SilentlyContinue
+    } else {
+        Write-Debug-Log "Installer exit code: $($proc.ExitCode)"
+    }
+
+    Remove-Item $installer -Force -ErrorAction SilentlyContinue
+    Write-Host "  - $Name 설치 완료" -ForegroundColor Green
+    Write-OptLog -Step $Name -Status "설치됨" -Message "직접 설치 완료"
+    return $true
 }
 
 $tempDir = $env:TEMP
-$setUserFtaPath = Join-Path $tempDir "SetUserFTA.exe" # Will be set during execution
 
 # Security Protocol Fix
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# Disable progress bar to prevent console hanging
-$ProgressPreference = 'SilentlyContinue'
-
 $steps = @(
-    # --- Notepad++ ---
-    # --- Notepad++ ---
     # --- Notepad++ ---
     @{
         Name = "Notepad++ 설치"
         Action = {
-            $paths = @("${env:ProgramFiles}\Notepad++\notepad++.exe", "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe")
-            if (Test-SoftwareInstalled -Name "Notepad++" -Paths $paths -WingetId "Notepad++.Notepad++") {
-                Write-Host "  - Notepad++ 이미 설치됨 (스킵)" -ForegroundColor Gray
-                Write-OptLog -Step "Notepad++" -Status "스킵됨" -Message "이미 설치됨"
-            } else {
-                $installer = Join-Path $tempDir "npp_installer.exe"
-                $url = "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.7.5/npp.8.7.5.Installer.x64.exe"
-                
-                Write-Host "  - [로그] 다운로드 시작: $url" -ForegroundColor DarkGray
-                try {
-                    Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing -TimeoutSec 120
-                } catch {
-                    Write-Host "  - [오류] 다운로드 실패: $_" -ForegroundColor Red
-                    throw $_
-                }
-                
-                if (Test-Path $installer) {
-                    Write-Host "  - [로그] 설치 파일 실행 중: $installer /S" -ForegroundColor DarkGray
-                    $proc = Start-Process -FilePath $installer -ArgumentList "/S" -PassThru -NoNewWindow
-                    $proc | Wait-Process -Timeout 300
-                    if ($proc.HasExited) {
-                        Write-Host "  - [로그] 설치 프로세스 종료 (ExitCode: $($proc.ExitCode))" -ForegroundColor DarkGray
-                    } else {
-                        Write-Host "  - [경고] 설치 프로세스가 300초 동안 응답이 없어 강제 종료합니다." -ForegroundColor Red
-                        $proc | Stop-Process -Force
-                    }
-                    Remove-Item $installer -Force -ErrorAction SilentlyContinue
-                    Write-OptLog -Step "Notepad++" -Status "설치됨" -Message "설치 완료"
-                } else {
-                    Write-Host "  - [오류] 설치 파일이 존재하지 않습니다." -ForegroundColor Red
-                }
-            }
+            Write-Debug-Log ">>> Starting Notepad++ installation step"
+            Install-WithWinget -Name "Notepad++" -WingetId "Notepad++.Notepad++" -CheckPaths @(
+                "${env:ProgramFiles}\Notepad++\notepad++.exe",
+                "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe"
+            )
+            Write-Debug-Log "<<< Finished Notepad++ installation step"
         }
     },
-    
+
     # --- Chrome ---
     @{
         Name = "Chrome 설치"
         Action = {
-            $paths = @("${env:ProgramFiles}\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")
-            if (Test-SoftwareInstalled -Name "Chrome" -Paths $paths) {
-                 Write-Host "  - Chrome 이미 설치됨 (스킵)" -ForegroundColor Gray
-                 Write-OptLog -Step "Chrome" -Status "스킵됨" -Message "이미 설치됨"
-            } else {
-                $installer = Join-Path $tempDir "chrome_installer.msi"
-                $url = "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi"
-                
-                Write-Host "  - [로그] 다운로드 시작: $url" -ForegroundColor DarkGray
-                Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing -TimeoutSec 120
-                
-                if (Test-Path $installer) {
-                    Write-Host "  - [로그] MSI 설치 실행 중..." -ForegroundColor DarkGray
-                    $proc = Start-Process msiexec -ArgumentList "/i `"$installer`" /qn /norestart" -PassThru -NoNewWindow
-                    $proc | Wait-Process -Timeout 300
-                    Remove-Item $installer -Force -ErrorAction SilentlyContinue
-                    
-                    # Disable default browser check
-                    Set-Registry -Path "HKLM:\SOFTWARE\Policies\Google\Chrome" -Name "DefaultBrowserSettingEnabled" -Value 0
-                    Write-OptLog -Step "Chrome" -Status "설치됨" -Message "MSI 설치 완료"
-                }
-            }
+            Write-Debug-Log ">>> Starting Chrome installation step"
+            Install-WithWinget -Name "Chrome" -WingetId "Google.Chrome" -CheckPaths @(
+                "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe",
+                "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
+            )
+            # Disable default browser check
+            Set-Registry -Path "HKLM:\SOFTWARE\Policies\Google\Chrome" -Name "DefaultBrowserSettingEnabled" -Value 0
+            Write-Debug-Log "<<< Finished Chrome installation step"
         }
     },
 
@@ -121,25 +172,12 @@ $steps = @(
     @{
         Name = "7-Zip 설치"
         Action = {
-            $paths = @("${env:ProgramFiles}\7-Zip\7z.exe", "${env:ProgramFiles(x86)}\7-Zip\7z.exe")
-            if (Test-SoftwareInstalled -Name "7-Zip" -Paths $paths) {
-                Write-Host "  - 7-Zip 이미 설치됨 (스킵)" -ForegroundColor Gray
-                Write-OptLog -Step "7-Zip" -Status "스킵됨" -Message "이미 설치됨"
-            } else {
-                $installer = Join-Path $tempDir "7zip_installer.msi"
-                $url = "https://www.7-zip.org/a/7z2408-x64.msi"
-                
-                Write-Host "  - [로그] 다운로드 시작: $url" -ForegroundColor DarkGray
-                Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing -TimeoutSec 60
-                
-                if (Test-Path $installer) {
-                    Write-Host "  - [로그] MSI 설치 실행 중..." -ForegroundColor DarkGray
-                    $proc = Start-Process msiexec -ArgumentList "/i `"$installer`" /qn" -PassThru -NoNewWindow
-                    $proc | Wait-Process -Timeout 60
-                    Remove-Item $installer -Force -ErrorAction SilentlyContinue
-                    Write-OptLog -Step "7-Zip" -Status "설치됨" -Message "MSI 설치 완료"
-                }
-            }
+            Write-Debug-Log ">>> Starting 7-Zip installation step"
+            Install-WithWinget -Name "7-Zip" -WingetId "7zip.7zip" -CheckPaths @(
+                "${env:ProgramFiles}\7-Zip\7z.exe",
+                "${env:ProgramFiles(x86)}\7-Zip\7z.exe"
+            )
+            Write-Debug-Log "<<< Finished 7-Zip installation step"
         }
     },
 
@@ -147,25 +185,18 @@ $steps = @(
     @{
         Name = "Everything 설치"
         Action = {
+            Write-Debug-Log ">>> Starting Everything installation step"
             $paths = @("${env:ProgramFiles}\Everything\Everything.exe", "${env:ProgramFiles(x86)}\Everything\Everything.exe")
-            if (Test-SoftwareInstalled -Name "Everything" -Paths $paths -WingetId "voidtools.Everything") {
-                Write-Host "  - Everything 이미 설치됨 (스킵)" -ForegroundColor Gray
-                Write-OptLog -Step "Everything" -Status "스킵됨" -Message "이미 설치됨"
-            } else {
-                Write-Host "  - 다운로드 및 설치 중 (Direct)..." -ForegroundColor Yellow
-                $installer = Join-Path $tempDir "Everything.exe"
-                # Direct download is faster and more reliable
-                Invoke-WebRequest "https://www.voidtools.com/Everything-1.4.1.1024.x64-Setup.exe" -OutFile $installer -UseBasicParsing
-                Start-Process -FilePath $installer -ArgumentList "/S" -Wait -NoNewWindow
-                Remove-Item $installer -Force -ErrorAction SilentlyContinue
-                
-                # Auto Start
+            $installed = Install-WithWinget -Name "Everything" -WingetId "voidtools.Everything" -CheckPaths $paths
+
+            if ($installed) {
+                Write-Debug-Log "Setting up Everything autostart..."
                 $installedPath = if (Test-Path $paths[0]) { $paths[0] } else { $paths[1] }
-                if ($installedPath) {
+                if ($installedPath -and (Test-Path $installedPath)) {
                     Set-Registry -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "Everything" -Value "`"$installedPath`" -startup" -Type String
                 }
-                Write-OptLog -Step "Everything" -Status "설치됨" -Message "설치 완료"
             }
+            Write-Debug-Log "<<< Finished Everything installation step"
         }
     },
 
@@ -173,41 +204,38 @@ $steps = @(
     @{
         Name = "ShareX 설치 및 설정"
         Action = {
-            # 1. Install
+            Write-Debug-Log ">>> Starting ShareX installation step"
             $paths = @("${env:ProgramFiles}\ShareX\ShareX.exe")
-            if (Test-SoftwareInstalled -Name "ShareX" -Paths $paths -WingetId "ShareX.ShareX") {
-                Write-Host "  - ShareX 이미 설치됨" -ForegroundColor Gray
-            } else {
-                Write-Host "  - 다운로드 및 설치 중 (Direct)..." -ForegroundColor Yellow
-                $installer = Join-Path $tempDir "ShareX_setup.exe"
-                # Using v16.1.0
-                Invoke-WebRequest -Uri "https://github.com/ShareX/ShareX/releases/download/v16.1.0/ShareX-16.1.0-setup.exe" -OutFile $installer -UseBasicParsing
-                Start-Process -FilePath $installer -ArgumentList "/VERYSILENT /NORESTART" -Wait -NoNewWindow
-                Remove-Item $installer -Force -ErrorAction SilentlyContinue
-                Write-OptLog -Step "ShareX" -Status "설치됨" -Message "설치 완료"
-            }
+            $installed = Install-WithWinget -Name "ShareX" -WingetId "ShareX.ShareX" -CheckPaths $paths
 
-            # 2. Config
+            # Config
+            Write-Debug-Log "Setting up ShareX config..."
             $cfgPath = "$env:USERPROFILE\Documents\ShareX\ApplicationConfig.json"
             if (-not (Test-Path $cfgPath)) {
                 New-Item -Path (Split-Path $cfgPath) -ItemType Directory -Force -ErrorAction SilentlyContinue | Out-Null
-                Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Configs/ShareX/ApplicationConfig.json" -OutFile $cfgPath -UseBasicParsing
-                Write-OptLog -Step "ShareX Config" -Status "적용됨" -Message "설정 파일 다운로드"
+                try {
+                    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Configs/ShareX/ApplicationConfig.json" -OutFile $cfgPath -UseBasicParsing -TimeoutSec 30
+                    Write-OptLog -Step "ShareX Config" -Status "적용됨" -Message "설정 파일 다운로드"
+                } catch {
+                    Write-Debug-Log "Config download failed: $_"
+                }
             }
 
-            # 3. Startup (Tray mode)
+            # Startup (Tray mode)
             if (Test-Path $paths[0]) {
                 Set-Registry -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "ShareX" -Value "`"$($paths[0])`" -silent" -Type String
             }
 
-            # 4. Remove Context Menus
+            # Remove Context Menus
+            Write-Debug-Log "Removing ShareX context menus..."
             $ctxPaths = @(
                 "HKCR:\*\shell\ShareX", "HKLM:\SOFTWARE\Classes\*\shell\ShareX", "HKCU:\SOFTWARE\Classes\*\shell\ShareX",
                 "HKCR:\Directory\shell\ShareX", "HKLM:\SOFTWARE\Classes\Directory\shell\ShareX", "HKCU:\SOFTWARE\Classes\Directory\shell\ShareX"
             )
-            foreach ($p in $ctxPaths) { 
+            foreach ($p in $ctxPaths) {
                 if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Recurse -Force -ErrorAction SilentlyContinue }
             }
+            Write-Debug-Log "<<< Finished ShareX installation step"
         }
     },
 
@@ -215,20 +243,12 @@ $steps = @(
     @{
         Name = "Honeyview 설치 및 설정"
         Action = {
-            # 1. Install
+            Write-Debug-Log ">>> Starting Honeyview installation step"
             $paths = @("${env:ProgramFiles}\Honeyview\Honeyview.exe")
-            if (Test-SoftwareInstalled -Name "Honeyview" -Paths $paths -WingetId "Bandisoft.Honeyview") {
-                Write-Host "  - Honeyview 이미 설치됨" -ForegroundColor Gray
-            } else {
-                Write-Host "  - 다운로드 및 설치 중 (Direct)..." -ForegroundColor Yellow
-                $installer = Join-Path $tempDir "HONEYVIEW-SETUP.exe"
-                Invoke-WebRequest -Uri "https://dl.bandisoft.com/honeyview/HONEYVIEW-SETUP-KR.EXE" -OutFile $installer -UseBasicParsing
-                Start-Process -FilePath $installer -ArgumentList "/S" -Wait -NoNewWindow
-                Remove-Item $installer -Force -ErrorAction SilentlyContinue
-                Write-OptLog -Step "Honeyview" -Status "설치됨" -Message "설치 완료"
-            }
+            Install-WithWinget -Name "Honeyview" -WingetId "Bandisoft.Honeyview" -CheckPaths $paths
 
-            # 2. Registry Config
+            # Registry Config
+            Write-Debug-Log "Applying Honeyview registry settings..."
             $reg = "HKCU:\Software\Honeyview"
             Set-Registry -Path $reg -Name "bStretchWhenSmall" -Value 1 -Description "작은 이미지 늘리기"
             Set-Registry -Path $reg -Name "bLockTitlebarNormal" -Value 0 -Description "제목표시줄 고정 해제"
@@ -237,6 +257,7 @@ $steps = @(
             Set-Registry -Path $reg -Name "CustomKey_Enable_00" -Value 1
             Set-Registry -Path $reg -Name "CustomKey_Key_00" -Value 0x0d
             Set-Registry -Path $reg -Name "CustomKey_Cmd_00" -Value "CMD_FULLSCREEN" -Type String
+            Write-Debug-Log "<<< Finished Honeyview installation step"
         }
     },
 
@@ -244,34 +265,30 @@ $steps = @(
     @{
         Name = "PotPlayer 설치 및 설정"
         Action = {
-            # 1. Install
+            Write-Debug-Log ">>> Starting PotPlayer installation step"
             $paths = @("${env:ProgramFiles}\DAUM\PotPlayer\PotPlayerMini64.exe")
-            if (Test-SoftwareInstalled -Name "PotPlayer" -Paths $paths) {
-                 Write-Host "  - PotPlayer 이미 설치됨" -ForegroundColor Gray
-            } else {
-                $inst = Join-Path $tempDir "PotPlayerSetup64.exe"
-                Write-Host "  - 다운로드 중..." -ForegroundColor Yellow
-                Invoke-WebRequest -Uri "https://t1.kakaocdn.net/potplayer/PotPlayer/Version/Latest/PotPlayerSetup64.exe" -OutFile $inst -UseBasicParsing
-                Write-Host "  - 설치 중..." -ForegroundColor Yellow
-                Start-Process -FilePath $inst -ArgumentList "/S" -Wait -NoNewWindow
-                Remove-Item $inst -Force -ErrorAction SilentlyContinue
-                Write-OptLog -Step "PotPlayer" -Status "설치됨" -Message "설치 완료"
-            }
 
-            # 2. Config (INI Mode)
+            # PotPlayer is not in winget with good ID, use direct download
+            Install-Direct -Name "PotPlayer" `
+                -Url "https://t1.kakaocdn.net/potplayer/PotPlayer/Version/Latest/PotPlayerSetup64.exe" `
+                -InstallerName "PotPlayerSetup64.exe" `
+                -Arguments "/S" `
+                -CheckPaths $paths
+
+            # Config (INI Mode)
+            Write-Debug-Log "Applying PotPlayer registry settings..."
             $reg = "HKCU:\Software\DAUM\PotPlayerMini64"
             Set-Registry -Path $reg -Name "UseIni" -Value 1
             Set-Registry -Path $reg -Name "CheckAutoUpdate" -Value 0
-            
-            # 3. UI Tweaks
+
+            # UI Tweaks
             $pos = "HKCU:\Software\DAUM\PotPlayer64\Positions"
             Set-Registry -Path $pos -Name "ChatWindowVisible" -Value 0
             Set-Registry -Path $pos -Name "PlayListWindowVisible" -Value 0
             Set-Registry -Path $pos -Name "BroadcastListWindowVisible" -Value 0
 
-            # 4. Shortcuts (Restored from history)
+            # Shortcuts
             $sc = "HKCU:\Software\DAUM\PotPlayer64\MainShortCutList"
-            # F1~F4 Bookmark, F5 Open, Ctrl+W Exit
             Set-Registry -Path $sc -Name "0" -Value "112,6,10281,1" -Type String
             Set-Registry -Path $sc -Name "1" -Value "113,6,10282,1" -Type String
             Set-Registry -Path $sc -Name "2" -Value "114,6,10283,1" -Type String
@@ -279,11 +296,17 @@ $steps = @(
             Set-Registry -Path $sc -Name "4" -Value "116,6,10285,1" -Type String
             Set-Registry -Path $sc -Name "5" -Value "87,2,57665,0" -Type String
             Set-Registry -Path $sc -Name "6" -Value "" -Type String
-            
-            # 5. INI File
+
+            # INI File
+            Write-Debug-Log "Downloading PotPlayer INI config..."
             $confDir = "$env:APPDATA\PotPlayerMini64"
             if (!(Test-Path $confDir)) { New-Item -Path $confDir -ItemType Directory -Force | Out-Null }
-            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Configs/PotPlayer/PotPlayerMini64.ini" -OutFile "$confDir\PotPlayerMini64.ini" -UseBasicParsing
+            try {
+                Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Configs/PotPlayer/PotPlayerMini64.ini" -OutFile "$confDir\PotPlayerMini64.ini" -UseBasicParsing -TimeoutSec 30
+            } catch {
+                Write-Debug-Log "INI download failed: $_"
+            }
+            Write-Debug-Log "<<< Finished PotPlayer installation step"
         }
     },
 
@@ -291,173 +314,154 @@ $steps = @(
     @{
         Name = "파일 연결 설정 (SetUserFTA)"
         Action = {
+            Write-Debug-Log ">>> Starting file association step"
+
             # Download Tool
             $setUserFtaPath = Join-Path $env:TEMP "SetUserFTA.exe"
             $url = "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Utils/SetUserFTA.exe"
+            Write-Debug-Log "Downloading SetUserFTA..."
             try {
                 Invoke-WebRequest -Uri $url -OutFile $setUserFtaPath -UseBasicParsing -TimeoutSec 30
             } catch {
                 Write-Host "  - SetUserFTA 다운로드 실패, 파일 연결 스킵" -ForegroundColor Red
+                Write-Debug-Log "SetUserFTA download failed: $_"
                 return
             }
 
-            if (-not (Test-Path $setUserFtaPath)) { return }
+            if (-not (Test-Path $setUserFtaPath)) {
+                Write-Debug-Log "SetUserFTA not found after download"
+                return
+            }
 
             # 1. Notepad++
+            Write-Debug-Log "Setting up Notepad++ file associations..."
             $npp = "${env:ProgramFiles}\Notepad++\notepad++.exe"
             if (Test-Path $npp) {
                 $exts = @(".txt", ".ini", ".log", ".md", ".json", ".xml", ".yaml", ".sql", ".sh", ".cfg", ".conf", ".properties")
                 $progId = "Notepad++_file"
-                
-                # Register ProgID in Registry
+
                 $hkcu = "HKCU:\SOFTWARE\Classes\$progId"
                 if (!(Test-Path $hkcu)) { New-Item "$hkcu\shell\open\command" -Force | Out-Null }
                 Set-ItemProperty $hkcu -Name "(Default)" -Value "Notepad++ Document" -Force
                 Set-ItemProperty "$hkcu\shell\open\command" -Name "(Default)" -Value "`"$npp`" `"%1`"" -Force
-                
+
                 foreach ($ext in $exts) {
-                    # Aggressive Cleanup to prevent prompts
+                    Write-Debug-Log "  Setting $ext -> $progId"
                     $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
                     $openWith = "$fileExtPath\OpenWithProgids"
                     if (!(Test-Path $openWith)) { New-Item -Path $openWith -Force | Out-Null }
-                    
-                    # Clear existing
+
                     $props = Get-ItemProperty -Path $openWith -ErrorAction SilentlyContinue
                     if ($props) {
                         foreach ($p in $props.PSObject.Properties) {
                             if ($p.Name -notlike "PS*") { Remove-ItemProperty -Path $openWith -Name $p.Name -ErrorAction SilentlyContinue }
                         }
                     }
-                    # Add Ours
                     New-ItemProperty -Path $openWith -Name $progId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
-                    
-                    # Clear OpenWithList & UserChoice
                     Remove-Item "$fileExtPath\OpenWithList" -Recurse -Force -ErrorAction SilentlyContinue
                     try { Remove-Item "$fileExtPath\UserChoice" -Recurse -Force -ErrorAction SilentlyContinue } catch {}
-                    
-                    # Set Association
+
                     Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -Wait
                 }
-                Write-Host "  - Notepad++ 파일 연결 완료 (강제 적용)" -ForegroundColor Green
+                Write-Host "  - Notepad++ 파일 연결 완료" -ForegroundColor Green
             }
 
             # 2. Honeyview (Images)
-            # Remove Photos App first to avoid conflict and ensure Honeyview takes precedence
+            Write-Debug-Log "Removing Photos app..."
             Get-AppxPackage *Photos* | Remove-AppxPackage -ErrorAction SilentlyContinue
             Get-AppxProvisionedPackage -Online | Where-Object { $_.PackageName -like "*Photos*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
-            
+
+            Write-Debug-Log "Setting up Honeyview file associations..."
             $hv = "${env:ProgramFiles}\Honeyview\Honeyview.exe"
             if (Test-Path $hv) {
-                # Detailed Image Extensions List
                 $imgs = @(
                     ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".ico", ".webp",
                     ".tiff", ".tif", ".heic", ".heif", ".avif",
                     ".cr2", ".nef", ".arw", ".dng", ".orf", ".rw2",
                     ".psd", ".jfif", ".jpe", ".wdp", ".jxr"
                 )
-                
+
                 foreach ($ext in $imgs) {
+                    Write-Debug-Log "  Setting $ext -> Honeyview"
                     $extNoDot = $ext.TrimStart('.')
                     $progId = "Honeyview.$extNoDot"
-                    
-                    # 1. Clean OpenWithProgids (remove competitors)
+
                     $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
                     $openWithProgids = "$fileExtPath\OpenWithProgids"
                     if (!(Test-Path $openWithProgids)) { New-Item -Path $openWithProgids -Force | Out-Null }
-                    
-                    # Remove all existing
+
                     $props = Get-ItemProperty -Path $openWithProgids -ErrorAction SilentlyContinue
                     if ($props) {
                         foreach ($p in $props.PSObject.Properties) {
                             if ($p.Name -notlike "PS*") { Remove-ItemProperty -Path $openWithProgids -Name $p.Name -ErrorAction SilentlyContinue }
                         }
                     }
-                    # Add Honeyview ProgID
                     New-ItemProperty -Path $openWithProgids -Name $progId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
-                    
-                    # 2. Clean OpenWithList
+
                     $openWithList = "$fileExtPath\OpenWithList"
                     if (Test-Path $openWithList) { Remove-Item -Path $openWithList -Recurse -Force -ErrorAction SilentlyContinue }
-                    
-                    # 3. Clean UserChoice (Force New Hashing by SetUserFTA)
+
                     $userChoice = "$fileExtPath\UserChoice"
                     if (Test-Path $userChoice) {
-                        # Try to correct permission then delete
-                        try {
-                           $acl = Get-Acl $userChoice
-                           # This might fail due to system protection, but SetUserFTA often handles overwrite if key is missing or hashes mismatch
-                           # We attempt deletion to be safe
-                           Remove-Item -Path $userChoice -Recurse -Force -ErrorAction SilentlyContinue
-                        } catch {}
+                        try { Remove-Item -Path $userChoice -Recurse -Force -ErrorAction SilentlyContinue } catch {}
                     }
-                    
-                    # 4. Set Association
+
                     Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -Wait
                 }
-                Write-Host "  - Honeyview 이미지 연결 완료 (강제 적용)" -ForegroundColor Green
+                Write-Host "  - Honeyview 이미지 연결 완료" -ForegroundColor Green
             }
 
             # 3. PotPlayer (Video & Audio)
+            Write-Debug-Log "Setting up PotPlayer file associations..."
             $pot = "${env:ProgramFiles}\DAUM\PotPlayer\PotPlayerMini64.exe"
             if (Test-Path $pot) {
-                # Video Extensions
-                $vids = @(
-                    ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm",
-                    ".m4v", ".mpg", ".mpeg", ".ts", ".3gp", ".m2ts", ".vob"
-                )
-                # Audio Extensions
-                $auds = @(
-                    ".mp3", ".flac", ".wav", ".aac", ".ogg", ".wma", ".m4a",
-                    ".opus", ".aiff", ".ape", ".alac", ".dsd", ".dsf", ".dff"
-                )
-                
+                $vids = @(".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".ts", ".3gp", ".m2ts", ".vob")
+                $auds = @(".mp3", ".flac", ".wav", ".aac", ".ogg", ".wma", ".m4a", ".opus", ".aiff", ".ape", ".alac", ".dsd", ".dsf", ".dff")
                 $allMedia = $vids + $auds
-                
-                # PotPlayer Logic: also aggressive cleanup
+
                 foreach ($ext in $allMedia) {
+                    Write-Debug-Log "  Setting $ext -> PotPlayer"
                     $extNoDot = $ext.TrimStart('.')
                     $progId = "PotPlayer64.$extNoDot"
-                    
-                    # 1. OpenWithProgids
+
                     $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
                     $openWith = "$fileExtPath\OpenWithProgids"
                     if (!(Test-Path $openWith)) { New-Item -Path $openWith -Force | Out-Null }
-                    
-                    # Clear existing
+
                     $props = Get-ItemProperty -Path $openWith -ErrorAction SilentlyContinue
                     if ($props) {
                         foreach ($p in $props.PSObject.Properties) {
                             if ($p.Name -notlike "PS*") { Remove-ItemProperty -Path $openWith -Name $p.Name -ErrorAction SilentlyContinue }
                         }
                     }
-                    # Add Ours
                     New-ItemProperty -Path $openWith -Name $progId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
-                    
-                    # 2. Cleanup Lists
+
                     Remove-Item "$fileExtPath\OpenWithList" -Recurse -Force -ErrorAction SilentlyContinue
                     try { Remove-Item "$fileExtPath\UserChoice" -Recurse -Force -ErrorAction SilentlyContinue } catch {}
 
                     Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -Wait
                 }
-                Write-Host "  - PotPlayer 미디어 연결 완료 (동영상 & 오디오)" -ForegroundColor Green
+                Write-Host "  - PotPlayer 미디어 연결 완료" -ForegroundColor Green
             }
 
             # 4. Chrome (Browser)
+            Write-Debug-Log "Setting up Chrome file associations..."
             $chrome = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
-            if (-not (Test-Path $chrome)) { 
+            if (-not (Test-Path $chrome)) {
                 $chrome = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
             }
             if (Test-Path $chrome) {
                 $webs = @(".html", ".htm", "http", "https")
                 foreach ($ext in $webs) {
+                    Write-Debug-Log "  Setting $ext -> ChromeHTML"
                     Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext ChromeHTML" -NoNewWindow -Wait
                 }
                 Write-Host "  - Chrome 브라우저 연결 완료" -ForegroundColor Green
             }
+
+            Write-Debug-Log "<<< Finished file association step"
         }
     }
 )
 
 Run-OptimizationSteps -Title "필수 소프트웨어 설치" -Steps $steps
-
-
