@@ -407,7 +407,15 @@ $steps = @(
             Get-AppxPackage *Photos* | Remove-AppxPackage -ErrorAction SilentlyContinue
             Get-AppxProvisionedPackage -Online | Where-Object { $_.PackageName -like "*Photos*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
 
-            if ((Test-Path "${env:ProgramFiles}\Honeyview\Honeyview.exe") -Or (Test-Path "${env:ProgramFiles(x86)}\Honeyview\Honeyview.exe")) {
+            $hvPath = $null
+            if (Test-Path "${env:ProgramFiles}\Honeyview\Honeyview.exe") { $hvPath = "${env:ProgramFiles}\Honeyview\Honeyview.exe" }
+            elseif (Test-Path "${env:ProgramFiles(x86)}\Honeyview\Honeyview.exe") { $hvPath = "${env:ProgramFiles(x86)}\Honeyview\Honeyview.exe" }
+
+            if ($hvPath) {
+                # Define ProgIDs for Honeyview if not present
+                # Honeyview usually registers Honeyview.jpg, Honeyview.png etc. 
+                # Use a specific one for reference or ensure we register generic
+                
                 $hvExts = @(
                     ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".ico", ".webp",
                     ".tiff", ".tif", ".heic", ".heif", ".avif", ".psd", ".jfif", ".jpe",
@@ -415,32 +423,63 @@ $steps = @(
                 )
                 foreach ($ext in $hvExts) { 
                     $cleanExt = $ext.TrimStart('.')
-                    # ProgId가 Honeyview.png 형태이므로 별도 등록 불필요(앱이 등록함)하나 안전장치 고려 가능
-                    # 여기서는 앱이 등록한 ProgID를 그대로 사용한다고 가정
-                    Add-Assoc -Ext $ext -ProgId "Honeyview.$cleanExt" -AppName "꿀뷰"
+                    $hvProgId = "Honeyview.$cleanExt"
+                    
+                    # Ensure HKLM ProgId exists for each ext
+                    $hvKey = "HKLM:\SOFTWARE\Classes\$hvProgId"
+                    if (!(Test-Path $hvKey)) {
+                        New-Item "$hvKey\shell\open\command" -Force | Out-Null
+                        Set-ItemProperty $hvKey -Name "(Default)" -Value "Honeyview Image" -Force
+                        Set-ItemProperty "$hvKey\shell\open\command" -Name "(Default)" -Value "`"$hvPath`" `"%1`"" -Force
+                    }
+
+                    Add-Assoc -Ext $ext -ProgId $hvProgId -AppName "꿀뷰"
                 }
                 Write-Host "  - Honeyview 확장자 목록 준비 완료" -ForegroundColor Gray
             }
 
             # 3. PotPlayer (Video/Audio)
-            if (Test-Path "${env:ProgramFiles}\DAUM\PotPlayer\PotPlayerMini64.exe") {
+            $potPath = "${env:ProgramFiles}\DAUM\PotPlayer\PotPlayerMini64.exe"
+            if (Test-Path $potPath) {
                 $mediaExts = @(
                     ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".ts", ".3gp", ".m2ts", ".vob",
                     ".mp3", ".flac", ".wav", ".aac", ".ogg", ".wma", ".m4a", ".opus", ".aiff", ".ape"
                 )
                 foreach ($ext in $mediaExts) {
                     $cleanExt = $ext.TrimStart('.')
-                    # 64비트 버전 ProgId: PotPlayer64.ext
-                    Add-Assoc -Ext $ext -ProgId "PotPlayer64.$cleanExt" -AppName "팟플레이어(64 비트)"
+                    $potProgId = "PotPlayer64.$cleanExt"
+                    
+                    # Ensure HKLM ProgId exists
+                    $potKey = "HKLM:\SOFTWARE\Classes\$potProgId"
+                    if (!(Test-Path $potKey)) {
+                        New-Item "$potKey\shell\open\command" -Force | Out-Null
+                        Set-ItemProperty $potKey -Name "(Default)" -Value "PotPlayer Media" -Force
+                        Set-ItemProperty "$potKey\shell\open\command" -Name "(Default)" -Value "`"$potPath`" `"%1`"" -Force
+                    }
+
+                    Add-Assoc -Ext $ext -ProgId $potProgId -AppName "팟플레이어(64 비트)"
                 }
                 Write-Host "  - PotPlayer 확장자 목록 준비 완료" -ForegroundColor Gray
             }
 
             # 4. Chrome (Web)
-            if ((Test-Path "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe") -Or (Test-Path "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")) {
+            $chromePath = $null
+            if (Test-Path "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe") { $chromePath = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe" }
+            elseif (Test-Path "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe") { $chromePath = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe" }
+
+            if ($chromePath) {
+                # Ensure ChromeHTML ProgID exists (usually does, but for safety)
+                $chromeProgId = "ChromeHTML"
+                $chromeKey = "HKLM:\SOFTWARE\Classes\$chromeProgId"
+                if (!(Test-Path $chromeKey)) {
+                    New-Item "$chromeKey\shell\open\command" -Force | Out-Null
+                    Set-ItemProperty $chromeKey -Name "(Default)" -Value "Chrome HTML Document" -Force
+                    Set-ItemProperty "$chromeKey\shell\open\command" -Name "(Default)" -Value "`"$chromePath`" --single-argument `"%1`"" -Force
+                }
+
                 $webExts = @(".html", ".htm", "http", "https", ".shtml", ".xht", ".xhtml")
                 foreach ($ext in $webExts) { 
-                    Add-Assoc -Ext $ext -ProgId "ChromeHTML" -AppName "Google Chrome"
+                    Add-Assoc -Ext $ext -ProgId $chromeProgId -AppName "Google Chrome"
                 }
                 Write-Host "  - Chrome 확장자 목록 준비 완료" -ForegroundColor Gray
             }
