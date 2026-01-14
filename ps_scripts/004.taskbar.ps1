@@ -1,4 +1,4 @@
-﻿# Windows 11 Taskbar & Explorer Optimization Script
+# Windows 11 Taskbar & Explorer Optimization Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -115,4 +115,5 @@ if (-not $global:OrchestrateMode) {
     Start-Sleep -Seconds 1
     Start-Process explorer
 }
+
 

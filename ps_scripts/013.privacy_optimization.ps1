@@ -1,4 +1,4 @@
-﻿# Windows 11 Privacy Optimization Script
+# Windows 11 Privacy Optimization Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -118,4 +118,5 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "개인정보 보호 최적화" -Steps $steps
+
 

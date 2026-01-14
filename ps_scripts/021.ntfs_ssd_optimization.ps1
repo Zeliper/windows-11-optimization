@@ -1,4 +1,4 @@
-﻿# Windows 11 NTFS/SSD Optimization Script
+# Windows 11 NTFS/SSD Optimization Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -52,4 +52,5 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "NTFS 및 SSD 최적화" -Steps $steps
+
 

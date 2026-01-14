@@ -1,4 +1,4 @@
-﻿# Windows 11 Search Optimization Script
+# Windows 11 Search Optimization Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -69,4 +69,5 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "Windows Search 최적화" -Steps $steps
+
 

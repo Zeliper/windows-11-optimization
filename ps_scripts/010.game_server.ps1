@@ -1,4 +1,4 @@
-﻿# Windows 11 Game Server Optimization Script
+# Windows 11 Game Server Optimization Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -147,4 +147,5 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "게임 서버 네트워크 최적화" -Steps $steps
+
 

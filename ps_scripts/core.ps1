@@ -1,4 +1,4 @@
-﻿# Core shared module for Windows 11 Optimization Scripts
+# Core shared module for Windows 11 Optimization Scripts
 # Provides logging, helper functions, and the main execution engine
 
 #Requires -RunAsAdministrator
@@ -284,5 +284,6 @@ function Run-OptimizationSteps {
     Write-Host "로그: $global:LogFilePath" -ForegroundColor Cyan
     Write-Host "========================================" -ForegroundColor Cyan
 }
+
 
 

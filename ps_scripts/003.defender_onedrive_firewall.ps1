@@ -1,4 +1,4 @@
-﻿# Windows 11 Defender, Firewall, OneDrive Cleanup Script
+# Windows 11 Defender, Firewall, OneDrive Cleanup Script
 # Refactored to use core.ps1
 
 #Requires -RunAsAdministrator
@@ -219,4 +219,5 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "보안 및 클라우드 정리 (Defender/Firewall/OneDrive)" -Steps $steps
+
 
