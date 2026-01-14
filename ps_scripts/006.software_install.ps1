@@ -368,7 +368,7 @@ $steps = @(
             $script:associationsTemp = @()
 
             # 1. Notepad++ (.txt, .log, .xml, script files, etc.)
-            if (Test-Path "${env:ProgramFiles}\Notepad++\notepad++.exe" -Or Test-Path "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe") {
+            if ((Test-Path "${env:ProgramFiles}\Notepad++\notepad++.exe") -Or (Test-Path "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe")) {
                 $nppExts = @(
                     ".txt", ".ini", ".log", ".md", ".json", ".xml", ".yaml", ".sql", ".sh", ".cfg", ".conf", ".properties",
                     ".inf", ".scp", ".wtx", ".ps1", ".psd1", ".psm1", ".css", ".js", ".ts", ".bat", ".cmd", ".vbs", ".reg"
@@ -385,7 +385,7 @@ $steps = @(
             Get-AppxPackage *Photos* | Remove-AppxPackage -ErrorAction SilentlyContinue
             Get-AppxProvisionedPackage -Online | Where-Object { $_.PackageName -like "*Photos*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
 
-            if (Test-Path "${env:ProgramFiles}\Honeyview\Honeyview.exe" -Or Test-Path "${env:ProgramFiles(x86)}\Honeyview\Honeyview.exe") {
+            if ((Test-Path "${env:ProgramFiles}\Honeyview\Honeyview.exe") -Or (Test-Path "${env:ProgramFiles(x86)}\Honeyview\Honeyview.exe")) {
                 $hvExts = @(
                     ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".ico", ".webp",
                     ".tiff", ".tif", ".heic", ".heif", ".avif", ".psd", ".jfif", ".jpe",
@@ -412,7 +412,7 @@ $steps = @(
             }
 
             # 4. Chrome (Web)
-            if (Test-Path "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe" -Or Test-Path "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe") {
+            if ((Test-Path "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe") -Or (Test-Path "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")) {
                 $webExts = @(".html", ".htm", "http", "https", ".shtml", ".xht", ".xhtml")
                 foreach ($ext in $webExts) { 
                     Add-Assoc -Ext $ext -ProgId "ChromeHTML" -AppName "Google Chrome"
