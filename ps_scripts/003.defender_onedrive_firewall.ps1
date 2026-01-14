@@ -115,8 +115,8 @@ $steps = @(
                 # Ensure services are correct though
             } else {
                 # Enable Services needed to manage Firewall
-                Set-Service -Name "mpsdrv" -StartupType "Automatic" # Actually boot/system driver, simplified here or use sc/reg
-                Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\mpsdrv" -Name "Start" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+                # mpsdrv is a kernel driver, start type managed via Registry below
+                Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\mpsdrv" -Name "Start" -Value 2 -Type DWord -ErrorAction SilentlyContinue
                 
                 Set-Service -Name "BFE" -StartupType "Automatic"
                 if ((Get-Service "BFE").Status -ne "Running") { Start-Service "BFE" -ErrorAction SilentlyContinue }

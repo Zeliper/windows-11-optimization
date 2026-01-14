@@ -25,8 +25,9 @@ $bloatwareApps = @(
     "Microsoft.XboxIdentityProvider", "Microsoft.XboxSpeechToTextOverlay", "Microsoft.YourPhone",
     "Microsoft.ZuneVideo", "Microsoft.ZuneMusic", "Microsoft.PowerAutomateDesktop", "Microsoft.Todos",
     "Microsoft.Windows.DevHome", "MicrosoftTeams", "MSTeams", "MicrosoftCorporationII.MicrosoftTeams",
-    "Disney.37853FC22B2CE", "SpotifyAB.SpotifyMusic", "Clipchamp.Clipchamp", "BytedancePte.Ltd.TikTok",
-    "Facebook.Instagram", "9E2F88E3.Twitter", "AmazonVideo.PrimeVideo", "Netflix", "DolbyLaboratories.DolbyAccess"
+    "Disney.37853FC22B2CE", "SpotifyAB.SpotifyMusic", "BytedancePte.Ltd.TikTok",
+    "Facebook.Instagram", "9E2F88E3.Twitter", "AmazonVideo.PrimeVideo", "Netflix", "DolbyLaboratories.DolbyAccess",
+    "Clipchamp.Clipchamp"
 )
 
 $steps = @(

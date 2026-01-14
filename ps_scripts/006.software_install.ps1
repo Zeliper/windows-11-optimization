@@ -282,6 +282,43 @@ $steps = @(
                 }
                 Write-Host "  - Honeyview 이미지 연결 완료" -ForegroundColor Green
             }
+
+            # 3. PotPlayer (Video & Audio)
+            $pot = "${env:ProgramFiles}\DAUM\PotPlayer\PotPlayerMini64.exe"
+            if (Test-Path $pot) {
+                # Video Extensions
+                $vids = @(
+                    ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm",
+                    ".m4v", ".mpg", ".mpeg", ".ts", ".3gp", ".m2ts", ".vob"
+                )
+                # Audio Extensions
+                $auds = @(
+                    ".mp3", ".flac", ".wav", ".aac", ".ogg", ".wma", ".m4a",
+                    ".opus", ".aiff", ".ape", ".alac", ".dsd", ".dsf", ".dff"
+                )
+                
+                $allMedia = $vids + $auds
+
+                foreach ($ext in $allMedia) {
+                    $extNoDot = $ext.TrimStart('.')
+                    $progId = "PotPlayer64.$extNoDot"
+                    Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -Wait
+                }
+                Write-Host "  - PotPlayer 미디어 연결 완료 (동영상 & 오디오)" -ForegroundColor Green
+            }
+
+            # 4. Chrome (Browser)
+            $chrome = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
+            if (-not (Test-Path $chrome)) { 
+                $chrome = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
+            }
+            if (Test-Path $chrome) {
+                $webs = @(".html", ".htm", "http", "https")
+                foreach ($ext in $webs) {
+                    Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext ChromeHTML" -NoNewWindow -Wait
+                }
+                Write-Host "  - Chrome 브라우저 연결 완료" -ForegroundColor Green
+            }
         }
     }
 )

@@ -194,11 +194,11 @@ function Set-Service {
 
     try {
         if ($Stop -and $service.Status -eq "Running") {
-            Stop-Service -Name $Name -Force -ErrorAction SilentlyContinue
+            Stop-Service -Name $Name -Force -ErrorAction Stop
         }
 
         if ($currentStartType -ne $StartupType) {
-            Microsoft.PowerShell.Management\Set-Service -Name $Name -StartupType $StartupType
+            Microsoft.PowerShell.Management\Set-Service -Name $Name -StartupType $StartupType -ErrorAction Stop
             Write-Host "  - $dispName : $currentStartType → $StartupType (적용됨)" -ForegroundColor Green
             Write-OptLog -Step $stepName -Status "적용됨" -Message "시작 유형 변경됨" -PreviousValue $currentStartType -NewValue $StartupType
         } elseif ($Stop) {
