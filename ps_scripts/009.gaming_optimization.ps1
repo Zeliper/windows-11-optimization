@@ -100,15 +100,25 @@ $steps = @(
             Set-Registry -Path $sys -Name "NetworkThrottlingIndex" -Value 0xFFFFFFFF
         }
     },
-    @{
         Name = "AppX/Gaming 서비스 최적화"
         Action = {
-            Set-Service -Name "AppXSvc" -StartupType "Manual"
-            Set-Service -Name "DoSvc" -StartupType "Manual"
-            Set-Service -Name "XblAuthManager" -StartupType "Disabled"
-            Set-Service -Name "XblGameSave" -StartupType "Disabled"
+            $services = @("AppXSvc", "DoSvc", "XblAuthManager", "XblGameSave")
+            $modes    = @("Manual", "Manual", "Disabled", "Disabled")
+
+            for ($i=0; $i -lt $services.Count; $i++) {
+                $s = $services[$i]
+                $m = $modes[$i]
+                
+                try {
+                    $svc = Get-Service -Name $s -ErrorAction SilentlyContinue
+                    if ($svc -and $svc.StartType -ne $m) {
+                        Set-Service -Name $s -StartupType $m -ErrorAction Stop
+                    }
+                } catch {
+                     Write-Host "  - $s 서비스 설정 건너뜀 (보호됨/권한 부족)" -ForegroundColor Gray
+                }
+            }
         }
-    }
 )
 
 Write-Host "주의: 이 스크립트는 VBS/HVCI 등 보안 기능을 비활성화합니다." -ForegroundColor Red

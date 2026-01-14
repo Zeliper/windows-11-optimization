@@ -36,15 +36,25 @@ $steps = @(
             # WU Cache
             $wuPath = "$env:SystemRoot\SoftwareDistribution\Download"
             if (Test-Path $wuPath) {
+                # Ensure the specific subdirectory exists to avoid error
+                $wuInst = "$wuPath\Install"
+                if (Test-Path $wuInst) { 
+                    # ... 
+                }
+                
                 Stop-Service wuauserv -Force -ErrorAction SilentlyContinue
-                Remove-Item "$wuPath\*" -Recurse -Force -ErrorAction SilentlyContinue
+                if (Test-Path "$wuPath") {
+                   Get-ChildItem "$wuPath" -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+                }
                 Start-Service wuauserv -ErrorAction SilentlyContinue
                 Write-Host "  - Windows Update 캐시 삭제됨" -ForegroundColor Green
             }
 
             # Thumbnail Cache
             $thumbPath = "$env:LOCALAPPDATA\Microsoft\Windows\Explorer"
-            Get-ChildItem $thumbPath -Filter "thumbcache_*.db" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+            if (Test-Path $thumbPath) {
+                Get-ChildItem $thumbPath -Filter "thumbcache_*.db" -Force -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+            }
             
             # Dumps
             Remove-Item "$env:SystemRoot\MEMORY.DMP" -Force -ErrorAction SilentlyContinue
@@ -53,7 +63,7 @@ $steps = @(
             # Recycle Bin
             $shell = New-Object -ComObject Shell.Application
             $bin = $shell.NameSpace(0xa)
-            if ($bin.Items().Count -gt 0) {
+            if ($bin -and $bin.Items().Count -gt 0) {
                  $bin.Items() | ForEach-Object { Remove-Item $_.Path -Recurse -Force -ErrorAction SilentlyContinue }
                  Write-Host "  - 휴지통 비우기 완료" -ForegroundColor Green
             }
@@ -78,8 +88,10 @@ $steps = @(
                 $curv6 = (Get-DnsClientServerAddress -InterfaceIndex $nic.ifIndex -AddressFamily IPv6).ServerAddresses
                 $targetv6 = @("2606:4700:4700::1111", "2001:4860:4860::8888")
                 if (($curv6 -join ',') -ne ($targetv6 -join ',')) {
-                    Set-DnsClientServerAddress -InterfaceIndex $nic.ifIndex -ServerAddresses $targetv6 -ErrorAction SilentlyContinue
-                    Write-Host "  - $($nic.Name) IPv6 DNS 설정됨" -ForegroundColor Green
+                    try {
+                         Set-DnsClientServerAddress -InterfaceIndex $nic.ifIndex -ServerAddresses $targetv6 -ErrorAction SilentlyContinue
+                         Write-Host "  - $($nic.Name) IPv6 DNS 설정됨" -ForegroundColor Green
+                    } catch {}
                 }
             }
             Clear-DnsClientCache
@@ -124,7 +136,15 @@ $steps = @(
     @{
         Name = "AppX Deployment 최적화"
         Action = {
-            Set-Service -Name "AppXSvc" -StartupType "Manual"
+            # AppXSvc is often protected. Try to set but ignore failure.
+            try {
+                $svc = Get-Service -Name "AppXSvc" -ErrorAction SilentlyContinue
+                if ($svc -and $svc.StartType -ne "Manual") {
+                     Set-Service -Name "AppXSvc" -StartupType "Manual" -ErrorAction Stop
+                }
+            } catch {
+                Write-Host "  - AppXSvc 서비스는 보호되어 변경할 수 없습니다. (정상)" -ForegroundColor Gray
+            }
             
             # Tasks
             $task = "\Microsoft\Windows\AppxDeploymentClient\Pre-staged app cleanup"

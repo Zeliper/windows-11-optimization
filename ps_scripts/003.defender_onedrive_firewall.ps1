@@ -148,33 +148,69 @@ $steps = @(
     @{
         Name = "OneDrive 제거 및 정리"
         Action = {
-            if (-not $global:ForceOverride -and -not (Remove-OneDriveIfExists)) {
+            # Define paths
+            $setup64 = "$env:SystemRoot\SysWOW64\OneDriveSetup.exe"
+            $setup32 = "$env:SystemRoot\System32\OneDriveSetup.exe"
+            $oneDriveProcess = Get-Process -Name "OneDrive" -ErrorAction SilentlyContinue
+            $oneDriveFolder = "$env:USERPROFILE\OneDrive"
+            $oneDriveApp = "$env:LOCALAPPDATA\Microsoft\OneDrive"
+            
+            $isInstalled = (Test-Path $setup64) -or (Test-Path $setup32) -or $oneDriveProcess -or (Test-Path $oneDriveApp)
+
+            if (-not $global:ForceOverride -and -not $isInstalled) {
                 Write-Host "  - OneDrive 이미 제거됨 (스킵)" -ForegroundColor Gray
                 Write-OptLog -Step "OneDrive" -Status "스킵됨" -Message "이미 제거됨"
             } else {
-                # Kill Process
+                # 1. Kill Process
                 Stop-Process -Name "OneDrive" -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 2
                 
-                # Uninstall
-                $setup64 = "$env:SystemRoot\SysWOW64\OneDriveSetup.exe"
+                # 2. Uninstall
                 if (Test-Path $setup64) {
                     Start-Process $setup64 -ArgumentList "/uninstall" -Wait -NoNewWindow
                     Write-Host "  - OneDrive 제거 실행 (64bit)" -ForegroundColor Green
+                } elseif (Test-Path $setup32) {
+                    Start-Process $setup32 -ArgumentList "/uninstall" -Wait -NoNewWindow
+                    Write-Host "  - OneDrive 제거 실행 (32bit)" -ForegroundColor Green
+                } else {
+                    # Winget Fallback
+                    $winget = Get-Command winget -ErrorAction SilentlyContinue
+                    if ($winget) {
+                        winget uninstall "Microsoft.OneDrive" --silent --accept-source-agreements 2>$null
+                        Write-Host "  - OneDrive 제거 실행 (Winget)" -ForegroundColor Green
+                    } else {
+                        Write-Host "  - OneDrive 제거 파일 없음 (수동 삭제 진행)" -ForegroundColor Yellow
+                    }
                 }
                 
-                # Registry & Cleanup
+                # 3. Registry Cleanup
                 Remove-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "OneDrive" -ErrorAction SilentlyContinue
                 Set-Registry -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OneDrive" -Name "DisableFileSyncNGSC" -Value 1
+                Set-Registry -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OneDrive" -Name "DisableFileSync" -Value 1
                 
-                # Hide from Explorer
+                # 4. Hide from Explorer
                 $clsid = "HKCR:\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}"
+                $clsidWow = "HKCR:\Wow6432Node\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}"
                 if (Test-Path $clsid) {
                     Set-ItemProperty -Path $clsid -Name "System.IsPinnedToNameSpaceTree" -Value 0 -Type DWord -ErrorAction SilentlyContinue
                 }
+                if (Test-Path $clsidWow) {
+                    Set-ItemProperty -Path $clsidWow -Name "System.IsPinnedToNameSpaceTree" -Value 0 -Type DWord -ErrorAction SilentlyContinue
+                }
                 
-                # Remove Folders
-                Remove-Item -Path "$env:USERPROFILE\OneDrive" -Recurse -Force -ErrorAction SilentlyContinue
-                Remove-Item -Path "$env:LOCALAPPDATA\Microsoft\OneDrive" -Recurse -Force -ErrorAction SilentlyContinue
+                # 5. Remove Folders (Combined)
+                $folders = @(
+                    "$env:USERPROFILE\OneDrive",
+                    "$env:LOCALAPPDATA\Microsoft\OneDrive",
+                    "$env:PROGRAMDATA\Microsoft OneDrive",
+                    "C:\OneDriveTemp"
+                )
+                foreach ($f in $folders) {
+                    if (Test-Path $f) { Remove-Item -Path $f -Recurse -Force -ErrorAction SilentlyContinue }
+                }
+
+                # 6. Scheduled Tasks
+                Get-ScheduledTask -TaskPath '\' -TaskName '*OneDrive*' -ErrorAction SilentlyContinue | Unregister-ScheduledTask -Confirm:$false -ErrorAction SilentlyContinue
                 
                 Write-OptLog -Step "OneDrive" -Status "적용됨" -Message "OneDrive 제거 및 잔여 파일 정리 완료"
             }

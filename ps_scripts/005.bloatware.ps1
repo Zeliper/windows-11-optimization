@@ -70,18 +70,19 @@ $steps = @(
                 foreach ($p in $matched) {
                      Write-Host "  Deprovisioning $($p.DisplayName)..." -ForegroundColor Gray
                      
-                     # Job with timeout for safety
+                     # Job with timeout (Reduced to 15s to prevent stalling)
                      $job = Start-Job -ScriptBlock { 
                         param($pkgName)
+                        Import-Module Dism
                         Remove-AppxProvisionedPackage -Online -PackageName $pkgName -ErrorAction SilentlyContinue
                      } -ArgumentList $p.PackageName
                      
-                     if (Wait-Job $job -Timeout 60) {
+                     if (Wait-Job $job -Timeout 15) {
                          Receive-Job $job | Out-Null
                          Write-OptLog -Step "Provisioned Apps" -Status "Applied" -Message "Removed $($p.DisplayName)"
                      } else {
                          Stop-Job $job
-                         Write-Host "    - 제거 시간 초과 (건너뜀)" -ForegroundColor Red
+                         Write-Host "    - 제거 시간 초과 (15s, 건너뜀)" -ForegroundColor Yellow
                          Write-OptLog -Step "Provisioned Apps" -Status "실패" -Message "Timeout removing $($p.DisplayName)"
                      }
                      Remove-Job $job

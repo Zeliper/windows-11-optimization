@@ -27,6 +27,9 @@ $steps = @(
     @{
         Name = "임시 파일 및 캐시 정리"
         Action = {
+            # Stop Windows Update Service for cleaner cleanup
+            Stop-Service -Name "wuauserv" -Force -ErrorAction SilentlyContinue
+            
             $dirs = @("$env:TEMP", "$env:TMP", "$env:WINDIR\Temp", "$env:WINDIR\SoftwareDistribution\Download")
             foreach ($d in $dirs) {
                 if (Test-Path $d) {
@@ -48,13 +51,15 @@ $steps = @(
             if (Test-Path "$env:WINDIR\Prefetch") {
                 Get-ChildItem "$env:WINDIR\Prefetch" -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
             }
+
+            # Restart Service
+            Start-Service -Name "wuauserv" -ErrorAction SilentlyContinue
         }
     },
     @{
         Name = "Windows.old 및 업그레이드 잔여물 삭제"
         Action = {
             $paths = @("$env:SystemDrive\Windows.old", "$env:SystemDrive\`$Windows.~BT", "$env:SystemDrive\`$Windows.~WS")
-            foreach ($p in $paths) {
             foreach ($p in $paths) {
                 if (Test-Path $p) {
                     Write-Host "  - $p 삭제 중..." -ForegroundColor Yellow

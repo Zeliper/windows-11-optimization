@@ -253,6 +253,7 @@ $steps = @(
         Name = "파일 연결 설정 (SetUserFTA)"
         Action = {
             # Download Tool
+            $setUserFtaPath = Join-Path $env:TEMP "SetUserFTA.exe"
             $url = "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Utils/SetUserFTA.exe"
             try {
                 Invoke-WebRequest -Uri $url -OutFile $setUserFtaPath -UseBasicParsing -TimeoutSec 30
