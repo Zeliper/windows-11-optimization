@@ -17,17 +17,24 @@ $steps = @(
     @{
         Name = "OpenSSH 서버/클라이언트 설치"
         Action = {
-            $caps = @("OpenSSH.Server~~~~0.0.1.0", "OpenSSH.Client~~~~0.0.1.0")
-            foreach ($capName in $caps) {
-                $check = Get-WindowsCapability -Online | Where-Object Name -like "$($capName.Split('~')[0])*"
-                if ($check.State -eq 'Installed') {
-                    Write-Host "  - $capName 이미 설치됨" -ForegroundColor Gray
-                    Write-OptLog -Step "OpenSSH" -Status "스킵됨" -Message "$capName 이미 설치됨"
-                } else {
-                    Write-Host "  - $capName 설치 중..." -ForegroundColor Yellow
-                    Add-WindowsCapability -Online -Name $capName -ErrorAction Stop
-                    Write-OptLog -Step "OpenSSH" -Status "설치됨" -Message "$capName 설치 완료"
-                }
+            # Fast check for SSH Server (Service based)
+            if (Get-Service "sshd" -ErrorAction SilentlyContinue) {
+                Write-Host "  - OpenSSH Server가 이미 설치 되어 있습니다. (Service Check)" -ForegroundColor Green
+                Write-OptLog -Step "OpenSSH" -Status "스킵됨" -Message "OpenSSH.Server 이미 설치됨 (Service Check)"
+            } else {
+                 Write-Host "  - OpenSSH Server 설치 중... (시간이 소요될 수 있습니다)" -ForegroundColor Yellow
+                 Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 -ErrorAction SilentlyContinue
+                 Write-OptLog -Step "OpenSSH" -Status "설치됨" -Message "OpenSSH.Server 설치 완료"
+            }
+
+            # Fast check for SSH Client (Command based)
+            if (Get-Command "ssh.exe" -ErrorAction SilentlyContinue) {
+                Write-Host "  - OpenSSH Client가 이미 설치 되어 있습니다. (Command Check)" -ForegroundColor Green
+                Write-OptLog -Step "OpenSSH" -Status "스킵됨" -Message "OpenSSH.Client 이미 설치됨 (Command Check)"
+            } else {
+                 Write-Host "  - OpenSSH Client 설치 중..." -ForegroundColor Yellow
+                 Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0 -ErrorAction SilentlyContinue
+                 Write-OptLog -Step "OpenSSH" -Status "설치됨" -Message "OpenSSH.Client 설치 완료"
             }
         }
     },
@@ -139,4 +146,5 @@ $steps = @(
 )
 
 Run-OptimizationSteps -Title "OpenSSH 및 rsync 설정" -Steps $steps
+
 
