@@ -736,9 +736,20 @@ function Invoke-OptimizationScript {
     $startTime = Get-Date
 
     try {
-        $scriptUrl = "$global:ScriptBaseUrl/$($item.File)"
-        $scriptContent = Invoke-RestMethod $scriptUrl
-        Invoke-Expression $scriptContent
+        # 로컬 우선 실행 로직 추가
+        $localPath = Join-Path $PSScriptRoot $item.File
+        if (Test-Path $localPath) {
+            # 로컬 파일이 존재하면 직접 실행 (dot-sourcing)
+            # core.ps1이 필요한 경우 로컬 경로를 참조할 수 있도록 함
+            Write-Host "  [Local] $localPath 실행" -ForegroundColor Gray
+            . $localPath
+        } else {
+            # 로컬 파일이 없으면 GitHub에서 다운로드
+            Write-Host "  [Remote] GitHub에서 다운로드 및 실행" -ForegroundColor Gray
+            $scriptUrl = "$global:ScriptBaseUrl/$($item.File)"
+            $scriptContent = Invoke-RestMethod $scriptUrl
+            Invoke-Expression $scriptContent
+        }
 
         $endTime = Get-Date
         $duration = "{0:mm\:ss}" -f ($endTime - $startTime)
