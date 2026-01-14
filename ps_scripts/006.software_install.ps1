@@ -463,6 +463,24 @@ $steps = @(
                     Write-OptLog -Step "FileAssoc" -Status "실패" -Message "Policy Error: $_"
                 }
                 
+                # UserChoice 초기화 (기존 유저 강제 적용을 위해)
+                Write-Debug-Log "Resetting UserChoice for target extensions..."
+                Write-Host "  - 기존 파일 연결 초기화 중 (UserChoice 삭제)..." -ForegroundColor Yellow
+                
+                foreach ($assoc in $script:associationsTemp) {
+                    $ext = $assoc.Identifier
+                    $userChoicePath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext\UserChoice"
+                    if (Test-Path $userChoicePath) {
+                        try {
+                            # 권한 문제로 실패할 수 있으나 시도함
+                            Remove-Item -Path $userChoicePath -Force -ErrorAction SilentlyContinue
+                        } catch {
+                            Write-Debug-Log "Failed to remove UserChoice for $ext"
+                        }
+                    }
+                }
+                Write-Host "  - 기존 파일 연결 초기화 완료" -ForegroundColor Gray
+
             } else {
                 Write-Host "  - 설정할 파일 연결 없음" -ForegroundColor Gray
             }
