@@ -58,52 +58,51 @@ $steps = @(
                 return
             }
             
-            # Tamper Protection Check
+            # 1. 변조 보호(Tamper Protection) 상태 확인
+            $tamperProtected = $true
             try {
-                $tamper = (Get-MpComputerStatus -ErrorAction Stop).IsTamperProtected
-                if ($tamper) {
-                    Write-Host "    [!] Tamper Protection 활성화됨. 일부 설정이 실패할 수 있음." -ForegroundColor Red
-                    Write-Host "        수동으로 '변조 보호'를 꺼야 합니다." -ForegroundColor Yellow
-                }
-            } catch {}
-
-            # Disable via CMDlets
-            try {
-                Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction Stop
-                Set-MpPreference -EnableDevDriveProtection $false -ErrorAction SilentlyContinue
-                Set-MpPreference -MAPSReporting 0 -ErrorAction SilentlyContinue
-                Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction SilentlyContinue
-                Write-Host "  - Defender 기본 보호 기능 비활성화 명령 실행됨" -ForegroundColor Green
+                $mpStatus = Get-MpComputerStatus -ErrorAction Stop
+                $tamperProtected = $mpStatus.IsTamperProtected
             } catch {
-                Write-Host "  - Defender 명령 실행 실패 (레지스트리 시도 예정)" -ForegroundColor Yellow
+                # 상태 확인 실패 시 안전하게 보호 중인 것으로 간주
+                Write-Host "    [!] Defender 상태 확인 실패. 안전을 위해 설정을 건너뜁니다." -ForegroundColor Gray
             }
 
-            # Registry Fallbacks
+            # 2. 변조 보호 상태에 따른 분기 처리
+            if ($tamperProtected) {
+                Write-Host "    [!] '변조 보호(Tamper Protection)'가 활성화되어 있어 정책을 적용할 수 없습니다." -ForegroundColor Yellow
+                Write-Host "        Antimalware 리소스 사용을 줄이려면 'Windows 보안 > 바이러스 및 위협 방지 설정 > 설정 관리'에서" -ForegroundColor Yellow
+                Write-Host "        '변조 보호'를 수동으로 꺼야 합니다." -ForegroundColor Yellow
+                Write-Host "    - Access Denied 오류 방지를 위해 설정을 건너뜁니다." -ForegroundColor Gray
+                Write-OptLog -Step "Defender" -Status "스킵됨" -Message "변조 보호 활성화로 인한 설정 스킵"
+                return
+            }
+
+            # 3. 변조 보호가 해제된 경우에만 정책 적용 (Antimalware 리소스 최소화)
+            Write-Host "  - 변조 보호 해제됨. 리소스 최적화 정책을 적용합니다." -ForegroundColor Green
+
+            # 레지스트리 정책 적용 (Policies)
             $policies = "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender"
             Set-Registry -Path $policies -Name "DisableAntiSpyware" -Value 1
-            Set-Registry -Path $policies -Name "DisableAntiVirus" -Value 1
             
             $rtPolicies = "$policies\Real-Time Protection"
-            Set-Registry -Path $rtPolicies -Name "DisableBehaviorMonitoring" -Value 1
-            Set-Registry -Path $rtPolicies -Name "DisableOnAccessProtection" -Value 1
-            Set-Registry -Path $rtPolicies -Name "DisableScanOnRealtimeEnable" -Value 1
             Set-Registry -Path $rtPolicies -Name "DisableRealtimeMonitoring" -Value 1
+            Set-Registry -Path $rtPolicies -Name "DisableBehaviorMonitoring" -Value 1
+            Set-Registry -Path $rtPolicies -Name "DisableScanOnRealtimeEnable" -Value 1
             Set-Registry -Path $rtPolicies -Name "DisableIOAVProtection" -Value 1
 
-            # Boot Task
-            $taskName = "DisableDefenderRealtime"
-            $psCommand = "Set-MpPreference -DisableRealtimeMonitoring `$true -ErrorAction SilentlyContinue; Set-MpPreference -DisableBehaviorMonitoring `$true -ErrorAction SilentlyContinue"
-            
+            # MpPreference 설정 (추가 보안)
             try {
-                $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"$psCommand`""
-                $trigger = New-ScheduledTaskTrigger -AtStartup
-                $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-                $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
-                Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
-                Write-Host "  - 부팅 시 Defender 비활성화 작업 등록됨" -ForegroundColor Green
-            } catch {}
+                Set-MpPreference -DisableRealtimeMonitoring $true -Force -ErrorAction SilentlyContinue
+                Set-MpPreference -DisableCatchupFullScan $true -ErrorAction SilentlyContinue
+                Set-MpPreference -DisableCatchupQuickScan $true -ErrorAction SilentlyContinue
+                Set-MpPreference -ScanScheduleDay 8 -ErrorAction SilentlyContinue # 8 = Never
+                Write-Host "    - 추가 리소스 절약 설정(스케줄 스캔 등) 적용됨" -ForegroundColor Green
+            } catch {
+                Write-Host "    - 일부 MpPreference 설정 실패 (무시됨)" -ForegroundColor Gray
+            }
             
-            Write-OptLog -Step "Defender" -Status "적용됨" -Message "Defender 정책 및 예약 작업 설정 완료"
+            Write-OptLog -Step "Defender" -Status "적용됨" -Message "Defender 정책 및 리소스 최적화 완료"
         }
     },
     @{

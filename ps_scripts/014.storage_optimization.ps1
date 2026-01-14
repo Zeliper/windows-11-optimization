@@ -37,7 +37,7 @@ $steps = @(
             
             # Prefetch
             if (Test-Path "$env:WINDIR\Prefetch") {
-                Get-ChildItem "$env:WINDIR\Prefetch" -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+                Get-ChildItem "$env:WINDIR\Prefetch" -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
             }
         }
     },
@@ -90,7 +90,7 @@ $steps = @(
         Action = {
             $logDirs = @("$env:WINDIR\Logs\CBS", "$env:WINDIR\Logs\DISM", "$env:WINDIR\Logs\WindowsUpdate")
             foreach ($l in $logDirs) {
-                if (Test-Path $l) { Get-ChildItem $l -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue }
+                if (Test-Path $l) { Get-ChildItem $l -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue }
             }
             Write-Host "  - 시스템 로그 파일 정리됨" -ForegroundColor Green
         }

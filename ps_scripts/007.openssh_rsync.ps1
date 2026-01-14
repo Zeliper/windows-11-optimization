@@ -16,6 +16,7 @@ Init-OptimizationLog -ScriptName "007.openssh_rsync.ps1" -ScriptVersion "1.2.0"
 $steps = @(
     @{
         Name = "OpenSSH 서버/클라이언트 설치"
+        Action = {
             # Ensure Windows Update service is running (Required for Capability installation)
             $wuService = Get-Service "wuauserv" -ErrorAction SilentlyContinue
             if ($wuService.Status -ne "Running") {
@@ -60,6 +61,7 @@ $steps = @(
             } else {
                  Install-Cap -Name "OpenSSH.Client~~~~0.0.1.0" -DisplayName "OpenSSH Client" | Out-Null
             }
+        }
     },
     @{
         Name = "SSH 서비스 설정 (sshd, ssh-agent)"
