@@ -144,12 +144,12 @@ $steps = @(
     @{
         Name = "Notepad++ 설치"
         Action = {
-            Write-Debug-Log ">>> Starting Notepad++ installation step"
+            Write-Debug-Log "[START] Notepad++ installation step"
             Install-WithWinget -Name "Notepad++" -WingetId "Notepad++.Notepad++" -CheckPaths @(
                 "${env:ProgramFiles}\Notepad++\notepad++.exe",
                 "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe"
             )
-            Write-Debug-Log "<<< Finished Notepad++ installation step"
+            Write-Debug-Log "[END] Notepad++ installation step"
         }
     },
 
@@ -157,14 +157,14 @@ $steps = @(
     @{
         Name = "Chrome 설치"
         Action = {
-            Write-Debug-Log ">>> Starting Chrome installation step"
+            Write-Debug-Log "[START] Chrome installation step"
             Install-WithWinget -Name "Chrome" -WingetId "Google.Chrome" -CheckPaths @(
                 "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe",
                 "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
             )
             # Disable default browser check
             Set-Registry -Path "HKLM:\SOFTWARE\Policies\Google\Chrome" -Name "DefaultBrowserSettingEnabled" -Value 0
-            Write-Debug-Log "<<< Finished Chrome installation step"
+            Write-Debug-Log "[END] Chrome installation step"
         }
     },
 
@@ -172,12 +172,12 @@ $steps = @(
     @{
         Name = "7-Zip 설치"
         Action = {
-            Write-Debug-Log ">>> Starting 7-Zip installation step"
+            Write-Debug-Log "[START] 7-Zip installation step"
             Install-WithWinget -Name "7-Zip" -WingetId "7zip.7zip" -CheckPaths @(
                 "${env:ProgramFiles}\7-Zip\7z.exe",
                 "${env:ProgramFiles(x86)}\7-Zip\7z.exe"
             )
-            Write-Debug-Log "<<< Finished 7-Zip installation step"
+            Write-Debug-Log "[END] 7-Zip installation step"
         }
     },
 
@@ -185,7 +185,7 @@ $steps = @(
     @{
         Name = "Everything 설치"
         Action = {
-            Write-Debug-Log ">>> Starting Everything installation step"
+            Write-Debug-Log "[START] Everything installation step"
             $paths = @("${env:ProgramFiles}\Everything\Everything.exe", "${env:ProgramFiles(x86)}\Everything\Everything.exe")
             $installed = Install-WithWinget -Name "Everything" -WingetId "voidtools.Everything" -CheckPaths $paths
 
@@ -196,7 +196,7 @@ $steps = @(
                     Set-Registry -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "Everything" -Value "`"$installedPath`" -startup" -Type String
                 }
             }
-            Write-Debug-Log "<<< Finished Everything installation step"
+            Write-Debug-Log "[END] Everything installation step"
         }
     },
 
@@ -204,7 +204,7 @@ $steps = @(
     @{
         Name = "ShareX 설치 및 설정"
         Action = {
-            Write-Debug-Log ">>> Starting ShareX installation step"
+            Write-Debug-Log "[START] ShareX installation step"
             $paths = @("${env:ProgramFiles}\ShareX\ShareX.exe")
             $installed = Install-WithWinget -Name "ShareX" -WingetId "ShareX.ShareX" -CheckPaths $paths
 
@@ -235,7 +235,7 @@ $steps = @(
             foreach ($p in $ctxPaths) {
                 if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Recurse -Force -ErrorAction SilentlyContinue }
             }
-            Write-Debug-Log "<<< Finished ShareX installation step"
+            Write-Debug-Log "[END] ShareX installation step"
         }
     },
 
@@ -243,7 +243,7 @@ $steps = @(
     @{
         Name = "Honeyview 설치 및 설정"
         Action = {
-            Write-Debug-Log ">>> Starting Honeyview installation step"
+            Write-Debug-Log "[START] Honeyview installation step"
             $paths = @("${env:ProgramFiles}\Honeyview\Honeyview.exe")
             Install-WithWinget -Name "Honeyview" -WingetId "Bandisoft.Honeyview" -CheckPaths $paths
 
@@ -257,7 +257,7 @@ $steps = @(
             Set-Registry -Path $reg -Name "CustomKey_Enable_00" -Value 1
             Set-Registry -Path $reg -Name "CustomKey_Key_00" -Value 0x0d
             Set-Registry -Path $reg -Name "CustomKey_Cmd_00" -Value "CMD_FULLSCREEN" -Type String
-            Write-Debug-Log "<<< Finished Honeyview installation step"
+            Write-Debug-Log "[END] Honeyview installation step"
         }
     },
 
@@ -265,7 +265,7 @@ $steps = @(
     @{
         Name = "PotPlayer 설치 및 설정"
         Action = {
-            Write-Debug-Log ">>> Starting PotPlayer installation step"
+            Write-Debug-Log "[START] PotPlayer installation step"
             $paths = @("${env:ProgramFiles}\DAUM\PotPlayer\PotPlayerMini64.exe")
 
             # PotPlayer is not in winget with good ID, use direct download
@@ -306,7 +306,7 @@ $steps = @(
             } catch {
                 Write-Debug-Log "INI download failed: $_"
             }
-            Write-Debug-Log "<<< Finished PotPlayer installation step"
+            Write-Debug-Log "[END] PotPlayer installation step"
         }
     },
 
@@ -314,7 +314,7 @@ $steps = @(
     @{
         Name = "파일 연결 설정 (SetUserFTA)"
         Action = {
-            Write-Debug-Log ">>> Starting file association step"
+            Write-Debug-Log "[START] file association step"
 
             # Download Tool
             $setUserFtaPath = Join-Path $env:TEMP "SetUserFTA.exe"
@@ -459,7 +459,7 @@ $steps = @(
                 Write-Host "  - Chrome 브라우저 연결 완료" -ForegroundColor Green
             }
 
-            Write-Debug-Log "<<< Finished file association step"
+            Write-Debug-Log "[END] file association step"
         }
     }
 )
