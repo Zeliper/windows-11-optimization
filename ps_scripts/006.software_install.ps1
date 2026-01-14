@@ -373,8 +373,18 @@ $steps = @(
             elseif (Test-Path "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe") { $nppPath = "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe" }
 
             if ($nppPath) {
-                # Ensure ProgID exists
+                # Ensure ProgID exists (HKLM & HKCU)
                 $progId = "Notepad++_file"
+                
+                # HKLM (System-wide, required for ftype/DefaultAssociations to see it reliably)
+                $hklm = "HKLM:\SOFTWARE\Classes\$progId"
+                if (!(Test-Path $hklm)) {
+                     New-Item "$hklm\shell\open\command" -Force | Out-Null 
+                     Set-ItemProperty $hklm -Name "(Default)" -Value "Notepad++ Document" -Force
+                     Set-ItemProperty "$hklm\shell\open\command" -Name "(Default)" -Value "`"$nppPath`" `"%1`"" -Force
+                }
+                
+                # HKCU (Per-user fallback)
                 $hkcu = "HKCU:\SOFTWARE\Classes\$progId"
                 if (!(Test-Path $hkcu)) { 
                     New-Item "$hkcu\shell\open\command" -Force | Out-Null 
