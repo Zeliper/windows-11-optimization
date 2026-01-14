@@ -43,6 +43,7 @@ $setUserFtaPath = Join-Path $tempDir "SetUserFTA.exe" # Will be set during execu
 $steps = @(
     # --- Notepad++ ---
     # --- Notepad++ ---
+    # --- Notepad++ ---
     @{
         Name = "Notepad++ 설치"
         Action = {
@@ -51,14 +52,32 @@ $steps = @(
                 Write-Host "  - Notepad++ 이미 설치됨 (스킵)" -ForegroundColor Gray
                 Write-OptLog -Step "Notepad++" -Status "스킵됨" -Message "이미 설치됨"
             } else {
-                Write-Host "  - 다운로드 및 설치 중 (Direct)..." -ForegroundColor Yellow
                 $installer = Join-Path $tempDir "npp_installer.exe"
-                # Using specific version 8.7.5 for stability
-                Invoke-WebRequest -Uri "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.7.5/npp.8.7.5.Installer.x64.exe" -OutFile $installer -UseBasicParsing
+                $url = "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.7.5/npp.8.7.5.Installer.x64.exe"
                 
-                Start-Process -FilePath $installer -ArgumentList "/S" -Wait -NoNewWindow
-                Remove-Item $installer -Force -ErrorAction SilentlyContinue
-                Write-OptLog -Step "Notepad++" -Status "설치됨" -Message "설치 완료"
+                Write-Host "  - [로그] 다운로드 시작: $url" -ForegroundColor DarkGray
+                try {
+                    Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing -TimeoutSec 120
+                } catch {
+                    Write-Host "  - [오류] 다운로드 실패: $_" -ForegroundColor Red
+                    throw $_
+                }
+                
+                if (Test-Path $installer) {
+                    Write-Host "  - [로그] 설치 파일 실행 중: $installer /S" -ForegroundColor DarkGray
+                    $proc = Start-Process -FilePath $installer -ArgumentList "/S" -PassThru -NoNewWindow
+                    $proc | Wait-Process -Timeout 300
+                    if ($proc.HasExited) {
+                        Write-Host "  - [로그] 설치 프로세스 종료 (ExitCode: $($proc.ExitCode))" -ForegroundColor DarkGray
+                    } else {
+                        Write-Host "  - [경고] 설치 프로세스가 300초 동안 응답이 없어 강제 종료합니다." -ForegroundColor Red
+                        $proc | Stop-Process -Force
+                    }
+                    Remove-Item $installer -Force -ErrorAction SilentlyContinue
+                    Write-OptLog -Step "Notepad++" -Status "설치됨" -Message "설치 완료"
+                } else {
+                    Write-Host "  - [오류] 설치 파일이 존재하지 않습니다." -ForegroundColor Red
+                }
             }
         }
     },
@@ -73,16 +92,21 @@ $steps = @(
                  Write-OptLog -Step "Chrome" -Status "스킵됨" -Message "이미 설치됨"
             } else {
                 $installer = Join-Path $tempDir "chrome_installer.msi"
-                Write-Host "  - 다운로드 중..." -ForegroundColor Yellow
-                Invoke-WebRequest -Uri "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi" -OutFile $installer -UseBasicParsing
+                $url = "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi"
                 
-                Write-Host "  - 설치 중..." -ForegroundColor Yellow
-                Start-Process msiexec -ArgumentList "/i `"$installer`" /qn /norestart" -Wait -NoNewWindow
-                Remove-Item $installer -Force -ErrorAction SilentlyContinue
+                Write-Host "  - [로그] 다운로드 시작: $url" -ForegroundColor DarkGray
+                Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing -TimeoutSec 120
                 
-                # Disable default browser check
-                Set-Registry -Path "HKLM:\SOFTWARE\Policies\Google\Chrome" -Name "DefaultBrowserSettingEnabled" -Value 0
-                Write-OptLog -Step "Chrome" -Status "설치됨" -Message "MSI 설치 완료"
+                if (Test-Path $installer) {
+                    Write-Host "  - [로그] MSI 설치 실행 중..." -ForegroundColor DarkGray
+                    $proc = Start-Process msiexec -ArgumentList "/i `"$installer`" /qn /norestart" -PassThru -NoNewWindow
+                    $proc | Wait-Process -Timeout 300
+                    Remove-Item $installer -Force -ErrorAction SilentlyContinue
+                    
+                    # Disable default browser check
+                    Set-Registry -Path "HKLM:\SOFTWARE\Policies\Google\Chrome" -Name "DefaultBrowserSettingEnabled" -Value 0
+                    Write-OptLog -Step "Chrome" -Status "설치됨" -Message "MSI 설치 완료"
+                }
             }
         }
     },
@@ -97,13 +121,18 @@ $steps = @(
                 Write-OptLog -Step "7-Zip" -Status "스킵됨" -Message "이미 설치됨"
             } else {
                 $installer = Join-Path $tempDir "7zip_installer.msi"
-                Write-Host "  - 다운로드 중..." -ForegroundColor Yellow
-                Invoke-WebRequest -Uri "https://www.7-zip.org/a/7z2408-x64.msi" -OutFile $installer -UseBasicParsing
+                $url = "https://www.7-zip.org/a/7z2408-x64.msi"
                 
-                Write-Host "  - 설치 중..." -ForegroundColor Yellow
-                Start-Process msiexec -ArgumentList "/i `"$installer`" /qn" -Wait -NoNewWindow
-                Remove-Item $installer -Force -ErrorAction SilentlyContinue
-                Write-OptLog -Step "7-Zip" -Status "설치됨" -Message "MSI 설치 완료"
+                Write-Host "  - [로그] 다운로드 시작: $url" -ForegroundColor DarkGray
+                Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing -TimeoutSec 60
+                
+                if (Test-Path $installer) {
+                    Write-Host "  - [로그] MSI 설치 실행 중..." -ForegroundColor DarkGray
+                    $proc = Start-Process msiexec -ArgumentList "/i `"$installer`" /qn" -PassThru -NoNewWindow
+                    $proc | Wait-Process -Timeout 60
+                    Remove-Item $installer -Force -ErrorAction SilentlyContinue
+                    Write-OptLog -Step "7-Zip" -Status "설치됨" -Message "MSI 설치 완료"
+                }
             }
         }
     },
