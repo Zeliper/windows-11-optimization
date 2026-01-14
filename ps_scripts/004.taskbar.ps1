@@ -102,6 +102,13 @@ $steps = @(
             # Clear History
             Remove-Item -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\ComDlg32\OpenSavePidlMRU" -Recurse -Force -ErrorAction SilentlyContinue
             Write-Host "  - 탐색기 기록 삭제" -ForegroundColor Green
+
+            # Fix Personalization -> Background Page Lag
+            $wall = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers"
+            if (Test-Path $wall) {
+                Remove-ItemProperty -Path $wall -Name "BackgroundHistoryPath*" -ErrorAction SilentlyContinue
+                Write-Host "  - 배경화면 히스토리 삭제 (설정 페이지 로딩 지연 수정)" -ForegroundColor Green
+            }
         }
     }
 )
