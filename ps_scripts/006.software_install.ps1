@@ -348,175 +348,130 @@ $steps = @(
 
     # --- File Associations ---
     @{
-        Name = "파일 연결 설정 (SetUserFTA)"
+        Name = "파일 연결 설정 (시스템 기본값)"
         Action = {
-            Write-Debug-Log "[START] file association step"
+            Write-Debug-Log "[START] 파일 연결 설정 (XML Import)"
 
-            # Download Tool
-            $setUserFtaPath = Join-Path $env:TEMP "SetUserFTA.exe"
-            $url = "https://raw.githubusercontent.com/Zeliper/windows-11-optimization/main/Utils/SetUserFTA.exe"
-            Write-Debug-Log "Downloading SetUserFTA..."
-            try {
-                Invoke-WebRequest -Uri $url -OutFile $setUserFtaPath -UseBasicParsing -TimeoutSec 30
-            } catch {
-                Write-Host "  - SetUserFTA 다운로드 실패, 파일 연결 스킵" -ForegroundColor Red
-                Write-Debug-Log "SetUserFTA download failed: $_"
-                return
-            }
+            # 연결할 목록 정의
+            $associations = @()
 
-            if (-not (Test-Path $setUserFtaPath)) {
-                Write-Debug-Log "SetUserFTA not found after download"
-                return
-            }
-
-            # 1. Notepad++
-            Write-Debug-Log "Setting up Notepad++ file associations..."
-            $nppCandidate = @(
-                "${env:ProgramFiles}\Notepad++\notepad++.exe",
-                "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe"
-            )
-            $npp = $null
-            foreach ($p in $nppCandidate) { if (Test-Path $p) { $npp = $p; break } }
-
-            if ($npp) {
-                $exts = @(".txt", ".ini", ".log", ".md", ".json", ".xml", ".yaml", ".sql", ".sh", ".cfg", ".conf", ".properties")
-                $progId = "Notepad++_file"
-
-                $hkcu = "HKCU:\SOFTWARE\Classes\$progId"
-                if (!(Test-Path $hkcu)) { New-Item "$hkcu\shell\open\command" -Force | Out-Null }
-                Set-ItemProperty $hkcu -Name "(Default)" -Value "Notepad++ Document" -Force
-                Set-ItemProperty "$hkcu\shell\open\command" -Name "(Default)" -Value "`"$npp`" `"%1`"" -Force
-
-                foreach ($ext in $exts) {
-                    Write-Debug-Log "  Setting $ext -> $progId"
-                    $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
-                    $openWith = "$fileExtPath\OpenWithProgids"
-                    if (!(Test-Path $openWith)) { New-Item -Path $openWith -Force | Out-Null }
-
-                    $props = Get-ItemProperty -Path $openWith -ErrorAction SilentlyContinue
-                    if ($props) {
-                        foreach ($p in $props.PSObject.Properties) {
-                            if ($p.Name -notlike "PS*") { Remove-ItemProperty -Path $openWith -Name $p.Name -ErrorAction SilentlyContinue }
-                        }
-                    }
-                    New-ItemProperty -Path $openWith -Name $progId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
-                    Remove-Item "$fileExtPath\OpenWithList" -Recurse -Force -ErrorAction SilentlyContinue
-                    try { Remove-Item "$fileExtPath\UserChoice" -Recurse -Force -ErrorAction SilentlyContinue } catch {}
-
-                    Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -Wait
+            # Helper Function
+            function Add-Assoc {
+                param($Ext, $ProgId, $AppName)
+                # Note: modifying parent scope variable
+                $script:associationsTemp += [PSCustomObject]@{
+                    Identifier = $Ext
+                    ProgId = $ProgId
+                    ApplicationName = $AppName
                 }
-                Write-Host "  - Notepad++ 파일 연결 완료" -ForegroundColor Green
-            } else {
-                Write-Debug-Log "Notepad++ not found in common locations, skipping associations."
+            }
+            $script:associationsTemp = @()
+
+            # 1. Notepad++ (.txt, .log, .xml, script files, etc.)
+            if (Test-Path "${env:ProgramFiles}\Notepad++\notepad++.exe" -Or Test-Path "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe") {
+                $nppExts = @(
+                    ".txt", ".ini", ".log", ".md", ".json", ".xml", ".yaml", ".sql", ".sh", ".cfg", ".conf", ".properties",
+                    ".inf", ".scp", ".wtx", ".ps1", ".psd1", ".psm1", ".css", ".js", ".ts", ".bat", ".cmd", ".vbs", ".reg"
+                )
+                foreach ($ext in $nppExts) { 
+                    Add-Assoc -Ext $ext -ProgId "Notepad++_file" -AppName "Notepad++"
+                }
+                Write-Host "  - Notepad++ 확장자 목록 준비 완료" -ForegroundColor Gray
             }
 
             # 2. Honeyview (Images)
+            # Remove Photos app first to reduce conflicts
             Write-Debug-Log "Removing Photos app..."
             Get-AppxPackage *Photos* | Remove-AppxPackage -ErrorAction SilentlyContinue
             Get-AppxProvisionedPackage -Online | Where-Object { $_.PackageName -like "*Photos*" } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null
 
-            Write-Debug-Log "Setting up Honeyview file associations..."
-            $hvCandidate = @(
-                "${env:ProgramFiles}\Honeyview\Honeyview.exe",
-                "${env:ProgramFiles(x86)}\Honeyview\Honeyview.exe"
-            )
-            $hv = $null
-            foreach ($p in $hvCandidate) { if (Test-Path $p) { $hv = $p; break } }
-
-            if ($hv) {
-                $imgs = @(
+            if (Test-Path "${env:ProgramFiles}\Honeyview\Honeyview.exe" -Or Test-Path "${env:ProgramFiles(x86)}\Honeyview\Honeyview.exe") {
+                $hvExts = @(
                     ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".ico", ".webp",
-                    ".tiff", ".tif", ".heic", ".heif", ".avif",
-                    ".cr2", ".nef", ".arw", ".dng", ".orf", ".rw2",
-                    ".psd", ".jfif", ".jpe", ".wdp", ".jxr"
+                    ".tiff", ".tif", ".heic", ".heif", ".avif", ".psd", ".jfif", ".jpe",
+                    ".wdp", ".jxr", ".rle", ".wmf", ".emf"
                 )
-
-                foreach ($ext in $imgs) {
-                    Write-Debug-Log "  Setting $ext -> Honeyview"
-                    $extNoDot = $ext.TrimStart('.')
-                    $progId = "Honeyview.$extNoDot"
-
-                    $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
-                    $openWithProgids = "$fileExtPath\OpenWithProgids"
-                    if (!(Test-Path $openWithProgids)) { New-Item -Path $openWithProgids -Force | Out-Null }
-
-                    $props = Get-ItemProperty -Path $openWithProgids -ErrorAction SilentlyContinue
-                    if ($props) {
-                        foreach ($p in $props.PSObject.Properties) {
-                            if ($p.Name -notlike "PS*") { Remove-ItemProperty -Path $openWithProgids -Name $p.Name -ErrorAction SilentlyContinue }
-                        }
-                    }
-                    New-ItemProperty -Path $openWithProgids -Name $progId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
-
-                    $openWithList = "$fileExtPath\OpenWithList"
-                    if (Test-Path $openWithList) { Remove-Item -Path $openWithList -Recurse -Force -ErrorAction SilentlyContinue }
-
-                    $userChoice = "$fileExtPath\UserChoice"
-                    if (Test-Path $userChoice) {
-                        try { Remove-Item -Path $userChoice -Recurse -Force -ErrorAction SilentlyContinue } catch {}
-                    }
-
-                    Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -Wait
+                foreach ($ext in $hvExts) { 
+                    $cleanExt = $ext.TrimStart('.')
+                    Add-Assoc -Ext $ext -ProgId "Honeyview.$cleanExt" -AppName "Honeyview"
                 }
-                Write-Host "  - Honeyview 이미지 연결 완료" -ForegroundColor Green
+                Write-Host "  - Honeyview 확장자 목록 준비 완료" -ForegroundColor Gray
+            }
+
+            # 3. PotPlayer (Video/Audio)
+            if (Test-Path "${env:ProgramFiles}\DAUM\PotPlayer\PotPlayerMini64.exe") {
+                $mediaExts = @(
+                    ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".ts", ".3gp", ".m2ts", ".vob",
+                    ".mp3", ".flac", ".wav", ".aac", ".ogg", ".wma", ".m4a", ".opus", ".aiff", ".ape"
+                )
+                foreach ($ext in $mediaExts) {
+                    $cleanExt = $ext.TrimStart('.')
+                    Add-Assoc -Ext $ext -ProgId "PotPlayerMini64.$cleanExt" -AppName "PotPlayer"
+                }
+                Write-Host "  - PotPlayer 확장자 목록 준비 완료" -ForegroundColor Gray
+            }
+
+            # 4. Chrome (Web)
+            if (Test-Path "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe" -Or Test-Path "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe") {
+                $webExts = @(".html", ".htm", "http", "https", ".shtml", ".xht", ".xhtml")
+                foreach ($ext in $webExts) { 
+                    Add-Assoc -Ext $ext -ProgId "ChromeHTML" -AppName "Google Chrome"
+                }
+                Write-Host "  - Chrome 확장자 목록 준비 완료" -ForegroundColor Gray
+            }
+
+            # XML 생성
+            if ($script:associationsTemp.Count -gt 0) {
+                # C:\ProgramData에 저장하여 영구적으로 사용
+                $configDir = "$env:ProgramData\WindowsOptimization"
+                if (-not (Test-Path $configDir)) { New-Item -Path $configDir -ItemType Directory -Force | Out-Null }
+                
+                $xmlPath = Join-Path $configDir "DefaultAppAssociations.xml"
+                
+                $xmlBuilder = New-Object System.Text.StringBuilder
+                [void]$xmlBuilder.AppendLine('<?xml version="1.0" encoding="UTF-8"?>')
+                [void]$xmlBuilder.AppendLine('<DefaultAssociations>')
+                
+                foreach ($assoc in $script:associationsTemp) {
+                    $line = '  <Association Identifier="{0}" ProgId="{1}" ApplicationName="{2}" />' -f $assoc.Identifier, $assoc.ProgId, $assoc.ApplicationName
+                    [void]$xmlBuilder.AppendLine($line)
+                }
+                
+                [void]$xmlBuilder.AppendLine('</DefaultAssociations>')
+                
+                Set-Content -Path $xmlPath -Value $xmlBuilder.ToString() -Encoding UTF8 -Force
+                
+                # Registry Policy 설정 (기존 유저 적용 - 강제)
+                Write-Debug-Log "Applying DefaultAssociationsConfiguration policy..."
+                Write-Host "  - 기본 앱 연결 정책 설정 중 (Registry Policy)..." -ForegroundColor Yellow
+                
+                $policyPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"
+                
+                try {
+                    if (-not (Test-Path $policyPath)) { New-Item -Path $policyPath -Force | Out-Null }
+                    
+                    # Set-Registry 함수 사용 (core.ps1에 정의됨)
+                    Set-Registry -Path $policyPath -Name "DefaultAssociationsConfiguration" -Value $xmlPath -Type String
+                    
+                    # GPUpdate 트리거 (선택 사항, 즉시 적용 시도)
+                    Start-Process -FilePath "gpupdate.exe" -ArgumentList "/force" -NoNewWindow -Wait
+                    
+                    Write-Host "  - 앱 연결 정책 설정 완료 (재로그인 시 적용)" -ForegroundColor Green
+                    Write-OptLog -Step "FileAssoc" -Status "완료" -Message "Policy Set: $xmlPath"
+                } catch {
+                    Write-Host "  - 정책 설정 실패: $_" -ForegroundColor Red
+                    Write-OptLog -Step "FileAssoc" -Status "실패" -Message "Policy Error: $_"
+                }
+                
             } else {
-                 Write-Debug-Log "Honeyview not found in common locations, skipping associations."
+                Write-Host "  - 설정할 파일 연결 없음" -ForegroundColor Gray
             }
+            $script:associationsTemp = $null
 
-            # 3. PotPlayer (Video & Audio)
-            Write-Debug-Log "Setting up PotPlayer file associations..."
-            $pot = "${env:ProgramFiles}\DAUM\PotPlayer\PotPlayerMini64.exe"
-            if (Test-Path $pot) {
-                $vids = @(".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg", ".ts", ".3gp", ".m2ts", ".vob")
-                $auds = @(".mp3", ".flac", ".wav", ".aac", ".ogg", ".wma", ".m4a", ".opus", ".aiff", ".ape", ".alac", ".dsd", ".dsf", ".dff")
-                $allMedia = $vids + $auds
-
-                foreach ($ext in $allMedia) {
-                    Write-Debug-Log "  Setting $ext -> PotPlayer"
-                    $extNoDot = $ext.TrimStart('.')
-                    $progId = "PotPlayer64.$extNoDot"
-
-                    $fileExtPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\$ext"
-                    $openWith = "$fileExtPath\OpenWithProgids"
-                    if (!(Test-Path $openWith)) { New-Item -Path $openWith -Force | Out-Null }
-
-                    $props = Get-ItemProperty -Path $openWith -ErrorAction SilentlyContinue
-                    if ($props) {
-                        foreach ($p in $props.PSObject.Properties) {
-                            if ($p.Name -notlike "PS*") { Remove-ItemProperty -Path $openWith -Name $p.Name -ErrorAction SilentlyContinue }
-                        }
-                    }
-                    New-ItemProperty -Path $openWith -Name $progId -PropertyType Binary -Value ([byte[]]@()) -Force -ErrorAction SilentlyContinue | Out-Null
-
-                    Remove-Item "$fileExtPath\OpenWithList" -Recurse -Force -ErrorAction SilentlyContinue
-                    try { Remove-Item "$fileExtPath\UserChoice" -Recurse -Force -ErrorAction SilentlyContinue } catch {}
-
-                    Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext $progId" -NoNewWindow -Wait
-                }
-                Write-Host "  - PotPlayer 미디어 연결 완료" -ForegroundColor Green
-            }
-
-            # 4. Chrome (Browser)
-            Write-Debug-Log "Setting up Chrome file associations..."
-            $chrome = "${env:ProgramFiles}\Google\Chrome\Application\chrome.exe"
-            if (-not (Test-Path $chrome)) {
-                $chrome = "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe"
-            }
-            if (Test-Path $chrome) {
-                $webs = @(".html", ".htm", "http", "https")
-                foreach ($ext in $webs) {
-                    Write-Debug-Log "  Setting $ext -> ChromeHTML"
-                    Start-Process -FilePath $setUserFtaPath -ArgumentList "$ext ChromeHTML" -NoNewWindow -Wait
-                }
-                Write-Host "  - Chrome 브라우저 연결 완료" -ForegroundColor Green
-            }
-
-            Write-Debug-Log "[END] file association step"
+            Write-Debug-Log "[END] 파일 연결 설정 (Registry Policy)"
         }
     }
 )
-
-Run-OptimizationSteps -Title "필수 소프트웨어 설치" -Steps $steps
 
 
 
