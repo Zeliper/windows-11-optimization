@@ -84,6 +84,31 @@ $steps = @(
             # Remove Recall Feature
             Disable-WindowsOptionalFeature -Online -FeatureName "Recall" -Remove -NoRestart -ErrorAction SilentlyContinue | Out-Null
         }
+    },
+    @{
+        Name = "설정 앱 및 Shell AI 통합 서비스 제거 (심화)"
+        Action = {
+            # 설정 앱의 AI 기능 접근 비활성화
+            $settingsPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\SystemSettings\AccountNotifications"
+            Set-Registry -Path $settingsPath -Name "EnableAccountNotifications" -Value 0 -Description "설정 계정 알림 끄기"
+
+            # AI Hub/Spotlight 비활성화 (설정 앱 로딩 지연 원인)
+            Set-Registry -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_IrisRecommendations" -Value 0 -Description "Iris AI 추천 끄기"
+
+            # Windows Shell Experience Host AI 기능 끄기
+            $shellExp = "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+            $subs = @("SubscribedContent-310093Enabled", "SubscribedContent-338393Enabled", "SubscribedContent-353698Enabled")
+            foreach ($s in $subs) {
+                Set-Registry -Path $shellExp -Name $s -Value 0 -Description "$s 비활성화"
+            }
+            
+            # 서비스 강제 비활성화 (Registry)
+            # WSAIFabricSvc
+            Set-Registry -Path "HKLM:\SYSTEM\CurrentControlSet\Services\WSAIFabricSvc" -Name "Start" -Value 4 -Description "WSAIFabricSvc 서비스 시작 중지"
+            
+            # CDPUserSvc (설정 앱 지연 주원인)
+            Set-Registry -Path "HKLM:\SYSTEM\CurrentControlSet\Services\CDPUserSvc" -Name "Start" -Value 4 -Description "CDPUserSvc 서비스 시작 중지"
+        }
     }
 )
 
